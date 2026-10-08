@@ -124,6 +124,26 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   const cs = (await call('GET', '/api/changes?since=' + since, S)).j;
   ok(!cs.upserts.invoices && !cs.upserts.clients, 'changes feed hides money and clients from testers');
 
+  // tickets
+  const SU = await login('suresh', '3333'), ST = await login('rahul', '2222');
+  const tk = await call('POST', '/api/tickets', ST, { title: 'Balance drifting', body: 'Weighing balance reads high', category: 'equipment', priority: 'high' });
+  ok(tk.s === 200 && /^TKT-\d{4}$/.test(tk.j.ticket.no) && tk.j.ticket.status === 'open', 'any role can raise a ticket');
+  ok((await call('POST', '/api/tickets', ST, { title: '', body: 'x' })).s === 400, 'ticket needs a title');
+  const tid = tk.j.ticket.id;
+  const nTk = (await call("GET", "/api/changes?since=0", A)).j.upserts.notifications || [];
+  ok(nTk.some(n => n.type === "ticket" && n.ticketId === tid), 'admin is notified of a new ticket');
+  ok(!((await call('GET', '/api/changes?since=0', SU)).j.upserts.tickets || []).some(t => t.id === tid), 'unrelated tester cannot see the ticket');
+  ok((await call('POST', '/api/tickets/' + tid, SU, { text: 'hi' })).s === 404, 'unrelated user cannot act on it');
+  ok((await call('POST', '/api/tickets/' + tid, ST, { assignee: 'u_suresh' })).s === 403, 'only admin can assign');
+  const as = await call('POST', '/api/tickets/' + tid, A, { assignee: 'u_suresh', priority: 'urgent' });
+  ok(as.s === 200 && as.j.ticket.assignee === 'u_suresh' && as.j.ticket.comments.length === 2, 'admin assigns and re-prioritises, events are logged');
+  ok(((await call('GET', '/api/changes?since=0', SU)).j.upserts.tickets || []).some(t => t.id === tid), 'assignee now sees the ticket');
+  ok((await call('POST', '/api/tickets/' + tid, SU, { status: 'closed' })).s === 403, 'assignee cannot close');
+  ok((await call('POST', '/api/tickets/' + tid, SU, { status: 'in_progress', text: 'Looking at it' })).j.ticket.status === 'in_progress', 'assignee can work the ticket and comment');
+  ok((await call('POST', '/api/tickets/' + tid, SU, { status: 'resolved' })).j.ticket.closedAt, 'assignee can resolve');
+  ok((await call('POST', '/api/tickets/' + tid, ST, { status: 'closed' })).j.ticket.status === 'closed', 'raiser can close');
+  ok((await call('POST', '/api/tickets/' + tid, ST, {})).s === 400, 'empty update rejected');
+
   // audit & export
   const au = (await call('GET', '/api/audit?limit=200', A)).j.entries;
   ok(au.some(e => e.action === 'create' && e.coll === 'samples') && au.some(e => e.action === 'result') && au.some(e => e.action === 'payment') && au.some(e => /address/.test(e.summary)), 'audit log records additions, results, payments and edits');

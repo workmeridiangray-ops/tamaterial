@@ -137,7 +137,7 @@ function failed(key) {
 }
 
 /* ---------------- seed ---------------- */
-const COLLS = ['users', 'tests', 'clients', 'projects', 'samples', 'jobs', 'invoices', 'payments', 'leads', 'interactions', 'tasks', 'notifications'];
+const COLLS = ['users', 'tests', 'clients', 'projects', 'samples', 'jobs', 'invoices', 'payments', 'leads', 'interactions', 'tasks', 'notifications', 'tickets'];
 function seedDb() {                       /* the demo lab: ORG must be 'demo' */
   const seed = buildSeed(), rev = nextRev();
   const ins = st('INSERT INTO records(org,coll,id,data,rev,deleted) VALUES(?,?,?,?,?,0) ON CONFLICT(org,coll,id) DO UPDATE SET data=excluded.data,rev=excluded.rev,deleted=0');
@@ -196,6 +196,7 @@ function shape(u, coll, r, asg) {
     case 'jobs': return u.role === 'tester' && r.assignee !== u.id ? null : r;
     case 'invoices': case 'payments': return MONEY_ROLES.includes(u.role) ? r : null;
     case 'leads': case 'interactions': case 'tasks': return CRM_ROLES.includes(u.role) ? r : null;
+    case 'tickets': return (u.role === 'admin' || r.raisedBy === u.id || r.assignee === u.id) ? r : null;
     case 'notifications': return r.userId === u.id ? r : null;      /* everyone sees only their own */
     default: return null;
   }
@@ -335,6 +336,10 @@ function scanDue(now) {
   const hr = now.getHours(), today = L.today(), tomorrow = L.addDays(today, 1);
   sysOrgs().filter(o => o.slug !== 'demo' || DEMO).forEach(org => withOrg(org.slug, () => {
     const tests = all('tests');
+    tx(() => all('tickets').filter(t => ['open', 'in_progress', 'waiting'].includes(t.status) && t.due && t.due < today && hr >= 9).forEach(t => {
+      const to = t.assignee ? [t.assignee] : staffOf(['admin']).map(a => a.id);
+      to.forEach(uid => notify(uid, 'n_tk_' + t.id + '_od_' + today + '_' + uid, { type: 'ticket', title: 'Ticket overdue', body: t.no + ' · ' + t.title + ' (due ' + t.due + ')', ticketId: t.id }));
+    }));
     tx(() => all('jobs').filter(j => j.status !== 'done').forEach(j => {
       const smp = get('samples', j.sampleId); if (!smp) return;
       const t = tests.find(x => x.id === smp.testId) || { name: 'Test', kind: 'simple' };
@@ -349,6 +354,60 @@ function scanDue(now) {
     }));
   }));
   if (pg) pg.schedule();
+}
+
+/* ---------------- tickets ---------------- */
+const TK_STATUS = ['open', 'in_progress', 'waiting', 'resolved', 'closed'];
+const TK_PRI = ['low', 'normal', 'high', 'urgent'];
+const TK_CAT = ['equipment', 'sample', 'billing', 'client', 'app', 'other'];
+const TK_LABEL = { open: 'Open', in_progress: 'In progress', waiting: 'Waiting', resolved: 'Resolved', closed: 'Closed' };
+const tkDue = pri => L.addDays(L.today(), { urgent: 1, high: 2, normal: 5, low: 10 }[pri]);
+const tkNote = (ids, actor, t, title, body) => new Set(ids.filter(Boolean)).forEach(uid => { if (uid !== actor.id) notify(uid, 'n_tk_' + t.id + '_' + Date.now().toString(36) + '_' + uid, { type: 'ticket', title, body, ticketId: t.id }); });
+function ticketCreate(u, b) {
+  const title = str(b.title, 120, { req: 'Give the ticket a short title' });
+  const body = str(b.body, 3000, { req: 'Describe the problem or request' });
+  const category = TK_CAT.includes(b.category) ? b.category : 'other', priority = TK_PRI.includes(b.priority) ? b.priority : 'normal';
+  return tx(() => {
+    const n = ctr('tkt') + 1; ctrSet('tkt', n);
+    const t = { id: 'tk' + n, no: 'TKT-' + L.pad(n, 4), title, body, category, priority, status: 'open', raisedBy: u.id, raisedByName: u.name, createdAt: new Date().toISOString(), assignee: '', due: tkDue(priority), related: str(b.related, 60), comments: [], updatedAt: new Date().toISOString() };
+    put('tickets', t, u, 'create', t.no + ' · ' + title);
+    tkNote(staffOf(['admin']).map(a => a.id), u, t, 'New ticket ' + t.no, u.name + ': ' + title);
+    return { ticket: t };
+  });
+}
+function ticketAct(u, id, b) {
+  const t = get('tickets', id); if (!t || !(u.role === 'admin' || t.raisedBy === u.id || t.assignee === u.id)) bad('Ticket not found', 404);
+  const isAdmin = u.role === 'admin', isAsg = t.assignee === u.id, isRaiser = t.raisedBy === u.id;
+  const now = new Date().toISOString(), ev = [], oldStatus = t.status, oldAsg = t.assignee;
+  const text = str(b.text, 2000);
+  if (b.assignee !== undefined && b.assignee !== t.assignee) {
+    if (!isAdmin) bad('Only an admin can assign tickets', 403);
+    if (b.assignee) { const a = get('users', b.assignee); if (!a || !a.active) bad('Choose an active person'); ev.push('Assigned to ' + a.name); } else ev.push('Unassigned');
+    t.assignee = b.assignee;
+  }
+  if (b.priority !== undefined && b.priority !== t.priority) {
+    if (!isAdmin) bad('Only an admin can change priority', 403);
+    if (!TK_PRI.includes(b.priority)) bad('Unknown priority'); ev.push('Priority: ' + t.priority + ' → ' + b.priority); t.priority = b.priority; t.due = tkDue(b.priority);
+  }
+  if (b.status !== undefined && b.status !== t.status) {
+    if (!TK_STATUS.includes(b.status)) bad('Unknown status');
+    const raiserOk = isRaiser && (b.status === 'closed' || b.status === 'open');
+    if (!(isAdmin || (isAsg && b.status !== 'closed') || raiserOk)) bad('You cannot set this status', 403);
+    ev.push('Status: ' + TK_LABEL[t.status] + ' → ' + TK_LABEL[b.status]); t.status = b.status;
+    if (b.status === 'resolved' || b.status === 'closed') t.closedAt = now; else delete t.closedAt;
+  }
+  if (!text && !ev.length) bad('Nothing to update');
+  return tx(() => {
+    ev.forEach(e => t.comments.push({ id: rid(), kind: 'event', by: u.id, name: u.name, at: now, text: e }));
+    if (text) t.comments.push({ id: rid(), kind: 'comment', by: u.id, name: u.name, at: now, text });
+    t.updatedAt = now;
+    put('tickets', t, u, text ? 'comment' : 'update', t.no + (ev.length ? ' · ' + ev.join('; ') : '') + (text ? ' · comment' : ''));
+    if (t.assignee !== oldAsg && t.assignee) tkNote([t.assignee], u, t, 'Ticket assigned to you', t.no + ' · ' + t.title);
+    if (t.assignee !== oldAsg) tkNote([t.raisedBy], u, t, 'Your ticket was assigned', t.no + ' · ' + t.title);
+    if (t.status !== oldStatus) tkNote([t.raisedBy, t.assignee], u, t, 'Ticket ' + TK_LABEL[t.status].toLowerCase(), t.no + ' · ' + t.title);
+    if (text) tkNote([t.raisedBy, t.assignee].concat(staffOf(['admin']).map(a => a.id).filter(() => !t.assignee && !isAdmin)), u, t, 'New comment on ' + t.no, u.name + ': ' + text.slice(0, 90));
+    return { ticket: t };
+  });
 }
 
 /* ---------------- domain actions ---------------- */
@@ -631,6 +690,8 @@ route('GET', /^\/api\/export\/(\w+)\.csv$/, ['admin', 'accounts'], c => {
   const coll = c.m[1]; if (!(CSV_ROLES[c.u.role] || []).includes(coll)) bad('You cannot export ' + coll, 403);
   return { __csv: toCsv(coll), name: coll + '-' + L.today() + '.csv' };
 });
+route('POST', /^\/api\/tickets$/, '*', c => ticketCreate(c.u, c.body));
+route('POST', /^\/api\/tickets\/([\w-]+)$/, '*', c => ticketAct(c.u, c.m[1], c.body));
 route('POST', /^\/api\/notifications\/read$/, '*', c => {
   const ids = Array.isArray(c.body.ids) ? new Set(c.body.ids.map(String)) : null;
   let n = 0;

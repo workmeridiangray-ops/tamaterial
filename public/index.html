@@ -288,9 +288,10 @@ const MODS=[
  {id:'bills',label:'Track bill',short:'Bills',icon:'receipt'},
  {id:'clients',label:'Clients & history',short:'Clients',icon:'users'},
  {id:'crm',label:'CRM & follow-ups',short:'CRM',icon:'chat'},
+ {id:'tickets',label:'Tickets & support',short:'Tickets',icon:'chat'},
  {id:'admin',label:'Admin',short:'Admin',icon:'gear'}];
-const PERM={admin:['create','schedule','reports','approve','bills','clients','crm','admin'],store:['create','clients'],tester:['schedule'],accounts:['reports','approve','bills','clients','crm']};
-const NAVPICK={admin:['create','schedule','approve','bills'],store:['create','clients'],tester:['schedule'],accounts:['reports','approve','bills','clients']};
+const PERM={admin:['create','schedule','reports','approve','bills','clients','crm','tickets','admin'],store:['create','clients','tickets'],tester:['schedule','tickets'],accounts:['reports','approve','bills','clients','crm','tickets']};
+const NAVPICK={admin:['create','schedule','approve','bills'],store:['create','clients','tickets'],tester:['schedule','tickets'],accounts:['reports','approve','bills','clients']};
 const RSTAT={testing:'In testing',awaiting:'Awaiting approval',approved:'Approved',sent:'Sent'};
 
 /* ---------- seed ---------- */
@@ -412,7 +413,7 @@ let pt=null;
 function persist(){clearTimeout(pt);pt=setTimeout(persistNow,S.online?700:250)}
 function persistNow(){clearTimeout(pt);if(S.online){pushDirty();return}if(!lsSet(KEY,JSON.stringify(S.db)))toast('Storage is full or blocked — changes may not be kept',1)}
 {const sid=lsGet(SKEY);if(sid){const u=S.db.users.find(x=>x.id===sid&&x.active);if(u)S.user=u}}
-const ALLCOLL=['users','tests','clients','projects','samples','jobs','invoices','payments','leads','interactions','tasks','notifications'];
+const ALLCOLL=['users','tests','clients','projects','samples','jobs','invoices','payments','leads','interactions','tasks','notifications','tickets'];
 
 /* lookups */
 const D=()=>S.db;
@@ -429,7 +430,7 @@ function bstat(i){const b=balOf(i);if(b<=0)return'Paid';if(i.due<today())return'
 const bcls=s=>({Paid:'ok',Overdue:'bad','Part paid':'warn',Unpaid:'warn'}[s]||'');
 const rcls=s=>({testing:'',awaiting:'warn',approved:'ok',sent:'dark'}[s]||'');
 const bdg=(t,c)=>'<span class="bd '+(c||'')+'">'+esc(t)+'</span>';
-const can=m=>S.user&&PERM[S.user.role].indexOf(m)>=0;
+const can=m=>S.user&&PERM[S.user.role].indexOf(m)>=0&&(m!=='tickets'||S.online);
 const isTester=()=>S.user&&S.user.role==='tester';
 function myJobs(){const all=D().jobs;return S.user.role==='tester'?all.filter(j=>j.assignee===S.user.id):all}
 function jobTab(j){if(j.status==='done')return'done';return j.due<=today()?'due':'upcoming'}
@@ -619,7 +620,7 @@ function fld(label,inner,err,hint){return '<div class="fld"><label class="lbl">'
 function chipRow(sp,cur,opts){return '<div class="chips">'+opts.map(x=>'<button type="button" class="chip'+(String(cur)===String(x[0])?' on':'')+'" data-act="set" data-sp="'+sp+'" data-v="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div>'}
 const goA=(r,set)=>'data-go="'+r+'"'+(set?' data-set="'+esc(JSON.stringify(set))+'"':'');
 const M=r=>S.m[r]||(S.m[r]=defs(r));
-function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{f:'All',q:'',invId:null,pay:null},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null}})[r]||{}}
+function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{f:'All',q:'',invId:null,pay:null},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null},tickets:{tab:'open',id:null,adding:false,nt:null,reply:''}})[r]||{}}
 function go(r,set){S.route=r;S.m[r]=Object.assign(defs(r),set||{});window.scrollTo(0,0);render()}
 const pgHead=(title,backAct,sub)=>'<div class="pg">'+(backAct?'<button class="ibtn" data-act="'+backAct+'" aria-label="Back">'+ic('back')+'</button>':'')+'<div class="grow"><h1>'+title+'</h1>'+(sub?'<div class="mut sm">'+sub+'</div>':'')+'</div></div>';
 const empty=t=>'<div class="empty">'+t+'</div>';
@@ -809,6 +810,55 @@ const linkName=t=>t.clientId?cl(t.clientId).name:(t.leadId?((D().leads.find(l=>l
 async function createRec(c,rec){
  if(S.online){try{const saved=await api('PUT','/api/'+c+'/'+rec.id,rec);upsertLocal(c,saved,true);return saved}catch(e){toast(e.message,1);return null}}
  S.db[c].push(rec);persistNow();return rec;
+}
+
+/* ---------- tickets ---------- */
+const TK_ST=[['open','Open'],['in_progress','In progress'],['waiting','Waiting'],['resolved','Resolved'],['closed','Closed']];
+const TK_PR=[['low','Low'],['normal','Normal'],['high','High'],['urgent','Urgent']];
+const TK_CT=[['equipment','Equipment'],['sample','Sample / test'],['billing','Billing'],['client','Client'],['app','App problem'],['other','Other']];
+const tkLbl=(l,k)=>(l.find(x=>x[0]===k)||[0,k])[1];
+const tkPriCls=p=>p==='urgent'?'bad':p==='high'?'warn':'';
+const tkStCls=s=>s==='resolved'||s==='closed'?'ok':s==='open'?'warn':'';
+const tkWhen=a=>{const t=new Date(a);return pad(t.getDate(),2)+' '+MON[t.getMonth()]+', '+pad(t.getHours(),2)+':'+pad(t.getMinutes(),2)};
+const tkOpen=t=>t.status!=='resolved'&&t.status!=='closed';
+function ticketsView(){
+ const m=M('tickets');
+ if(m.id)return ticketDetail(m);
+ if(m.adding)return ticketForm(m);
+ const all=D().tickets.slice().sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
+ const mine=u=>u.raisedBy===S.user.id;
+ const list=m.tab==='open'?all.filter(tkOpen):m.tab==='mine'?all.filter(mine):all.filter(t=>!tkOpen(t));
+ const T=today();
+ return pgHead('Tickets & support',null,S.user.role==='admin'?'Everyone\'s tickets':'Tickets you raised or that are assigned to you')+
+ '<button class="btn pri blk" style="margin-bottom:12px" data-act="tkadd">'+ic('plus')+' Raise a ticket</button>'+
+ tabsBar('tktab',m.tab,[['open','Open ('+all.filter(tkOpen).length+')'],['mine','Raised by me'],['closed','Closed']])+
+ (list.map(t=>{const od=tkOpen(t)&&t.due&&t.due<T;
+  return '<button class="row" data-act="tkopen" data-id="'+esc(t.id)+'"><div class="grow"><div class="t">'+esc(t.no)+' · '+esc(t.title)+'</div><div class="s">'+esc(tkLbl(TK_CT,t.category))+' · '+esc(t.raisedByName)+(t.assignee?' → '+esc(userName(t.assignee)):' · Unassigned')+'</div><div class="s">Updated '+esc(tkWhen(t.updatedAt))+(tkOpen(t)?' · Due '+fd(t.due):'')+'</div></div><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">'+bdg(tkLbl(TK_ST,t.status),tkStCls(t.status))+(t.priority==='urgent'||t.priority==='high'?bdg(tkLbl(TK_PR,t.priority),tkPriCls(t.priority)):'')+(od?bdg('Overdue','bad'):'')+'</div></button>'}).join('')||empty('No tickets here.'));
+}
+function ticketForm(m){
+ const n=m.nt;
+ return pgHead('Raise a ticket','tkcancel')+'<div class="card">'+fld('Title',inp('m.tickets.nt.title',n.title,{ph:'e.g. Compression machine reading is off',max:120}))+
+ fld('Category',chipRow('m.tickets.nt.category',n.category,TK_CT))+fld('Priority',chipRow('m.tickets.nt.priority',n.priority,TK_PR),'','Urgent is due in 1 day, High 2, Normal 5, Low 10.')+
+ fld('Details',ta('m.tickets.nt.body',n.body,{ph:'What happened? What do you need?'}))+fld('Related to (optional)',inp('m.tickets.nt.related',n.related,{ph:'UID, client or machine',max:60}),n.err)+
+ '<div class="btns"><button class="btn" data-act="tkcancel">Cancel</button><button class="btn pri'+(S.busy?' off':'')+'" data-act="tksave">Submit ticket</button></div></div>';
+}
+function ticketDetail(m){
+ const t=D().tickets.find(x=>x.id===m.id);if(!t){m.id=null;return ticketsView()}
+ const adm=S.user.role==='admin',asg=t.assignee===S.user.id,rai=t.raisedBy===S.user.id,T=today();
+ const staff=D().users.filter(u=>u.active).map(u=>[u.id,u.name+' ('+ROLE_LABEL[u.role]+')']);
+ const stOpts=TK_ST.filter(x=>adm||(asg&&x[0]!=='closed')||(rai&&(x[0]==='closed'||x[0]==='open')));
+ const btn=(k,v,l,on)=>'<button type="button" class="chip'+(on?' on':'')+'" data-act="tkupd" data-k="'+k+'" data-v="'+esc(v)+'">'+esc(l)+'</button>';
+ const od=tkOpen(t)&&t.due&&t.due<T;
+ return pgHead(esc(t.no),'tkback',bdg(tkLbl(TK_ST,t.status),tkStCls(t.status))+' '+bdg(tkLbl(TK_PR,t.priority),tkPriCls(t.priority))+(od?' '+bdg('Overdue','bad'):''))+
+ '<div class="card"><h3 style="margin-bottom:6px">'+esc(t.title)+'</h3><div class="s mut">'+esc(tkLbl(TK_CT,t.category))+' · raised by '+esc(t.raisedByName)+' · '+esc(tkWhen(t.createdAt))+'</div>'+
+ '<p style="margin:12px 0 0;white-space:pre-wrap;overflow-wrap:anywhere">'+esc(t.body)+'</p>'+(t.related?'<p class="hint">Related: '+esc(t.related)+'</p>':'')+
+ '<p class="hint">Assigned to: '+(t.assignee?esc(userName(t.assignee)):'nobody yet')+' · Due '+fd(t.due)+'</p></div>'+
+ (stOpts.length?'<div class="card"><label class="lbl">Status</label><div class="chips">'+stOpts.map(x=>btn('status',x[0],x[1],t.status===x[0])).join('')+'</div>'+
+  (adm?'<div style="margin-top:14px"><label class="lbl">Priority</label><div class="chips">'+TK_PR.map(x=>btn('priority',x[0],x[1],t.priority===x[0])).join('')+'</div></div>'+
+   '<div style="margin-top:14px"><label class="lbl">Assign to</label><div class="chips">'+btn('assignee','','Nobody',!t.assignee)+staff.map(x=>btn('assignee',x[0],x[1],t.assignee===x[0])).join('')+'</div></div>':'')+'</div>':'')+
+ '<div class="sec"><h2>Conversation</h2></div>'+
+ (t.comments.length?'<div class="card flat" style="padding:4px 14px">'+t.comments.map(c=>c.kind==='event'?'<div class="pgn xs mut" style="padding:8px 0">'+esc(c.name)+' · '+esc(c.text)+' · '+esc(tkWhen(c.at))+'</div>':'<div class="pgn" style="padding:10px 0"><div class="grow"><div class="xs mut">'+esc(c.name)+' · '+esc(tkWhen(c.at))+'</div><div style="margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere">'+esc(c.text)+'</div></div></div>').join('')+'</div>':empty('No comments yet.'))+
+ '<div class="card">'+fld('Add a comment',ta('m.tickets.reply',m.reply||'',{ph:'Write an update or reply'}))+'<button class="btn pri blk'+(S.busy?' off':'')+'" data-act="tkupd" data-k="reply">Post comment</button></div>';
 }
 
 function crmView(){
@@ -1297,7 +1347,7 @@ async function recordPay(){
 
 /* ================= RENDER & EVENTS ================= */
 function modBody(){
- return({create:createView,schedule:scheduleView,reports:reportsView,approve:approveView,bills:billsView,clients:clientsView,crm:crmView,admin:adminView})[S.route]();
+ return({create:createView,schedule:scheduleView,reports:reportsView,approve:approveView,bills:billsView,clients:clientsView,crm:crmView,tickets:ticketsView,admin:adminView})[S.route]();
 }
 function view(){
  if(S.booting)return '<div class="login"><div class="logo"><i></i><h1>TechAssures Lab</h1></div><p class="mut">Connecting…</p></div>';
@@ -1395,7 +1445,20 @@ const ACT={
  async readall(){try{await api('POST','/api/notifications/read',{all:true});D().notifications.forEach(n=>{n.read=true})}catch(e){toast(e.message,1)}render()},
  async opennote(t){const n=D().notifications.find(x=>x.id===t.dataset.id);if(!n)return;
   if(!n.read){n.read=true;api('POST','/api/notifications/read',{ids:[n.id]}).catch(()=>{})}
-  if(n.type==='awaiting'&&n.sampleId&&can('approve'))go('approve',{sampleId:n.sampleId,tab:'awaiting'});else if(can('schedule'))go('schedule',{tab:n.type==='due'||n.type==='overdue'||n.type==='assign'?'due':'due'});else render()},
+  if(n.type==='ticket'&&n.ticketId&&can('tickets'))go('tickets',{id:n.ticketId});else if(n.type==='awaiting'&&n.sampleId&&can('approve'))go('approve',{sampleId:n.sampleId,tab:'awaiting'});else if(can('schedule'))go('schedule',{tab:n.type==='due'||n.type==='overdue'||n.type==='assign'?'due':'due'});else render()},
+ tkadd(){S.m.tickets=Object.assign(M('tickets'),{adding:true,nt:{title:'',body:'',category:'other',priority:'normal',related:'',err:''}});render();window.scrollTo(0,0)},
+ tkcancel(){M('tickets').adding=false;render()},
+ tkback(){const m=M('tickets');m.id=null;m.reply='';render()},
+ tkopen(t){const m=M('tickets');m.id=t.dataset.id;m.reply='';render();window.scrollTo(0,0)},
+ tktab(t){M('tickets').tab=t.dataset.v;render()},
+ async tksave(){if(S.busy)return;const n=M('tickets').nt;
+  if(!n.title.trim()){n.err='Give the ticket a short title';render();return}
+  if(!n.body.trim()){n.err='Describe the problem or request';render();return}
+  S.busy=true;try{const r=await api('POST','/api/tickets',{title:n.title,body:n.body,category:n.category,priority:n.priority,related:n.related});
+   upsertLocal('tickets',r.ticket);const m=M('tickets');m.adding=false;m.nt=null;m.id=r.ticket.id;toast('Ticket '+r.ticket.no+' raised')}catch(e){n.err=e.message;toast(e.message,1)}S.busy=false;render()},
+ async tkupd(t){if(S.busy)return;const m=M('tickets'),b={};
+  if(t.dataset.k==='reply'){if(!(m.reply||'').trim()){toast('Write a comment first',1);return}b.text=m.reply}else b[t.dataset.k]=t.dataset.v;
+  S.busy=true;try{const r=await api('POST','/api/tickets/'+m.id,b);upsertLocal('tickets',r.ticket);if(b.text)m.reply='';}catch(e){toast(e.message,1)}S.busy=false;render()},
  gnative(){if(!S.busy)nativeGoogle()},
  dosignup(){if(!S.busy)doSignup()},
  signupcancel(){S.signup=null;render()},
