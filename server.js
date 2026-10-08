@@ -489,10 +489,10 @@ route('POST', /^\/api\/login$/, null, c => {
   if (!org || (lab === 'demo' && !DEMO)) { failed(key); bad('Wrong lab code, login name or PIN', 401); }
   return withOrg(org.slug, () => {
     const u = login ? all('users').find(x => x.login === login) : null;
-    if (!u || !pinOk(u, c.body.pin)) { failed(key); bad('Wrong lab code, login name or PIN', 401); }
+    if (!u || !pinOk(u, c.body.pin)) { failed(key); audit({ id: '', name: login || '(blank)' }, 'login_failed', 'users', u ? u.id : '', 'Wrong PIN · ' + whereOf(c.req, c.ip)); bad('Wrong lab code, login name or PIN', 401); }
     if (!u.active) bad('This account is disabled. Ask the admin.', 403);
     attempts.delete(key);
-    audit(u, 'login', 'users', u.id, '');
+    audit(u, 'login', 'users', u.id, 'PIN · ' + whereOf(c.req, c.ip));
     return { token: newSession(u.id), user: pubUser(u, true) };
   });
 });
@@ -533,7 +533,7 @@ route('POST', /^\/api\/google$/, null, async c => {
   const found = sysOrgs().filter(o => (o.slug !== 'demo' || DEMO) && (!want || o.slug === want)).map(o => ({ o, u: withOrg(o.slug, () => all('users')).find(x => (x.email || '') === g.email && x.active) })).filter(x => x.u);
   if (found.length === 1) {
     const { o, u } = found[0];
-    return withOrg(o.slug, () => { audit(u, 'login', 'users', u.id, 'Google'); return { token: newSession(u.id), user: pubUser(u, true) }; });
+    return withOrg(o.slug, () => { audit(u, 'login', 'users', u.id, 'Google · ' + whereOf(c.req, c.ip)); return { token: newSession(u.id), user: pubUser(u, true) }; });
   }
   if (found.length > 1) return { choose: found.map(x => ({ slug: x.o.slug, name: x.o.name })) };
   if (want) bad('This Google account is not a member of that lab', 403);
@@ -555,7 +555,7 @@ route('POST', /^\/api\/signup$/, null, c => {
     return withOrg(slug, () => {
       const admin = { id: 'u_' + rid(), login: '', email: t.email, name: t.name, role: 'admin', active: true, salt: '', hash: '' };
       seedBlank(admin);
-      audit(admin, 'signup', 'orgs', slug, 'Lab ' + name + ' created');
+      audit(admin, 'signup', 'orgs', slug, 'Lab ' + name + ' created · ' + whereOf(c.req, c.ip));
       return { token: newSession(admin.id), user: pubUser(admin, true), lab: slug };
     });
   });
@@ -573,6 +573,8 @@ route('PUT', /^\/api\/users\/([\w-]+)$/, ['admin'], c => adminUsers(c.u, 'PUT', 
 route('POST', /^\/api\/admin\/reset$/, ['admin'], c => resetDemo(c.u, c.body));
 route('GET', /^\/api\/audit$/, ['admin'], c => {
   const lim = Math.min(500, parseInt(c.url.searchParams.get('limit'), 10) || 100);
+  if (c.url.searchParams.get('kind') === 'signins')
+    return { entries: st("SELECT id,ts,user_id,user_name,action,coll,rec_id,summary FROM audit WHERE org=? AND action IN ('login','login_failed','signup') ORDER BY id DESC LIMIT ?").all(ORG, lim) };
   return { entries: st('SELECT id,ts,user_name,action,coll,rec_id,summary FROM audit WHERE org=? ORDER BY id DESC LIMIT ?').all(ORG, lim) };
 });
 route('GET', /^\/api\/export\/(\w+)\.csv$/, ['admin', 'accounts'], c => {
@@ -591,6 +593,17 @@ route('DELETE', /^\/api\/(\w+)\/([\w-]+)$/, '*', c => {
 });
 
 /* ---------------- http ---------------- */
+function clientIp(req) {                 /* behind Render's proxy the real address is the first X-Forwarded-For entry */
+  const xf = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return (xf || req.socket.remoteAddress || '').replace(/^::ffff:/, '').slice(0, 45);
+}
+function deviceOf(req) {
+  const ua = String(req.headers['user-agent'] || '');
+  const os = /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iOS/i.test(ua) ? 'iPhone/iPad' : /Windows/i.test(ua) ? 'Windows' : /Mac OS X|Macintosh/i.test(ua) ? 'Mac' : /Linux/i.test(ua) ? 'Linux' : 'Unknown device';
+  const br = /; wv\)|Version\/[\d.]+ Chrome/i.test(ua) && /Android/i.test(ua) ? 'app/webview' : /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'browser';
+  return os + ' ' + br;
+}
+const whereOf = (req, ip) => deviceOf(req) + ' · ' + ip + (req.headers['cf-ipcountry'] && req.headers['cf-ipcountry'] !== 'XX' ? ' · ' + req.headers['cf-ipcountry'] : '');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
 const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com; connect-src 'self' https://accounts.google.com; frame-src https://accounts.google.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 function secure(res) {
@@ -624,7 +637,7 @@ const server = http.createServer(async (req, res) => {
   }
   try {
     await ready;
-    const ip = req.socket.remoteAddress || '';
+    const ip = clientIp(req);
     let hit = null, m = null;
     for (const r of routes) { if (r.method !== req.method) continue; m = r.re.exec(url.pathname); if (m) { hit = r; break; } }
     if (!hit) bad('No such endpoint', 404);

@@ -401,7 +401,8 @@ function loadDb(){
  if(r){try{const d=JSON.parse(r);if(d&&d.users&&d.samples){if(!d.leads){const f=seed();d.leads=f.leads;d.interactions=f.interactions;d.tasks=f.tasks}return d}}catch(e){}}
  const d=seed();lsSet(KEY,JSON.stringify(d));return d;
 }
-const blankLogin=()=>({lab:lsGet('techassures_lab_code')||'',login:'',pin:'',err:''});
+const urlLab=(()=>{try{return (new URLSearchParams(location.search).get('lab')||'').toLowerCase().replace(/[^a-z0-9-]/g,'').slice(0,40)}catch(e){return ''}})();
+const blankLogin=()=>({lab:urlLab||lsGet('techassures_lab_code')||'',login:'',pin:'',err:''});
 const S={db:loadDb(),user:null,route:'home',m:{},wiz:null,confirm:null,login:blankLogin(),org:null,gcid:'',signup:null,choose:null,online:false,booting:true,token:'',rev:0,synced:{},demoAccounts:[],busy:false};
 let pt=null;
 function persist(){clearTimeout(pt);pt=setTimeout(persistNow,S.online?700:250)}
@@ -534,7 +535,8 @@ async function downloadCsv(c){
  }catch(e){toast(e.message,1)}
 }
 async function loadAudit(){
- try{const r=await api('GET','/api/audit?limit=150');M('admin').audit=r.entries}catch(e){M('admin').audit=[];toast(e.message,1)}
+ const si=M('admin').tab==='signins';
+ try{const r=await api('GET','/api/audit?limit='+(si?300:150)+(si?'&kind=signins':''));M('admin').audit=r.entries}catch(e){M('admin').audit=[];toast(e.message,1)}
  render();
 }
 async function finishLogin(r){
@@ -741,7 +743,7 @@ function adminView(){
  const m=M('admin');let body='';
  if(m.tab==='users'){
   const nu=m.nu,e=nu.err||{};
-  body=D().users.map(u=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(u.name)+(u.id===S.user.id?' <span class="mut sm">(you)</span>':'')+'</div><div class="s"><span class="mono">'+esc(u.login||u.email)+'</span>'+(u.login&&u.email?' · '+esc(u.email):'')+' · '+esc(ROLE_LABEL[u.role])+'</div></div>'+bdg(u.active?'Active':'Disabled',u.active?'ok':'bad')+'<button class="btn sm" data-act="touser" data-id="'+u.id+'">'+(u.active?'Disable':'Enable')+'</button></div>').join('')+
+  body=D().users.map(u=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(u.name)+(u.id===S.user.id?' <span class="mut sm">(you)</span>':'')+'</div><div class="s"><span class="mono">'+esc(u.login||u.email)+'</span>'+(u.login&&u.email?' · '+esc(u.email):'')+' · '+esc(ROLE_LABEL[u.role])+'</div></div>'+bdg(u.active?'Active':'Disabled',u.active?'ok':'bad')+(S.online&&u.active?'<button class="btn sm" data-act="invite" data-id="'+u.id+'">Invite</button> ':'')+'<button class="btn sm" data-act="touser" data-id="'+u.id+'">'+(u.active?'Disable':'Enable')+'</button></div>').join('')+
   '<div class="card" style="margin-top:14px"><h3 style="margin-bottom:12px">Add user</h3>'+fld('Full name',inp('m.admin.nu.name',nu.name,{err:e.name}),e.name)+(S.online?fld('Google email (optional)',inp('m.admin.nu.email',nu.email,{err:e.email,ph:'name@gmail.com'}),e.email,'They can sign in with Google. Leave login and PIN empty for Google-only.'):'')+fld('Login name'+(S.online?' (optional)':''),inp('m.admin.nu.login',nu.login,{err:e.login}),e.login)+
   fld('Role',sel('m.admin.nu.role',nu.role,[['store','Store'],['tester','Tester'],['accounts','Accounts'],['admin','Admin']]))+fld('PIN (4 digits'+(S.online?', optional':'')+')',inp('m.admin.nu.pin',nu.pin,{mode:'numeric',max:4,err:e.pin}),e.pin)+
   '<button class="btn pri blk" data-act="adduser">Add user</button></div>';
@@ -749,6 +751,8 @@ function adminView(){
   body=D().tests.map((t,i)=>'<div class="card">'+fld('Test name',inp('db.tests.'+i+'.name',t.name))+fld('IS code reference',inp('db.tests.'+i+'.code',t.code))+
    '<div class="two">'+fld('Standard rate (₹ per '+esc(t.unit)+')',inp('db.tests.'+i+'.rate',t.rate,{mode:'decimal'}))+fld('NABL scope','<div class="chips"><button class="chip'+(t.nabl?' on':'')+'" data-act="nabl" data-id="'+t.id+'">'+(t.nabl?'In scope':'Outside scope')+'</button></div>')+'</div></div>').join('')+
   '<button class="btn blk" data-act="addtest">'+ic('plus')+' Add test</button><p class="hint" style="margin-top:10px">Changes are saved automatically.</p>';
+ }else if(m.tab==='signins'){
+  body=signinsBody(m);
  }else if(m.tab==='activity'){
   body=activityBody(m);
  }else{
@@ -756,7 +760,7 @@ function adminView(){
   body='<div class="card">'+fld('NABL certificate number',inp('db.settings.cert',s.cert),'','Used as the prefix of every ULR, e.g. <span class="mono">'+esc(s.cert)+'-'+yy()+'-000146-F</span>')+
   fld('GST %',inp('db.settings.gst',s.gst,{mode:'decimal'}))+fld('Default credit days',inp('db.settings.creditDays',s.creditDays,{mode:'numeric'}))+'<p class="hint">Saved automatically.</p></div>';
  }
- return pgHead('Admin',null,S.online?'Connected to server':'Offline demo · data stays in this browser')+tabsBar('admtab',m.tab,[['users','Users'],['tests','Tests & rates'],['settings','Settings'],['activity','Activity']])+body+
+ return pgHead('Admin',null,S.online?'Connected to server':'Offline demo · data stays in this browser')+tabsBar('admtab',m.tab,[['users','Users'],['tests','Tests & rates'],['settings','Settings'],['signins','Sign-ins'],['activity','Activity']])+body+
  ((S.online&&S.org&&!S.org.demo)?'':'<div class="card" style="margin-top:22px"><h3>Demo data</h3><p class="mut sm" style="margin:6px 0 12px">Restore the original sample clients, samples and bills. Everything you added will be removed.</p><button class="btn dng blk" data-act="reset">Reset demo data</button></div>');
 }
 
@@ -766,6 +770,15 @@ function confirmView(){
  return '<div class="sheetbg" data-act="cno"><div class="sheet" data-stop="1" role="dialog" aria-modal="true"><h2>'+esc(c.title)+'</h2><p class="mut" style="margin:8px 0 18px">'+esc(c.msg)+'</p><div class="btns"><button class="btn" data-act="cno">Cancel</button><button class="btn dng" data-act="cyes">'+esc(c.label)+'</button></div></div></div>';
 }
 
+function signinsBody(m){
+ if(!S.online)return '<div class="note">Sign-in history is kept by the server.</div>';
+ if(!m.audit)return empty('Loading sign-ins…');
+ const fmt=ts=>{const t=new Date(ts);return pad(t.getDate(),2)+' '+MON[t.getMonth()]+', '+pad(t.getHours(),2)+':'+pad(t.getMinutes(),2)};
+ const last={};m.audit.forEach(a=>{if(a.action==='login'&&a.user_id&&!last[a.user_id])last[a.user_id]=a});
+ const users=D().users.map(u=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(u.name)+'</div><div class="s">'+(last[u.id]?'Last sign-in '+esc(fmt(last[u.id].ts))+' · '+esc((last[u.id].summary||'').replace(/^(PIN|Google) · /,'')):'Not signed in recently')+'</div></div></div>').join('');
+ const list=m.audit.length?'<div class="card flat" style="padding:4px 14px">'+m.audit.map(a=>'<div class="pgn" style="flex-direction:column;gap:2px"><div class="xs mut">'+esc(fmt(a.ts))+' · '+esc(a.user_name||'?')+' · '+bdg(a.action==='login_failed'?'Failed':a.action==='signup'?'Lab created':'Signed in',a.action==='login_failed'?'bad':'ok')+'</div><div style="overflow-wrap:anywhere">'+esc(a.summary||'')+'</div></div>').join('')+'</div>':empty('No sign-ins yet.');
+ return '<div class="sec"><h2>Last sign-in per person</h2></div>'+users+'<div class="sec" style="margin-top:18px"><h2>Recent sign-ins</h2></div>'+list+'<p class="hint" style="margin-top:10px">Shows device, network address and country when available. A city is not available.</p>';
+}
 function activityBody(m){
  if(!S.online)return '<div class="note">The activity log is kept by the server. Run the app through <span class="mono">server.js</span> to see who added or changed what.</div>';
  if(!m.audit)return empty('Loading activity…');
@@ -1286,6 +1299,11 @@ const ACT={
   if(!u.active){L.err='This account is disabled. Ask the admin.';render();return}
   S.user=u;lsSet(SKEY,u.id);S.login=blankLogin();S.route='home';S.m={};render();window.scrollTo(0,0)},
  logout(){if(S.online){onlineLogout();return}S.user=null;lsDel(SKEY);S.login=blankLogin();S.m={};S.wiz=null;S.route='home';render()},
+ async invite(t){const u=D().users.find(x=>x.id===t.dataset.id);if(!u)return;
+  const link=location.origin+'/?lab='+(S.org?S.org.slug:'');const lab=S.org?S.org.name:'the lab';
+  const msg='You are invited to '+lab+' on TechAssures Lab.\nOpen: '+link+'\n'+(u.email?'Tap Continue with Google and use '+u.email+'.':'Lab code: '+(S.org?S.org.slug:'')+'  Login: '+u.login+'  (ask your admin for the PIN)');
+  try{if(navigator.share){await navigator.share({title:'TechAssures Lab invite',text:msg});return}}catch(e){if(e&&e.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(msg);toast('Invite copied. Paste it in WhatsApp or email.')}catch(e){toast(msg)}},
  gnative(){if(!S.busy)nativeGoogle()},
  dosignup(){if(!S.busy)doSignup()},
  signupcancel(){S.signup=null;render()},
@@ -1366,7 +1384,7 @@ const ACT={
   if(!(await createRec('clients',c)))return;
   m.adding=false;m.clientId=c.id;m.tab='overview';toast('Client added');render();window.scrollTo(0,0)},
  /* admin */
- admtab(t){const m=M('admin');m.tab=t.dataset.v;if(m.tab==='activity'&&S.online){m.audit=null;render();loadAudit();return}render()},
+ admtab(t){const m=M('admin');m.tab=t.dataset.v;if((m.tab==='activity'||m.tab==='signins')&&S.online){m.audit=null;render();loadAudit();return}render()},
  async touser(t){const id=t.dataset.id,u=us(id);if(id===S.user.id){toast('You cannot disable your own account',1);return}
   if(S.online){try{upsertLocal('users',await api('PUT','/api/users/'+id,{active:!u.active}))}catch(x){toast(x.message,1);return}}
   else{u.active=!u.active;persistNow()}

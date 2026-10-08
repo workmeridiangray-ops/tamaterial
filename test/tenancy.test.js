@@ -78,6 +78,15 @@ function idToken(email, over, key) {
   const g4 = await call('POST', '/api/google', null, { credential: idToken('multi@x.com'), lab: 'beta-lab' });
   ok(g4.j.token && g4.j.user.role === 'admin', 'choosing a lab signs in there');
   ok((await call('POST', '/api/google', null, { credential: idToken('ravi@alpha.com'), lab: 'beta-lab' })).s === 403, 'cannot sign into a lab you are not in');
+  // sign-in tracking
+  const si = (await call('GET', '/api/audit?kind=signins', A)).j.entries;
+  ok(si.some(e => e.action === 'login' && /Google/.test(e.summary)), 'Google sign-ins are recorded with how');
+  await fetch(base + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '203.0.113.9, 10.0.0.1', 'user-agent': 'Mozilla/5.0 (Linux; Android 14; Pixel) Chrome/120 Mobile Safari/537.36', 'cf-ipcountry': 'IN' }, body: JSON.stringify({ lab: 'alpha-testing-lab', login: 'tess', pin: '0000' }) });
+  await fetch(base + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '203.0.113.9', 'user-agent': 'Mozilla/5.0 (Linux; Android 14; Pixel) Chrome/120 Mobile Safari/537.36', 'cf-ipcountry': 'IN' }, body: JSON.stringify({ lab: 'alpha-testing-lab', login: 'tess', pin: '1234' }) });
+  const si2 = (await call('GET', '/api/audit?kind=signins', A)).j.entries;
+  ok(si2.some(e => e.action === 'login_failed' && /203\.0\.113\.9/.test(e.summary) && /Android Chrome/.test(e.summary) && /IN/.test(e.summary)), 'failed attempt logged with device, real IP and country');
+  ok(si2.some(e => e.action === 'login' && e.user_name === 'Tess' && /PIN · Android Chrome · 203\.0\.113\.9/.test(e.summary)), 'PIN sign-in logged with device and IP');
+  ok((await call('GET', '/api/audit?kind=signins', gr.j.token)).s === 403, 'only admins can see sign-ins');
   const bl = await call('POST', '/api/login', null, { lab: 'alpha-testing-lab', login: 'tess', pin: '1234' });
   ok((await call('POST', '/api/logout', bl.j.token, {})).j.ok, 'logout');
   console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); server.close(); process.exit(fails ? 1 : 0);
