@@ -137,7 +137,7 @@ function failed(key) {
 }
 
 /* ---------------- seed ---------------- */
-const COLLS = ['users', 'tests', 'clients', 'projects', 'samples', 'jobs', 'invoices', 'payments', 'leads', 'interactions', 'tasks'];
+const COLLS = ['users', 'tests', 'clients', 'projects', 'samples', 'jobs', 'invoices', 'payments', 'leads', 'interactions', 'tasks', 'notifications'];
 function seedDb() {                       /* the demo lab: ORG must be 'demo' */
   const seed = buildSeed(), rev = nextRev();
   const ins = st('INSERT INTO records(org,coll,id,data,rev,deleted) VALUES(?,?,?,?,?,0) ON CONFLICT(org,coll,id) DO UPDATE SET data=excluded.data,rev=excluded.rev,deleted=0');
@@ -196,6 +196,7 @@ function shape(u, coll, r, asg) {
     case 'jobs': return u.role === 'tester' && r.assignee !== u.id ? null : r;
     case 'invoices': case 'payments': return MONEY_ROLES.includes(u.role) ? r : null;
     case 'leads': case 'interactions': case 'tasks': return CRM_ROLES.includes(u.role) ? r : null;
+    case 'notifications': return r.userId === u.id ? r : null;      /* everyone sees only their own */
     default: return null;
   }
 }
@@ -318,6 +319,38 @@ function geoOf(b, required) {
 }
 const geoTxt = g => g ? ' · at ' + g.lat + ',' + g.lng + (g.acc ? ' (±' + g.acc + ' m)' : '') : '';
 
+/* ---------------- notifications ---------------- */
+function putQuiet(coll, obj) {            /* system-written record: synced to devices, not listed in the audit log */
+  st('INSERT INTO records(org,coll,id,data,rev,deleted) VALUES(?,?,?,?,?,0) ON CONFLICT(org,coll,id) DO UPDATE SET data=excluded.data,rev=excluded.rev,deleted=0')
+    .run(ORG, coll, obj.id, JSON.stringify(obj), nextRev());
+}
+/* one notification per (id): calling again with the same id does nothing, so reminders are never repeated */
+function notify(userId, id, o) {
+  if (!userId || get('notifications', id)) return;
+  putQuiet('notifications', Object.assign({ id, userId, at: new Date().toISOString(), read: false }, o));
+}
+const staffOf = roles => all('users').filter(x => x.active && roles.includes(x.role));
+function scanDue(now) {
+  now = now || new Date();
+  const hr = now.getHours(), today = L.today(), tomorrow = L.addDays(today, 1);
+  sysOrgs().filter(o => o.slug !== 'demo' || DEMO).forEach(org => withOrg(org.slug, () => {
+    const tests = all('tests');
+    tx(() => all('jobs').filter(j => j.status !== 'done').forEach(j => {
+      const smp = get('samples', j.sampleId); if (!smp) return;
+      const t = tests.find(x => x.id === smp.testId) || { name: 'Test', kind: 'simple' };
+      const what = smp.uid + ' · ' + jobLabel(t, j);
+      if (j.due === tomorrow && hr >= 16) notify(j.assignee, 'n_' + j.id + '_d1', { type: 'due', title: 'Test due tomorrow', body: what, sampleId: smp.id, jobId: j.id });
+      if (j.due === today && hr >= 7) notify(j.assignee, 'n_' + j.id + '_d0', { type: 'due', title: 'Test due today', body: what, sampleId: smp.id, jobId: j.id });
+      if (j.due < today && hr >= 9) {
+        const who = (all('users').find(x => x.id === j.assignee) || {}).name || 'unassigned';
+        notify(j.assignee, 'n_' + j.id + '_od_' + today, { type: 'overdue', title: 'Test overdue', body: what + ' was due ' + j.due, sampleId: smp.id, jobId: j.id });
+        staffOf(['admin']).forEach(a => { if (a.id !== j.assignee) notify(a.id, 'n_' + j.id + '_od_' + today + '_' + a.id, { type: 'overdue', title: 'Test overdue · ' + who, body: what + ' was due ' + j.due, sampleId: smp.id, jobId: j.id }); });
+      }
+    }));
+  }));
+  if (pg) pg.schedule();
+}
+
 /* ---------------- domain actions ---------------- */
 function createSample(u, b) {
   const geo = geoOf(b, true);
@@ -366,6 +399,7 @@ function createSample(u, b) {
     put('samples', s, u, 'create', 'Sample ' + s.uid + ' received for ' + client.name + geoTxt(geo));
     jobs.forEach(j => put('jobs', j, u, 'create', jobLabel(test, j) + ' due ' + j.due));
     put('invoices', inv, u, 'create', inv.no + ' · total ' + inv.total);
+    notify(asg.id, 'n_assign_' + s.id, { type: 'assign', title: 'New test assigned to you', body: s.uid + ' · ' + (test.kind === 'cube' ? 'cubes, ' + d.ages.join('/') + '-day tests' : test.name) + ' · first due ' + jobs.map(j => j.due).sort()[0], sampleId: s.id, jobId: jobs[0].id });
     return { sample: s, jobs, invoice: MONEY_ROLES.includes(u.role) ? inv : null, billNo: inv.no };
   });
 }
@@ -397,7 +431,7 @@ function saveResult(u, jobId, b) {
   return tx(() => {
     job.results = results; job.remarks = str(b.remarks, 500); job.status = 'done'; job.doneOn = L.today(); job.geo = geo; job.doneAt = geo.at; job.doneBy = u.id;
     put('jobs', job, u, 'result', s.uid + ' · ' + jobLabel(t, job) + (results.avg != null ? ' · avg ' + results.avg + ' N/mm²' : ' · ' + results.value) + geoTxt(geo));
-    if (all('jobs').filter(j => j.sampleId === s.id).every(j => j.status === 'done')) { s.reportStatus = 'awaiting'; put('samples', s, u, 'status', s.uid + ' moved to Awaiting approval'); }
+    if (all('jobs').filter(j => j.sampleId === s.id).every(j => j.status === 'done')) { s.reportStatus = 'awaiting'; put('samples', s, u, 'status', s.uid + ' moved to Awaiting approval'); staffOf(['admin', 'accounts']).forEach(a => notify(a.id, 'n_await_' + s.id + '_' + a.id, { type: 'awaiting', title: 'Report awaiting approval', body: s.uid + ' · all tests done', sampleId: s.id })); }
     const asg = assignedSet(u);
     return { job, sample: shape(u, 'samples', s, asg) };
   });
@@ -597,6 +631,12 @@ route('GET', /^\/api\/export\/(\w+)\.csv$/, ['admin', 'accounts'], c => {
   const coll = c.m[1]; if (!(CSV_ROLES[c.u.role] || []).includes(coll)) bad('You cannot export ' + coll, 403);
   return { __csv: toCsv(coll), name: coll + '-' + L.today() + '.csv' };
 });
+route('POST', /^\/api\/notifications\/read$/, '*', c => {
+  const ids = Array.isArray(c.body.ids) ? new Set(c.body.ids.map(String)) : null;
+  let n = 0;
+  tx(() => all('notifications').filter(x => x.userId === c.u.id && !x.read && (!ids || ids.has(x.id))).forEach(x => { x.read = true; putQuiet('notifications', x); n++; }));
+  return { ok: true, marked: n };
+});
 route('PUT', /^\/api\/(\w+)\/([\w-]+)$/, '*', c => genericSave(c.u, c.m[1], c.m[2], c.body));
 route('POST', /^\/api\/(\w+)$/, '*', c => genericSave(c.u, c.m[1], null, c.body));
 route('DELETE', /^\/api\/(\w+)\/([\w-]+)$/, '*', c => {
@@ -678,9 +718,11 @@ const server = http.createServer(async (req, res) => {
   }
 });
 setInterval(() => { try { st('DELETE FROM sessions WHERE expires<?').run(Date.now()); } catch (e) { /* ignore */ } }, 3600e3).unref();
+setInterval(() => { ready.then(() => scanDue()).catch(e => console.error('scanDue', e.message)); }, 5 * 60e3).unref();
 if (require.main === module) {
+  ready.then(() => scanDue()).catch(() => {});
   server.listen(PORT, HOST, () => console.log('TechAssures Lab on http://' + (HOST === '0.0.0.0' ? 'localhost' : HOST) + ':' + PORT + '  (db: ' + (DATABASE_URL ? 'postgres' : DB_PATH) + ', demo mode: ' + (DEMO ? 'on' : 'off') + ')'));
   const stop = async () => { if (pg) { try { await pg.flush(); } catch (e) { /* ignore */ } } server.close(() => { try { db.close(); } catch (e) { /* ignore */ } process.exit(0); }); setTimeout(() => process.exit(0), 3000).unref(); };
   process.on('SIGINT', stop); process.on('SIGTERM', stop);
 }
-module.exports = { server, __verify: null, __setKeys: k => { google.jwks = k; google.at = Date.now(); }, __clientId: () => GOOGLE_CLIENT_ID };
+module.exports = { server, __scanDue: scanDue, __verify: null, __setKeys: k => { google.jwks = k; google.at = Date.now(); }, __clientId: () => GOOGLE_CLIENT_ID };

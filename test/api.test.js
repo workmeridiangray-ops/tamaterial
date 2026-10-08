@@ -3,7 +3,7 @@
 const os = require('os'), path = require('path'), fs = require('fs');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'talab-'));
 process.env.DB_PATH = path.join(dir, 't.db'); process.env.PORT = '0';
-const { server } = require('../server');
+const { server, __scanDue } = require('../server');
 const L = require('../lib/logic');
 let fails = 0;
 const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console.log('ok  ', m); };
@@ -29,6 +29,21 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   ok(bm.data.invoices.length === 8 && bm.data.leads.length === 6, 'accounts sees money and CRM');
   ok(br.data.counters.uid === 146, 'next UID counter is 146');
 
+  // notifications
+  const n0 = (await call('GET', '/api/bootstrap', S)).j.data.notifications;
+  ok(Array.isArray(n0), 'bootstrap carries notifications');
+  __scanDue(new Date(new Date().setHours(10, 0, 0, 0)));
+  const nS = (await call('GET', '/api/bootstrap', S)).j.data.notifications, nA = (await call('GET', '/api/bootstrap', A)).j.data.notifications, nR = (await call('GET', '/api/bootstrap', R)).j.data.notifications;
+  ok(nS.length > 0 && nS.every(n => n.userId === 'u_suresh'), 'tester gets reminders for own tests only');
+  ok(nS.some(n => n.type === 'due' || n.type === 'overdue'), 'due-today or overdue reminders created');
+  ok(nR.length === 0, 'store user gets none of the testers\' reminders');
+  ok(nA.every(n => n.userId === 'u_admin'), 'admin sees only own notifications');
+  const before = nS.length; __scanDue(new Date(new Date().setHours(10, 5, 0, 0)));
+  ok((await call('GET', '/api/bootstrap', S)).j.data.notifications.length === before, 'reminders are not repeated');
+  const rd = await call('POST', '/api/notifications/read', S, { all: true });
+  ok(rd.j.marked === before && (await call('GET', '/api/bootstrap', S)).j.data.notifications.every(n => n.read), 'tester marks own notifications read');
+  ok((await call('GET', '/api/bootstrap', A)).j.data.notifications.every(n => !n.read), "reading yours does not touch someone else's");
+
   // store creates a sample
   const GEO = { lat: 18.5601, lng: 73.7786, acc: 12 };
   const body = { geo: GEO, receipt: T, clientId: 'c1', projectId: 'p1', sampledBy: 'Client', billing: 'Credit', testId: 't_cube', mark: 'Test slab', cond: 'Acceptable', photo: '', assignee: 'u_suresh',
@@ -40,6 +55,7 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   ok((await call('POST', '/api/samples', R, Object.assign({}, body, { geo: { lat: 0, lng: 0 } }))).s === 400, 'null-island location rejected');
   ok((await call('POST', '/api/samples', R, Object.assign({}, body, { geo: { lat: 999, lng: 10 } }))).s === 400, 'impossible location rejected');
   const cr = await call('POST', '/api/samples', R, body);
+  ok((await call('GET', '/api/bootstrap', S)).j.data.notifications.some(n => n.type === 'assign' && n.sampleId === cr.j.sample.id), 'assigned tester is notified of the new sample');
   ok(cr.j.sample.geo && cr.j.sample.geo.lat === 18.5601 && /^20\d\d-/.test(cr.j.sample.geo.at), 'sample stores location and a server timestamp');
   ok(cr.s === 200 && /000146$/.test(cr.j.sample.uid) && cr.j.sample.ulr.endsWith('-000146-F'), 'sample created with UID/ULR ...000146');
   ok(cr.j.jobs.length === 2 && cr.j.invoice === null && /^INV-/.test(cr.j.billNo), 'two jobs; store gets bill number but no invoice amounts');

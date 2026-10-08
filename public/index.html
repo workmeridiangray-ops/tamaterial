@@ -47,6 +47,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .brand i{width:9px;height:9px;border-radius:50%;background:var(--acc);display:inline-block}
 .who{margin-left:auto;font-size:13px;color:#D9DBD7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .hbtn{min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;color:#fff;border-radius:10px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#2f7bd8;margin-right:4px}
+.hbtn{position:relative}
+.nbadge{position:absolute;top:6px;right:5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e5484d;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
 .hbtn:active{background:rgba(255,255,255,.1)}
 
 /* layout */
@@ -269,6 +272,7 @@ copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 
 send:'<path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/>',
 edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
 chev:'<path d="M9 5l7 7-7 7"/>',
+bell:'<path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21h4"/>',
 chat:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
 lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
 };
@@ -408,7 +412,7 @@ let pt=null;
 function persist(){clearTimeout(pt);pt=setTimeout(persistNow,S.online?700:250)}
 function persistNow(){clearTimeout(pt);if(S.online){pushDirty();return}if(!lsSet(KEY,JSON.stringify(S.db)))toast('Storage is full or blocked — changes may not be kept',1)}
 {const sid=lsGet(SKEY);if(sid){const u=S.db.users.find(x=>x.id===sid&&x.active);if(u)S.user=u}}
-const ALLCOLL=['users','tests','clients','projects','samples','jobs','invoices','payments','leads','interactions','tasks'];
+const ALLCOLL=['users','tests','clients','projects','samples','jobs','invoices','payments','leads','interactions','tasks','notifications'];
 
 /* lookups */
 const D=()=>S.db;
@@ -523,7 +527,9 @@ async function pollOnce(){
  try{
   const ch=await api('GET','/api/changes?since='+S.rev);
   if(ch.reload){await loadAll();render();return}
-  if(applyChanges(ch)&&!typing()&&!S.wiz)render();
+  const chg=applyChanges(ch);
+  if(chg){checkAlerts(false);scheduleLocal()}
+  if(chg&&!typing()&&!S.wiz)render();
  }catch(e){}finally{pollBusy=false}
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.online&&S.user)pollOnce()});
@@ -541,7 +547,7 @@ async function loadAudit(){
 }
 async function finishLogin(r){
  S.token=r.token;lsSet(TKEY,S.token);await loadAll();
- S.login=blankLogin();S.signup=null;S.choose=null;S.route='home';S.m={};startPoll();
+ S.login=blankLogin();S.signup=null;S.choose=null;S.route='home';S.m={};startPoll();checkAlerts(true);scheduleLocal();
 }
 async function onlineLogin(){
  const L=S.login;L.err='';S.busy=true;render();
@@ -600,7 +606,7 @@ async function boot(){
  }catch(e){}
  if(S.online){
   S.db=emptyDb();S.user=null;S.token=lsGet(TKEY)||'';
-  if(S.token){try{await loadAll();startPoll()}catch(e){S.token='';S.user=null;lsDel(TKEY)}}
+  if(S.token){try{await loadAll();startPoll();checkAlerts(true);scheduleLocal()}catch(e){S.token='';S.user=null;lsDel(TKEY)}}
  }
  S.booting=false;render();
 }
@@ -622,7 +628,10 @@ const searchBox=(path,val,ph)=>'<div class="search">'+ic('search',20)+'<input cl
 
 /* ---------- shell ---------- */
 const labName=()=>S.org&&!S.org.demo?S.org.name:'TechAssures Lab';
-function header(){return '<div class="hdr"><div class="brand"><i></i>'+(S.org&&!S.org.demo?esc(S.org.name):'TechAssures<span class="l"> Lab</span>')+'</div><div class="who">'+esc(ROLE_LABEL[S.user.role])+': '+esc(S.user.name)+'</div><button class="hbtn" data-act="logout" aria-label="Log out">'+ic('out')+'</button></div>'}
+const myNotes=()=>(D().notifications||[]).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+const unreadN=()=>myNotes().filter(n=>!n.read).length;
+const bellBtn=()=>S.online?'<button class="hbtn" data-act="bell" aria-label="Notifications">'+ic('bell')+(unreadN()?'<span class="nbadge">'+(unreadN()>9?'9+':unreadN())+'</span>':'')+'</button>':'';
+function header(){return '<div class="hdr"><div class="brand"><i></i>'+(S.org&&!S.org.demo?esc(S.org.name):'TechAssures<span class="l"> Lab</span>')+'</div><div class="who">'+esc(ROLE_LABEL[S.user.role])+': '+esc(S.user.name)+'</div>'+bellBtn()+'<button class="hbtn" data-act="logout" aria-label="Log out">'+ic('out')+'</button></div>'}
 function shell(body){
  const navMods=NAVPICK[S.user.role].filter(can);
  const items=[{id:'home',short:'Home',icon:'home'}].concat(navMods.map(id=>MODS.find(m=>m.id===id)));
@@ -1000,6 +1009,56 @@ function wizView(){
  '<div class="wzin"><div class="sm mut" style="font-weight:600">Page '+step+' of 3</div><div class="bar"><i style="width:'+(step/3*100)+'%"></i></div><div style="height:12px"></div>'+body+'</div>'+
  '<div class="sbar"><div><button class="btn" data-act="wzback">'+ic('back',18)+' '+(step===1?'Cancel':'Back')+'</button><button class="btn pri'+(S.busy?' off':'')+'" data-act="wznext">'+(step===3?(S.busy?'Saving…':'Save sample'):'Next ')+(step<3?ic('next',18):'')+'</button></div></div></div>';
 }
+/* ---------- notifications: inbox, device alerts, on-phone reminders ---------- */
+const LNP=()=>{try{return window.Capacitor.registerPlugin('LocalNotifications')}catch(e){return null}};
+const nhash=str=>{let h=7;for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))>>>0;return (h%2000000000)+1};
+function alertPerm(){if(isNative())return S.alertState||'unknown';return window.Notification?Notification.permission:'unsupported'}
+async function enableAlerts(){
+ try{
+  if(isNative()){const ln=LNP();const r=await ln.requestPermissions();S.alertState=r.display==='granted'?'granted':'denied';if(S.alertState==='granted')scheduleLocal()}
+  else if(window.Notification){await Notification.requestPermission()}
+ }catch(e){}
+ render();
+}
+async function deviceAlert(n){
+ try{
+  if(isNative()){const ln=LNP();if(ln)await ln.schedule({notifications:[{id:nhash('now'+n.id),title:n.title,body:n.body,schedule:{at:new Date(Date.now()+700)}}]})}
+  else if(window.Notification&&Notification.permission==='granted')new Notification(n.title,{body:n.body,tag:n.id});
+ }catch(e){}
+}
+function checkAlerts(first){
+ if(!S.online||!S.user)return;
+ let seen;try{seen=JSON.parse(lsGet('ta_alerted_'+S.user.id)||'[]')}catch(e){seen=[]}
+ const set=new Set(seen),fresh=myNotes().filter(n=>!n.read&&!set.has(n.id));
+ fresh.forEach(n=>{set.add(n.id);if(!first||(Date.now()-new Date(n.at).getTime())<30*60e3)deviceAlert(n)});
+ if(fresh.length)lsSet('ta_alerted_'+S.user.id,JSON.stringify(Array.from(set).slice(-300)));
+}
+/* reminders that fire on the phone even with the app closed or no signal: evening before and morning of each test */
+async function scheduleLocal(){
+ if(!isNative()||!S.user)return;
+ const ln=LNP();if(!ln)return;
+ try{
+  const pr=await ln.checkPermissions();if(pr.display!=='granted'){S.alertState=pr.display==='denied'?'denied':'prompt';return}S.alertState='granted';
+  const pend=await ln.getPending();if(pend.notifications&&pend.notifications.length)await ln.cancel({notifications:pend.notifications.map(x=>({id:x.id}))});
+  const list=[],now=Date.now();
+  D().jobs.filter(j=>j.assignee===S.user.id&&j.status!=='done').forEach(j=>{
+   const sp=D().samples.find(x=>x.id===j.sampleId);if(!sp)return;const t=ts(sp.testId);
+   const what=sp.uid+' · '+(t.kind==='cube'?j.age+'-day cube test':t.name);
+   const at=(dstr,h,m)=>{const x=new Date(dstr+'T00:00:00');x.setHours(h,m,0,0);return x};
+   const prev=new Date(j.due+'T00:00:00');prev.setDate(prev.getDate()-1);const pd=prev.getFullYear()+'-'+pad(prev.getMonth()+1,2)+'-'+pad(prev.getDate(),2);
+   [['d1',at(pd,16,0),'Test due tomorrow'],['d0',at(j.due,7,30),'Test due today']].forEach(x=>{if(x[1].getTime()>now)list.push({id:nhash(j.id+x[0]),title:x[2],body:what,schedule:{at:x[1],allowWhileIdle:true}})});
+  });
+  if(list.length)await ln.schedule({notifications:list.slice(0,60)});
+ }catch(e){}
+}
+function inboxView(){
+ const list=myNotes(),perm=alertPerm();
+ const when=a=>{const t=new Date(a);return pad(t.getDate(),2)+' '+MON[t.getMonth()]+', '+pad(t.getHours(),2)+':'+pad(t.getMinutes(),2)};
+ const alertCard=(perm==='granted')?'':'<div class="note" style="margin-bottom:12px">Phone alerts are off. '+(perm==='denied'?'Allow notifications for this app in your phone settings.':'<button class="lnk" data-act="enablealerts">Turn on alerts on this device</button>')+'</div>';
+ return pgHead('Notifications','inboxback',unreadN()?unreadN()+' unread':'All caught up')+alertCard+
+  (unreadN()?'<button class="btn blk" style="margin-bottom:12px" data-act="readall">Mark all as read</button>':'')+
+  (list.length?list.slice(0,80).map(n=>'<button class="row" data-act="opennote" data-id="'+esc(n.id)+'"><div class="grow"><div class="t">'+(n.read?'':'<span class="dot"></span> ')+esc(n.title)+'</div><div class="s">'+esc(n.body)+'</div><div class="s">'+esc(when(n.at))+'</div></div>'+ic('chev')+'</button>').join(''):empty('No notifications yet. You will see new tests assigned to you and reminders before each test is due.'));
+}
 /* location stamps: where and when each step was done */
 function getLoc(){
  return new Promise((resolve,reject)=>{
@@ -1244,7 +1303,7 @@ function view(){
  if(S.booting)return '<div class="login"><div class="logo"><i></i><h1>TechAssures Lab</h1></div><p class="mut">Connecting…</p></div>';
  if(!S.user)return S.signup?signupView():S.choose?chooseView():loginView();
  if(S.wiz)return wizView()+confirmView();
- return shell(S.route==='home'?homeView():(can(S.route)?modBody():blocked()))+confirmView();
+ return shell(S.route==='home'?homeView():S.route==='inbox'?inboxView():(can(S.route)?modBody():blocked()))+confirmView();
 }
 const appEl=document.getElementById('app');
 const sigCache={url:'',img:null};
@@ -1330,6 +1389,13 @@ const ACT={
   const msg='You are invited to '+lab+' on TechAssures Lab.\nOpen: '+link+'\n'+(u.email?'Tap Continue with Google and use '+u.email+'.':'Lab code: '+(S.org?S.org.slug:'')+'  Login: '+u.login+'  (ask your admin for the PIN)');
   try{if(navigator.share){await navigator.share({title:'TechAssures Lab invite',text:msg});return}}catch(e){if(e&&e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(msg);toast('Invite copied. Paste it in WhatsApp or email.')}catch(e){toast(msg)}},
+ bell(){S.route='inbox';window.scrollTo(0,0);render()},
+ inboxback(){S.route='home';render()},
+ enablealerts(){enableAlerts()},
+ async readall(){try{await api('POST','/api/notifications/read',{all:true});D().notifications.forEach(n=>{n.read=true})}catch(e){toast(e.message,1)}render()},
+ async opennote(t){const n=D().notifications.find(x=>x.id===t.dataset.id);if(!n)return;
+  if(!n.read){n.read=true;api('POST','/api/notifications/read',{ids:[n.id]}).catch(()=>{})}
+  if(n.type==='awaiting'&&n.sampleId&&can('approve'))go('approve',{sampleId:n.sampleId,tab:'awaiting'});else if(can('schedule'))go('schedule',{tab:n.type==='due'||n.type==='overdue'||n.type==='assign'?'due':'due'});else render()},
  gnative(){if(!S.busy)nativeGoogle()},
  dosignup(){if(!S.busy)doSignup()},
  signupcancel(){S.signup=null;render()},
