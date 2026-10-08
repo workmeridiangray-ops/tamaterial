@@ -1,0 +1,6 @@
+{
+  "appId": "in.techassures.lab",
+  "appName": "TechAssures Lab",
+  "webDir": "www",
+  "server": { "url": "https://techassures-lab.onrender.com", "androidScheme": "https" }
+}

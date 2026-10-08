@@ -551,8 +551,18 @@ async function onlineLogin(){
 }
 /* Google sign-in */
 let gsiState='';
+const isNative=()=>{try{return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())}catch(e){return false}};
+async function nativeGoogle(){
+ try{
+  const SL=window.Capacitor.registerPlugin('SocialLogin');
+  await SL.initialize({google:{webClientId:S.gcid}});
+  const r=await SL.login({provider:'google',options:{scopes:['email','profile']}});
+  const t=r&&r.result&&r.result.idToken;if(!t)throw new Error('No token from Google');
+  googleLogin(t,'');
+ }catch(e){S.login.err='Google sign-in was cancelled or failed';render()}
+}
 function mountGoogle(){
- const el=document.getElementById('gbtn');if(!el||!S.gcid)return;
+ const el=document.getElementById('gbtn');if(!el||!S.gcid||isNative())return;
  const draw=()=>{try{const g=window.google.accounts.id;if(gsiState!=='init'){g.initialize({client_id:S.gcid,callback:onGoogle,ux_mode:'popup'});gsiState='init'}g.renderButton(el,{theme:'outline',size:'large',text:'continue_with',shape:'pill',width:Math.min(300,el.clientWidth||300)})}catch(x){}};
  if(window.google&&window.google.accounts){draw();return}
  if(gsiState==='loading')return;gsiState='loading';
@@ -626,7 +636,7 @@ function loginView(){
  const L=S.login;
  const accts=S.online?S.demoAccounts:S.db.users.filter(u=>u.active);
  const chips=accts.map(u=>'<button type="button" class="chip" data-act="fill" data-v="'+esc(u.login)+'">'+esc(u.login)+' · '+esc(ROLE_LABEL[u.role])+'</button>').join('');
- const google=S.online&&S.gcid?'<div class="card" style="margin-bottom:14px"><div id="gbtn" style="display:flex;justify-content:center;min-height:44px"></div><p class="hint" style="text-align:center;margin:10px 0 0">New here? Sign in with Google to create your lab.</p></div><p class="mut sm" style="text-align:center;margin:0 0 12px">or use a lab code and PIN</p>':'';
+ const google=S.online&&S.gcid?'<div class="card" style="margin-bottom:14px">'+(isNative()?'<button type="button" class="btn blk" data-act="gnative">Continue with Google</button>':'<div id="gbtn" style="display:flex;justify-content:center;min-height:44px"></div>')+'<p class="hint" style="text-align:center;margin:10px 0 0">New here? Sign in with Google to create your lab.</p></div><p class="mut sm" style="text-align:center;margin:0 0 12px">or use a lab code and PIN</p>':'';
  return '<div class="login"><div class="logo"><i></i><h1>TechAssures Lab</h1></div><p class="mut" style="margin-bottom:6px">Lab management for NABL-accredited material testing labs</p>'+
  '<p style="margin-bottom:18px">'+(S.online?bdg('Connected to server','ok'):bdg('Offline demo · data stays in this browser'))+'</p>'+google+
  '<div class="card">'+(S.online?fld('Lab code',inp('login.lab',L.lab,{enter:'login',ph:'e.g. alpha-lab (or demo)'})):'')+fld('Login name',inp('login.login',L.login,{enter:'login',ph:'e.g. rahul'}))+
@@ -1276,6 +1286,7 @@ const ACT={
   if(!u.active){L.err='This account is disabled. Ask the admin.';render();return}
   S.user=u;lsSet(SKEY,u.id);S.login=blankLogin();S.route='home';S.m={};render();window.scrollTo(0,0)},
  logout(){if(S.online){onlineLogout();return}S.user=null;lsDel(SKEY);S.login=blankLogin();S.m={};S.wiz=null;S.route='home';render()},
+ gnative(){if(!S.busy)nativeGoogle()},
  dosignup(){if(!S.busy)doSignup()},
  signupcancel(){S.signup=null;render()},
  picklab(t){if(S.choose&&!S.busy)googleLogin(S.choose.credential,t.dataset.v)},
