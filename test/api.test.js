@@ -30,12 +30,17 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   ok(br.data.counters.uid === 146, 'next UID counter is 146');
 
   // store creates a sample
-  const body = { receipt: T, clientId: 'c1', projectId: 'p1', sampledBy: 'Client', billing: 'Credit', testId: 't_cube', mark: 'Test slab', cond: 'Acceptable', photo: '', assignee: 'u_suresh',
+  const GEO = { lat: 18.5601, lng: 73.7786, acc: 12 };
+  const body = { geo: GEO, receipt: T, clientId: 'c1', projectId: 'p1', sampledBy: 'Client', billing: 'Credit', testId: 't_cube', mark: 'Test slab', cond: 'Acceptable', photo: '', assignee: 'u_suresh',
     rep: { name: 'Ravi', mobile: '9876543210', sig: 'data:image/png;base64,AAAA' }, d: { grade: 'M30', source: 'RMC', supplier: 'X', casting: L.addDays(T, -7), ages: [7, 28], sizes: [{ l: 150, b: 150, h: 150, n: 6 }] } };
   const bad1 = await call('POST', '/api/samples', R, Object.assign({}, body, { rep: { name: 'Ravi', mobile: '123', sig: 'data:image/png;base64,AAAA' } }));
   ok(bad1.s === 400 && /10 digits/.test(bad1.j.error), 'bad mobile rejected by server');
   ok((await call('POST', '/api/samples', S, body)).s === 403, 'tester cannot create samples');
+  ok((await call('POST', '/api/samples', R, Object.assign({}, body, { geo: undefined }))).s === 400, 'sample cannot be saved without location');
+  ok((await call('POST', '/api/samples', R, Object.assign({}, body, { geo: { lat: 0, lng: 0 } }))).s === 400, 'null-island location rejected');
+  ok((await call('POST', '/api/samples', R, Object.assign({}, body, { geo: { lat: 999, lng: 10 } }))).s === 400, 'impossible location rejected');
   const cr = await call('POST', '/api/samples', R, body);
+  ok(cr.j.sample.geo && cr.j.sample.geo.lat === 18.5601 && /^20\d\d-/.test(cr.j.sample.geo.at), 'sample stores location and a server timestamp');
   ok(cr.s === 200 && /000146$/.test(cr.j.sample.uid) && cr.j.sample.ulr.endsWith('-000146-F'), 'sample created with UID/ULR ...000146');
   ok(cr.j.jobs.length === 2 && cr.j.invoice === null && /^INV-/.test(cr.j.billNo), 'two jobs; store gets bill number but no invoice amounts');
   const inv = (await call('GET', '/api/bootstrap', A)).j.data.invoices.find(i => i.sampleId === cr.j.sample.id);
@@ -49,19 +54,22 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   const early = jobs.find(j => j.sampleId === cr.j.sample.id && j.age === 28);
   const due = jobs.find(j => j.sampleId === cr.j.sample.id && j.age === 7);
   const rows = [450, 460, 470].map(l => ({ l: 150, b: 150, h: 150, load: l }));
-  ok((await call('POST', '/api/jobs/' + early.id + '/result', S, { rows })).s === 409, 'result before test date blocked');
-  ok((await call('POST', '/api/jobs/' + due.id + '/result', R, { rows })).s === 403, 'store cannot save results');
-  const res = await call('POST', '/api/jobs/' + due.id + '/result', S, { rows, remarks: 'ok' });
+  ok((await call('POST', '/api/jobs/' + early.id + '/result', S, { rows, geo: GEO })).s === 409, 'result before test date blocked');
+  ok((await call('POST', '/api/jobs/' + due.id + '/result', R, { rows, geo: GEO })).s === 403, 'store cannot save results');
+  ok((await call('POST', '/api/jobs/' + due.id + '/result', S, { rows })).s === 400, 'test result cannot be saved without location');
+  const res = await call('POST', '/api/jobs/' + due.id + '/result', S, { rows, remarks: 'ok', geo: GEO });
+  ok(res.j.job.geo && res.j.job.geo.lng === 73.7786 && res.j.job.doneBy === 'u_suresh' && /^20\d\d-/.test(res.j.job.doneAt), 'result stores who, where and when (server time)');
   ok(res.s === 200 && res.j.job.results.rows[0].strength === 20 && res.j.job.results.avg === 20.44, 'strength = 450000/22500 = 20; average 20.44');
-  ok((await call('POST', '/api/jobs/' + due.id + '/result', S, { rows })).s === 409, 'cannot save a result twice');
+  ok((await call('POST', '/api/jobs/' + due.id + '/result', S, { rows, geo: GEO })).s === 409, 'cannot save a result twice');
   // finish: use the other seeded due-today job to test status flip
   const j144 = 'j144_7';
-  const r144 = await call('POST', '/api/jobs/' + j144 + '/result', S, { rows: [{ l: 150, b: 150, h: 150, load: 500 }, { l: 150, b: 150, h: 150, load: 505 }, { l: 150, b: 150, h: 150, load: 510 }] });
+  const r144 = await call('POST', '/api/jobs/' + j144 + '/result', S, { rows: [{ l: 150, b: 150, h: 150, load: 500 }, { l: 150, b: 150, h: 150, load: 505 }, { l: 150, b: 150, h: 150, load: 510 }], geo: GEO });
   ok(r144.s === 200 && r144.j.sample.reportStatus === 'testing', 'sample stays in testing while the 28-day job is pending');
 
   // approve & send
   ok((await call('POST', '/api/samples/s141/approve', R)).s === 403, 'store cannot approve');
-  ok((await call('POST', '/api/samples/s141/approve', M)).j.sample.reportStatus === 'approved', 'accounts approves s141');
+  const ap = await call('POST', '/api/samples/s141/approve', M, { geo: GEO });
+  ok(ap.j.sample.reportStatus === 'approved' && ap.j.sample.approveGeo.lat === 18.5601, 'approval records location when given');
   ok((await call('POST', '/api/samples/s140/send', M)).s === 409, 'send blocked for unpaid Advance client');
   const i140 = ba.data.invoices.find(i => i.sampleId === 's140');
   ok((await call('POST', '/api/invoices/' + i140.id + '/payments', M, { amount: i140.total + 1, date: T, mode: 'UPI' })).s === 400, 'overpayment blocked');

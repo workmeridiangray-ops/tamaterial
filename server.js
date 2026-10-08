@@ -307,8 +307,20 @@ function genericSave(u, coll, id, body) {
   return tx(() => put(coll, rec, u));
 }
 
+/* ---------------- location stamps ---------------- */
+/* The phone sends its GPS fix; the server adds its own clock, so the time cannot be edited on the device. */
+function geoOf(b, required) {
+  const g = b && b.geo;
+  if (!g || typeof g !== 'object') { if (required) bad('Location is required for this step. Turn on location and try again.', 400); return null; }
+  const lat = Number(g.lat), lng = Number(g.lng), acc = Number(g.acc);
+  if (!(Math.abs(lat) <= 90) || !(Math.abs(lng) <= 180) || (lat === 0 && lng === 0) || isNaN(lat) || isNaN(lng)) { if (required) bad('Location could not be read. Turn on location and try again.', 400); return null; }
+  return { lat: +lat.toFixed(6), lng: +lng.toFixed(6), acc: isNaN(acc) ? 0 : Math.min(99999, Math.round(acc)), at: new Date().toISOString() };
+}
+const geoTxt = g => g ? ' · at ' + g.lat + ',' + g.lng + (g.acc ? ' (±' + g.acc + ' m)' : '') : '';
+
 /* ---------------- domain actions ---------------- */
 function createSample(u, b) {
+  const geo = geoOf(b, true);
   const settings = get('settings', 'main'), tests = all('tests'), clients = all('clients');
   const test = tests.find(t => t.id === b.testId); if (!test) bad('Choose a type of test');
   const client = clients.find(c => c.id === b.clientId); if (!client) bad('Choose a client');
@@ -345,13 +357,13 @@ function createSample(u, b) {
   return tx(() => {
     const n = ctr('uid'), invNo = ctr('inv'); ctrSet('uid', n + 1); ctrSet('inv', invNo + 1);
     const yy = b.receipt.slice(2, 4);
-    const s = { id: 's' + n, uid: 'UID-' + yy + '-' + L.pad(n, 6), ulr: test.nabl ? settings.cert + '-' + yy + '-' + L.pad(n, 6) + '-F' : '', receipt: b.receipt, clientId: client.id, projectId: proj.id, sampledBy: b.sampledBy, billing: b.billing, testId: test.id, mark, d, photo, cond: b.cond, reason, rep: { name: repName, mobile: String(rep.mobile), sig }, assignee: asg.id, createdBy: u.id, reportStatus: 'testing' };
+    const s = { id: 's' + n, uid: 'UID-' + yy + '-' + L.pad(n, 6), ulr: test.nabl ? settings.cert + '-' + yy + '-' + L.pad(n, 6) + '-F' : '', receipt: b.receipt, clientId: client.id, projectId: proj.id, sampledBy: b.sampledBy, billing: b.billing, testId: test.id, mark, d, photo, cond: b.cond, reason, rep: { name: repName, mobile: String(rep.mobile), sig }, assignee: asg.id, createdBy: u.id, reportStatus: 'testing', geo };
     const jobs = test.kind === 'cube'
       ? d.ages.map(a => ({ id: 'j' + n + '_' + a, sampleId: s.id, age: a, due: L.addDays(d.casting, a), assignee: asg.id, status: 'pending', results: null, remarks: '' }))
       : [{ id: 'j' + n, sampleId: s.id, age: null, due: d.due, assignee: asg.id, status: 'pending', results: null, remarks: '' }];
     const inv = L.buildInvoice({ settings, tests, clients }, s, invNo);
     s.invoiceId = inv.id; s.billNo = inv.no;
-    put('samples', s, u, 'create', 'Sample ' + s.uid + ' received for ' + client.name);
+    put('samples', s, u, 'create', 'Sample ' + s.uid + ' received for ' + client.name + geoTxt(geo));
     jobs.forEach(j => put('jobs', j, u, 'create', jobLabel(test, j) + ' due ' + j.due));
     put('invoices', inv, u, 'create', inv.no + ' · total ' + inv.total);
     return { sample: s, jobs, invoice: MONEY_ROLES.includes(u.role) ? inv : null, billNo: inv.no };
@@ -360,6 +372,7 @@ function createSample(u, b) {
 const jobLabel = (t, j) => (t.kind === 'cube' ? j.age + '-day cube test' : t.name);
 
 function saveResult(u, jobId, b) {
+  const geo = geoOf(b, true);
   const job = get('jobs', jobId); if (!job) bad('Job not found', 404);
   if (u.role !== 'admin' && !(u.role === 'tester' && job.assignee === u.id)) bad('This test is not assigned to you', 403);
   if (job.status === 'done') bad('This result is already saved', 409);
@@ -382,26 +395,28 @@ function saveResult(u, jobId, b) {
     results = { value: v };
   }
   return tx(() => {
-    job.results = results; job.remarks = str(b.remarks, 500); job.status = 'done'; job.doneOn = L.today();
-    put('jobs', job, u, 'result', s.uid + ' · ' + jobLabel(t, job) + (results.avg != null ? ' · avg ' + results.avg + ' N/mm²' : ' · ' + results.value));
+    job.results = results; job.remarks = str(b.remarks, 500); job.status = 'done'; job.doneOn = L.today(); job.geo = geo; job.doneAt = geo.at; job.doneBy = u.id;
+    put('jobs', job, u, 'result', s.uid + ' · ' + jobLabel(t, job) + (results.avg != null ? ' · avg ' + results.avg + ' N/mm²' : ' · ' + results.value) + geoTxt(geo));
     if (all('jobs').filter(j => j.sampleId === s.id).every(j => j.status === 'done')) { s.reportStatus = 'awaiting'; put('samples', s, u, 'status', s.uid + ' moved to Awaiting approval'); }
     const asg = assignedSet(u);
     return { job, sample: shape(u, 'samples', s, asg) };
   });
 }
-function approveReport(u, id) {
+function approveReport(u, id, b) {
+  const geo = geoOf(b, false);
   const s = get('samples', id); if (!s) bad('Sample not found', 404);
   if (s.reportStatus !== 'awaiting') bad('Only a report that is awaiting approval can be approved', 409);
-  s.reportStatus = 'approved'; s.approvedBy = u.name; s.approvedOn = L.today();
-  return tx(() => put('samples', s, u, 'approve', s.uid + ' report approved'));
+  s.reportStatus = 'approved'; s.approvedBy = u.name; s.approvedOn = L.today(); s.approveGeo = geo;
+  return tx(() => put('samples', s, u, 'approve', s.uid + ' report approved' + geoTxt(geo)));
 }
-function sendReport(u, id) {
+function sendReport(u, id, b) {
+  const geo = geoOf(b, false);
   const s = get('samples', id); if (!s) bad('Sample not found', 404);
   if (s.reportStatus !== 'approved') bad('Approve the report before sending it', 409);
   const inv = get('invoices', s.invoiceId);
   if (s.billing === 'Advance' && inv && balanceOf(inv) > 0.004) bad('Blocked: this is an Advance client and bill ' + inv.no + ' is unpaid', 409);
-  s.reportStatus = 'sent'; s.sentOn = L.today();
-  return tx(() => put('samples', s, u, 'send', s.uid + ' marked as sent'));
+  s.reportStatus = 'sent'; s.sentOn = L.today(); s.sendGeo = geo;
+  return tx(() => put('samples', s, u, 'send', s.uid + ' marked as sent' + geoTxt(geo)));
 }
 const paidOf = inv => L.r2(all('payments').filter(p => p.invoiceId === inv.id).reduce((a, p) => a + (+p.amount), 0));
 const balanceOf = inv => L.r2(inv.total - paidOf(inv));
@@ -413,8 +428,9 @@ function recordPayment(u, invId, b) {
   if (amount > bal + 0.004) bad('Amount is more than the balance of ₹' + bal);
   if (!L.isDate(b.date) || b.date > L.today()) bad('Choose a valid payment date (not in the future)');
   if (!['Cash', 'UPI', 'Bank transfer', 'Cheque'].includes(b.mode)) bad('Choose a payment mode');
-  const p = { id: 'pay' + rid(), invoiceId: inv.id, amount, date: b.date, mode: b.mode, ref: str(b.ref, 60) };
-  return tx(() => { put('payments', p, u, 'payment', inv.no + ' · ₹' + amount + ' via ' + p.mode); return { payment: p }; });
+  const geo = geoOf(b, false);
+  const p = { id: 'pay' + rid(), invoiceId: inv.id, amount, date: b.date, mode: b.mode, ref: str(b.ref, 60), geo, at: new Date().toISOString() };
+  return tx(() => { put('payments', p, u, 'payment', inv.no + ' · ₹' + amount + ' via ' + p.mode + geoTxt(geo)); return { payment: p }; });
 }
 function adminUsers(u, method, id, b) {
   if (method === 'POST') {
@@ -565,8 +581,8 @@ route('GET', /^\/api\/bootstrap$/, '*', c => Object.assign({ user: pubUser(c.u, 
 route('GET', /^\/api\/changes$/, '*', c => changes(c.u, parseInt(c.url.searchParams.get('since'), 10) || 0));
 route('POST', /^\/api\/samples$/, ['admin', 'store'], c => createSample(c.u, c.body));
 route('POST', /^\/api\/jobs\/([\w-]+)\/result$/, ['admin', 'tester'], c => saveResult(c.u, c.m[1], c.body));
-route('POST', /^\/api\/samples\/([\w-]+)\/approve$/, ['admin', 'accounts'], c => ({ sample: approveReport(c.u, c.m[1]) }));
-route('POST', /^\/api\/samples\/([\w-]+)\/send$/, ['admin', 'accounts'], c => ({ sample: sendReport(c.u, c.m[1]) }));
+route('POST', /^\/api\/samples\/([\w-]+)\/approve$/, ['admin', 'accounts'], c => ({ sample: approveReport(c.u, c.m[1], c.body) }));
+route('POST', /^\/api\/samples\/([\w-]+)\/send$/, ['admin', 'accounts'], c => ({ sample: sendReport(c.u, c.m[1], c.body) }));
 route('POST', /^\/api\/invoices\/([\w-]+)\/payments$/, ['admin', 'accounts'], c => recordPayment(c.u, c.m[1], c.body));
 route('POST', /^\/api\/users$/, ['admin'], c => adminUsers(c.u, 'POST', null, c.body));
 route('PUT', /^\/api\/users\/([\w-]+)$/, ['admin'], c => adminUsers(c.u, 'PUT', c.m[1], c.body));

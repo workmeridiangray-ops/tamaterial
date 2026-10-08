@@ -1000,27 +1000,49 @@ function wizView(){
  '<div class="wzin"><div class="sm mut" style="font-weight:600">Page '+step+' of 3</div><div class="bar"><i style="width:'+(step/3*100)+'%"></i></div><div style="height:12px"></div>'+body+'</div>'+
  '<div class="sbar"><div><button class="btn" data-act="wzback">'+ic('back',18)+' '+(step===1?'Cancel':'Back')+'</button><button class="btn pri'+(S.busy?' off':'')+'" data-act="wznext">'+(step===3?(S.busy?'Saving…':'Save sample'):'Next ')+(step<3?ic('next',18):'')+'</button></div></div></div>';
 }
+/* location stamps: where and when each step was done */
+function getLoc(){
+ return new Promise((resolve,reject)=>{
+  if(!navigator.geolocation)return reject(new Error('This device cannot give its location'));
+  navigator.geolocation.getCurrentPosition(p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy}),
+   e=>reject(new Error(e&&e.code===1?'Location is blocked. Allow location for this app in your phone settings, then try again.':'Could not get your location. Go near a window or open area, check that GPS is on, and try again.')),
+   {enableHighAccuracy:true,timeout:15000,maximumAge:20000});
+ });
+}
+const tryLoc=async()=>{try{return await getLoc()}catch(e){return null}};
+const stampGeo=g=>g?Object.assign({},g,{at:new Date().toISOString()}):null;
+function geoLine(label,g,who){
+ if(!g)return '';const t=new Date(g.at);
+ return '<div class="s" style="margin:4px 0">'+esc(label)+': <a href="https://www.google.com/maps?q='+g.lat+','+g.lng+'" target="_blank" rel="noopener">'+g.lat+', '+g.lng+'</a>'+(g.acc?' (±'+g.acc+' m)':'')+' · '+pad(t.getDate(),2)+' '+MON[t.getMonth()]+' '+pad(t.getHours(),2)+':'+pad(t.getMinutes(),2)+(who?' · '+esc(who):'')+'</div>';
+}
+function trailHtml(s){
+ const nm=id=>{const u=D().users.find(x=>x.id===id);return u?u.name:''};
+ const jobs=D().jobs.filter(j=>j.sampleId===s.id&&j.geo);
+ const rows=geoLine('Received',s.geo,nm(s.createdBy))+jobs.map(j=>geoLine((j.age?j.age+'-day test':'Test')+' done',j.geo,nm(j.doneBy))).join('')+geoLine('Approved',s.approveGeo,s.approvedBy)+geoLine('Sent',s.sendGeo);
+ return rows?'<div class="card flat" style="margin-bottom:12px"><h3 style="margin-bottom:6px">Where and when</h3>'+rows+'</div>':'';
+}
 async function saveSample(){
- if(!S.online){saveSampleLocal();return}
  if(S.busy)return;
+ if(!S.online){S.busy=true;S.wiz.err={};render();let g0;try{g0=await getLoc()}catch(e){S.busy=false;S.wiz.err={form:e.message};render();window.scrollTo(0,document.body.scrollHeight);return}S.busy=false;saveSampleLocal(stampGeo(g0));return}
  const w=S.wiz,f=w.f,t=ts(f.testId);let d;
  if(t.kind==='cube'){const sizes=f.sizes.map(s=>({l:num(s.l),b:num(s.b),h:num(s.h),n:+s.n}));d={grade:f.grade,source:f.source,supplier:f.source==='RMC'?f.supplier.trim():'',casting:f.casting,ages:f.ages.slice().sort((a,b)=>a-b),sizes:sizes}}
  else d={desc:f.desc.trim(),qty:num(f.qty),due:f.due};
  const payload={receipt:f.receipt,clientId:f.clientId,projectId:f.projectId,sampledBy:f.sampledBy,billing:f.billing,testId:f.testId,mark:f.mark.trim(),cond:f.cond,reason:f.cond==='Acceptable'?'':f.reason.trim(),photo:f.photo,assignee:f.assignee,rep:{name:f.repName.trim(),mobile:f.repMobile,sig:f.sig},d:d};
  S.busy=true;w.err={};render();
  try{
+  payload.geo=await getLoc();
   const r=await api('POST','/api/samples',payload);
   upsertLocal('samples',r.sample);r.jobs.forEach(j=>upsertLocal('jobs',j));if(r.invoice)upsertLocal('invoices',r.invoice);
   S.db.counters.uid=(parseInt(r.sample.uid.slice(-6),10)||0)+1;
   S.wiz=null;S.busy=false;go('create',{mode:'done',doneId:r.sample.id});
  }catch(e){S.busy=false;if(S.wiz)S.wiz.err={form:e.message};render();window.scrollTo(0,document.body.scrollHeight)}
 }
-function saveSampleLocal(){
+function saveSampleLocal(geo){
  const w=S.wiz,f=w.f,db=D(),t=ts(f.testId),c=cl(f.clientId);
  const n=db.counters.uid++,d={};
  if(t.kind==='cube'){const sizes=f.sizes.map(s=>({l:num(s.l),b:num(s.b),h:num(s.h),n:+s.n}));d.grade=f.grade;d.source=f.source;d.supplier=f.source==='RMC'?f.supplier.trim():'';d.casting=f.casting;d.ages=f.ages.slice().sort((a,b)=>a-b);d.sizes=sizes;d.total=sizes.reduce((a,s)=>a+s.n,0)}
  else{d.desc=f.desc.trim();d.qty=num(f.qty);d.due=f.due}
- const s={id:'s'+n,uid:'UID-'+yy()+'-'+pad(n,6),ulr:t.nabl?db.settings.cert+'-'+yy()+'-'+pad(n,6)+'-F':'',receipt:f.receipt,clientId:c.id,projectId:f.projectId,sampledBy:f.sampledBy,billing:f.billing,testId:t.id,mark:f.mark.trim(),d:d,photo:f.photo,cond:f.cond,reason:f.cond==='Acceptable'?'':f.reason.trim(),rep:{name:f.repName.trim(),mobile:f.repMobile,sig:f.sig},assignee:f.assignee,createdBy:S.user.id,reportStatus:'testing'};
+ const s={id:'s'+n,uid:'UID-'+yy()+'-'+pad(n,6),ulr:t.nabl?db.settings.cert+'-'+yy()+'-'+pad(n,6)+'-F':'',receipt:f.receipt,clientId:c.id,projectId:f.projectId,sampledBy:f.sampledBy,billing:f.billing,testId:t.id,mark:f.mark.trim(),d:d,photo:f.photo,cond:f.cond,reason:f.cond==='Acceptable'?'':f.reason.trim(),rep:{name:f.repName.trim(),mobile:f.repMobile,sig:f.sig},assignee:f.assignee,createdBy:S.user.id,reportStatus:'testing',geo:geo};
  db.samples.push(s);
  if(t.kind==='cube')d.ages.forEach(a=>db.jobs.push({id:'j'+n+'_'+a,sampleId:s.id,age:a,due:addDays(d.casting,a),assignee:s.assignee,status:'pending',results:null,remarks:''}));
  else db.jobs.push({id:'j'+n,sampleId:s.id,age:null,due:d.due,assignee:s.assignee,status:'pending',results:null,remarks:''});
@@ -1088,6 +1110,9 @@ async function saveJob(){
   results={value:String(en.value).trim()};payload={value:results.value,remarks:(en.remarks||'').trim()};
  }
  let msg='Result saved';
+ S.busy=true;render();
+ let geo;try{geo=await getLoc()}catch(e){S.busy=false;toast(e.message,1);render();return}
+ S.busy=false;payload.geo=geo;
  if(S.online){
   S.busy=true;render();
   try{
@@ -1097,7 +1122,7 @@ async function saveJob(){
   }catch(e){S.busy=false;toast(e.message,1);render();return}
   S.busy=false;
  }else{
-  j.results=results;j.remarks=payload.remarks;j.status='done';j.doneOn=today();
+  j.results=results;j.remarks=payload.remarks;j.status='done';j.doneOn=today();j.geo=stampGeo(geo);j.doneBy=S.user.id;
   if(jobsOf(s.id).every(x=>x.status==='done')){s.reportStatus='awaiting';msg='Result saved — report is awaiting approval'}
   persistNow();
  }
@@ -1166,7 +1191,7 @@ function approveDetail(m){
  if(s.reportStatus==='awaiting')act='<button class="btn pri blk" data-act="approve" data-id="'+s.id+'">'+ic('check',20)+' Approve report</button>';
  if(s.reportStatus==='approved')act=(blk?'<div class="note bad"><b>Sending is blocked.</b> This is an Advance client and bill <span class="mono">'+esc(i.no)+'</span> has '+inr(balOf(i))+' unpaid. <button class="lnk" '+goA('bills',{invId:i.id})+'>Open the bill</button></div>':'')+'<button class="btn pri blk'+(blk?' off':'')+'" data-act="sendrep" data-id="'+s.id+'" '+(blk?'disabled':'')+'>'+ic('send',20)+' Send to client</button>';
  if(s.reportStatus==='sent')act='<div class="note ok">Marked as sent on '+fd(s.sentOn)+'.</div>';
- return pgHead('Report','aprback','<span class="mono">'+esc(s.uid)+'</span> · '+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus)))+reportHtml(s)+
+ return pgHead('Report','aprback','<span class="mono">'+esc(s.uid)+'</span> · '+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus)))+trailHtml(s)+reportHtml(s)+
  '<div style="height:14px"></div>'+act+'<button class="btn blk" style="margin-top:10px" data-act="copyrep" data-id="'+s.id+'">'+ic('copy',20)+' Copy summary</button>';
 }
 
@@ -1200,7 +1225,8 @@ async function recordPay(){
  if(!(a>0))e.amount='Enter an amount greater than 0';else if(r2(a)>bal)e.amount='Amount is more than the balance of '+inr(bal);
  if(!pf.date)e.date='Choose the payment date';
  if(Object.keys(e).length){pf.err=e;render();return}
- const body={amount:r2(a),date:pf.date,mode:pf.mode,ref:(pf.ref||'').trim()};
+ S.busy=true;const geo=await tryLoc();S.busy=false;
+ const body={amount:r2(a),date:pf.date,mode:pf.mode,ref:(pf.ref||'').trim(),geo:geo};
  if(S.online){
   S.busy=true;render();
   try{const r=await api('POST','/api/invoices/'+i.id+'/payments',body);upsertLocal('payments',r.payment)}
@@ -1341,15 +1367,17 @@ const ACT={
  aprback(){M('approve').sampleId=null;render();window.scrollTo(0,0)},
  async approve(t){
   if(S.busy)return;
-  if(S.online){S.busy=true;try{const r=await api('POST','/api/samples/'+t.dataset.id+'/approve');upsertLocal('samples',r.sample)}catch(er){S.busy=false;toast(er.message,1);return}S.busy=false}
-  else{const s=sm(t.dataset.id);s.reportStatus='approved';s.approvedBy=S.user.name;s.approvedOn=today();persistNow()}
+  S.busy=true;const geo=await tryLoc();S.busy=false;
+  if(S.online){S.busy=true;try{const r=await api('POST','/api/samples/'+t.dataset.id+'/approve',{geo:geo});upsertLocal('samples',r.sample)}catch(er){S.busy=false;toast(er.message,1);return}S.busy=false}
+  else{const s=sm(t.dataset.id);s.reportStatus='approved';s.approvedBy=S.user.name;s.approvedOn=today();s.approveGeo=stampGeo(geo);persistNow()}
   const m=M('approve');m.sampleId=null;m.tab='approved';toast('Report approved — ready to send');render();window.scrollTo(0,0)},
  async sendrep(t){
   if(S.busy)return;
   const s=sm(t.dataset.id),i=invOf(s);
   if(s.billing==='Advance'&&i&&balOf(i)>0){toast('Blocked: the advance bill is unpaid',1);return}
-  if(S.online){S.busy=true;try{const r=await api('POST','/api/samples/'+s.id+'/send');upsertLocal('samples',r.sample)}catch(er){S.busy=false;toast(er.message,1);return}S.busy=false}
-  else{s.reportStatus='sent';s.sentOn=today();persistNow()}
+  S.busy=true;const geo=await tryLoc();S.busy=false;
+  if(S.online){S.busy=true;try{const r=await api('POST','/api/samples/'+s.id+'/send',{geo:geo});upsertLocal('samples',r.sample)}catch(er){S.busy=false;toast(er.message,1);return}S.busy=false}
+  else{s.reportStatus='sent';s.sentOn=today();s.sendGeo=stampGeo(geo);persistNow()}
   const m=M('approve');m.sampleId=null;m.tab='sent';toast('Marked as sent (no email is sent in this demo)');render();window.scrollTo(0,0)},
  copyrep(t){const txt=reportText(sm(t.dataset.id));
   const ok=()=>toast('Summary copied');
