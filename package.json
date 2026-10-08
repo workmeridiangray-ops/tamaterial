@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/api.test.js"
+    "test": "node test/api.test.js && node test/tenancy.test.js"
   },
   "engines": {
     "node": ">=22.5.0"

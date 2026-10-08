@@ -23,3 +23,11 @@ Demo logins (DEMO_MODE on): admin/1111, rahul/2222 (Store), suresh/3333 and imra
 
 ## Deploy
 Any host that runs Node 22 with a persistent disk: `docker build -t lab . && docker run -p 3000:3000 -v labdata:/data lab`. Put it behind HTTPS.
+
+## Multi-lab (SaaS) and Google sign-in
+- Every lab is a separate workspace; data, users, counters, audit log and settings never mix. The `demo` lab is the shared sandbox (only when `DEMO_MODE` is on).
+- Set `GOOGLE_CLIENT_ID` (Google Cloud → OAuth client, type Web, add your site as an authorised JavaScript origin). With it set, the login page shows "Continue with Google".
+  - An unknown Google account is offered **Create your lab** and becomes that lab's admin.
+  - Admins add team members by Google email (Admin → Users). Floor staff can still use lab code + login + PIN.
+- Optional `APP_SECRET` keeps the short sign-up token valid across restarts.
+- Not built yet: plans and payments, a platform owner console, per-lab custom domain.

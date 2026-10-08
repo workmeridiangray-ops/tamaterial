@@ -20,6 +20,8 @@ const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'lab.db');
 const DEMO = process.env.DEMO_MODE !== '0';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const SESSION_DAYS = 7;
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+const APP_SECRET = process.env.APP_SECRET || crypto.randomBytes(32).toString('hex');
 const BODY_LIMIT = 8 * 1024 * 1024;
 
 const DATABASE_URL = process.env.DATABASE_URL || '';
@@ -27,11 +29,11 @@ if (!DATABASE_URL) fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 const db = new DatabaseSync(DATABASE_URL ? ':memory:' : DB_PATH);
 db.exec(`
 PRAGMA journal_mode=WAL;
-CREATE TABLE IF NOT EXISTS records(coll TEXT NOT NULL,id TEXT NOT NULL,data TEXT NOT NULL,rev INTEGER NOT NULL,deleted INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(coll,id));
+CREATE TABLE IF NOT EXISTS records(org TEXT NOT NULL DEFAULT 'demo',coll TEXT NOT NULL,id TEXT NOT NULL,data TEXT NOT NULL,rev INTEGER NOT NULL,deleted INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(org,coll,id));
 CREATE INDEX IF NOT EXISTS records_rev ON records(rev);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY,v TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY AUTOINCREMENT,ts TEXT NOT NULL,user_id TEXT,user_name TEXT,action TEXT NOT NULL,coll TEXT,rec_id TEXT,summary TEXT);
-CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY AUTOINCREMENT,org TEXT NOT NULL DEFAULT 'demo',ts TEXT NOT NULL,user_id TEXT,user_name TEXT,action TEXT NOT NULL,coll TEXT,rec_id TEXT,summary TEXT);
+CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY,org TEXT NOT NULL DEFAULT 'demo',user_id TEXT NOT NULL,expires INTEGER NOT NULL);
 `);
 
 /* ---------------- storage helpers ---------------- */
@@ -39,16 +41,20 @@ const stmts = {};
 const st = sql => stmts[sql] || (stmts[sql] = db.prepare(sql));
 const metaGet = k => { const r = st('SELECT v FROM meta WHERE k=?').get(k); return r ? r.v : null; };
 const metaSet = (k, v) => st('INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').run(k, String(v));
+let ORG = 'demo';                       /* the lab (tenant) the current request belongs to */
+const withOrg = (o, fn) => { const prev = ORG; ORG = o; try { return fn(); } finally { ORG = prev; } };
+const ctr = n => +metaGet(n + ':' + ORG) || 0;
+const ctrSet = (n, v) => metaSet(n + ':' + ORG, v);
 const nextRev = () => { const r = (+metaGet('rev') || 0) + 1; metaSet('rev', r); return r; };
-const get = (coll, id) => { const r = st('SELECT data FROM records WHERE coll=? AND id=? AND deleted=0').get(coll, id); return r ? JSON.parse(r.data) : null; };
-const all = coll => st('SELECT data FROM records WHERE coll=? AND deleted=0').all(coll).map(r => JSON.parse(r.data));
+const get = (coll, id) => { const r = st('SELECT data FROM records WHERE org=? AND coll=? AND id=? AND deleted=0').get(ORG, coll, id); return r ? JSON.parse(r.data) : null; };
+const all = coll => st('SELECT data FROM records WHERE org=? AND coll=? AND deleted=0').all(ORG, coll).map(r => JSON.parse(r.data));
 function tx(fn) {
   db.exec('BEGIN IMMEDIATE');
   try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { try { db.exec('ROLLBACK'); } catch (x) { /* ignore */ } throw e; }
 }
 function audit(actor, action, coll, recId, summary) {
-  st('INSERT INTO audit(ts,user_id,user_name,action,coll,rec_id,summary) VALUES(?,?,?,?,?,?,?)')
-    .run(new Date().toISOString(), actor ? actor.id : null, actor ? actor.name : 'system', action, coll || null, recId || null, String(summary || '').slice(0, 400));
+  st('INSERT INTO audit(org,ts,user_id,user_name,action,coll,rec_id,summary) VALUES(?,?,?,?,?,?,?,?)')
+    .run(ORG, new Date().toISOString(), actor ? actor.id : null, actor ? actor.name : 'system', action, coll || null, recId || null, String(summary || '').slice(0, 400));
 }
 const SKIP_DIFF = { photo: 1, sig: 1, rep: 1, hash: 1, salt: 1 };
 function diffSummary(old, obj) {
@@ -66,14 +72,14 @@ function diffSummary(old, obj) {
 }
 function put(coll, obj, actor, action, summary) {
   const old = get(coll, obj.id), rev = nextRev();
-  st('INSERT INTO records(coll,id,data,rev,deleted) VALUES(?,?,?,?,0) ON CONFLICT(coll,id) DO UPDATE SET data=excluded.data,rev=excluded.rev,deleted=0')
-    .run(coll, obj.id, JSON.stringify(obj), rev);
+  st('INSERT INTO records(org,coll,id,data,rev,deleted) VALUES(?,?,?,?,?,0) ON CONFLICT(org,coll,id) DO UPDATE SET data=excluded.data,rev=excluded.rev,deleted=0')
+    .run(ORG, coll, obj.id, JSON.stringify(obj), rev);
   audit(actor, action || (old ? 'update' : 'create'), coll, obj.id, summary || diffSummary(old, obj));
   return obj;
 }
 function del(coll, id, actor) {
   const old = get(coll, id); if (!old) return false;
-  st('UPDATE records SET deleted=1,rev=? WHERE coll=? AND id=?').run(nextRev(), coll, id);
+  st('UPDATE records SET deleted=1,rev=? WHERE org=? AND coll=? AND id=?').run(nextRev(), ORG, coll, id);
   audit(actor, 'delete', coll, id, old.name || old.title || old.summary || '');
   return true;
 }
@@ -97,23 +103,27 @@ const ROLES = ['admin', 'store', 'tester', 'accounts'];
 const hashPin = (pin, salt) => crypto.scryptSync(String(pin), salt, 32).toString('hex');
 function newCred(pin) { const salt = crypto.randomBytes(16).toString('hex'); return { salt, hash: hashPin(pin, salt) }; }
 function pinOk(u, pin) {
+  if (!u.salt || !u.hash) return false;            /* Google-only user: no PIN set */
   try { return crypto.timingSafeEqual(Buffer.from(hashPin(pin, u.salt), 'hex'), Buffer.from(u.hash, 'hex')); } catch (e) { return false; }
 }
-const pubUser = (u, full) => full ? { id: u.id, login: u.login, name: u.name, role: u.role, active: u.active } : { id: u.id, name: u.name, role: u.role, active: u.active };
+const pubUser = (u, full) => full ? { id: u.id, login: u.login, email: u.email || '', name: u.name, role: u.role, active: u.active } : { id: u.id, name: u.name, role: u.role, active: u.active };
 const sha = t => crypto.createHash('sha256').update(t).digest('hex');
 function newSession(userId) {
   const token = crypto.randomBytes(32).toString('hex');
-  st('INSERT INTO sessions(token_hash,user_id,expires) VALUES(?,?,?)').run(sha(token), userId, Date.now() + SESSION_DAYS * 864e5);
+  st('INSERT INTO sessions(token_hash,org,user_id,expires) VALUES(?,?,?,?)').run(sha(token), ORG, userId, Date.now() + SESSION_DAYS * 864e5);
   return token;
 }
 function authUser(req) {
   const h = req.headers.authorization || '';
   const m = /^Bearer ([a-f0-9]{64})$/.exec(h);
   if (!m) return null;
-  const s = st('SELECT user_id,expires FROM sessions WHERE token_hash=?').get(sha(m[1]));
+  const s = st('SELECT org,user_id,expires FROM sessions WHERE token_hash=?').get(sha(m[1]));
   if (!s || s.expires < Date.now()) return null;
+  ORG = s.org;
   const u = get('users', s.user_id);
-  return u && u.active ? u : null;
+  if (!u || !u.active) return null;
+  u.org = s.org;
+  return u;
 }
 const attempts = new Map();
 function throttle(key) {
@@ -128,15 +138,33 @@ function failed(key) {
 
 /* ---------------- seed ---------------- */
 const COLLS = ['users', 'tests', 'clients', 'projects', 'samples', 'jobs', 'invoices', 'payments', 'leads', 'interactions', 'tasks'];
-function seedDb() {
+function seedDb() {                       /* the demo lab: ORG must be 'demo' */
   const seed = buildSeed(), rev = nextRev();
-  const ins = st('INSERT INTO records(coll,id,data,rev,deleted) VALUES(?,?,?,?,0) ON CONFLICT(coll,id) DO UPDATE SET data=excluded.data,rev=excluded.rev,deleted=0');
+  const ins = st('INSERT INTO records(org,coll,id,data,rev,deleted) VALUES(?,?,?,?,?,0) ON CONFLICT(org,coll,id) DO UPDATE SET data=excluded.data,rev=excluded.rev,deleted=0');
   seed.records.users = seed.records.users.map(u => { const c = newCred(u.pin); return { id: u.id, login: u.login, name: u.name, role: u.role, active: u.active, salt: c.salt, hash: c.hash }; });
-  COLLS.forEach(c => (seed.records[c] || []).forEach(r => ins.run(c, r.id, JSON.stringify(r), rev)));
-  ins.run('settings', 'main', JSON.stringify(Object.assign({ id: 'main' }, seed.settings)), rev);
-  metaSet('uid', seed.counters.uid); metaSet('inv', seed.counters.inv); metaSet('seeded', '1');
+  COLLS.forEach(c => (seed.records[c] || []).forEach(r => ins.run(ORG, c, r.id, JSON.stringify(r), rev)));
+  ins.run(ORG, 'settings', 'main', JSON.stringify(Object.assign({ id: 'main' }, seed.settings)), rev);
+  ctrSet('uid', seed.counters.uid); ctrSet('inv', seed.counters.inv); metaSet('seeded', '1');
 }
-const seedIfEmpty = () => { if (!metaGet('seeded')) tx(() => { seedDb(); audit(null, 'seed', null, null, 'Demo data loaded'); }); };
+/* a brand-new lab starts with the standard test catalogue, settings and no clients or samples */
+function seedBlank(admin) {
+  const seed = buildSeed(), rev = nextRev();
+  const ins = st('INSERT INTO records(org,coll,id,data,rev,deleted) VALUES(?,?,?,?,?,0) ON CONFLICT(org,coll,id) DO UPDATE SET data=excluded.data,rev=excluded.rev,deleted=0');
+  seed.records.tests.forEach(r => ins.run(ORG, 'tests', r.id, JSON.stringify(r), rev));
+  ins.run(ORG, 'settings', 'main', JSON.stringify(Object.assign({ id: 'main' }, seed.settings)), rev);
+  ins.run(ORG, 'users', admin.id, JSON.stringify(admin), rev);
+  ctrSet('uid', 1); ctrSet('inv', 1);
+}
+const sysOrgs = () => withOrg('_sys', () => all('orgs'));
+const findOrg = slug => sysOrgs().find(o => o.slug === slug) || null;
+function putOrg(o) { withOrg('_sys', () => put('orgs', o, null, 'create', 'Lab ' + o.name + ' created')); }
+function seedIfEmpty() {
+  tx(() => {
+    if (!metaGet('seeded')) withOrg('demo', () => { seedDb(); audit(null, 'seed', null, null, 'Demo data loaded'); });
+    else withOrg('demo', () => { if (!ctr('uid') && metaGet('uid')) { ctrSet('uid', metaGet('uid')); ctrSet('inv', metaGet('inv')); } });   /* upgrade from the single-lab version */
+    if (!findOrg('demo')) putOrg({ id: 'demo', slug: 'demo', name: 'Demo Lab', plan: 'demo', createdOn: L.today(), ownerEmail: '' });
+  });
+}
 let pg = null, ready = Promise.resolve();
 if (DATABASE_URL) {
   pg = require('./lib/pgsync')(DATABASE_URL, db);
@@ -176,18 +204,19 @@ function shapeSettings(u, s) {
   if (u.role === 'admin' || u.role === 'accounts') return { cert: s.cert, gst: s.gst, creditDays: s.creditDays };
   return { cert: s.cert };
 }
-function counters(u) { return (u.role === 'admin' || u.role === 'store') ? { uid: +metaGet('uid'), inv: +metaGet('inv') } : {}; }
+function counters(u) { return (u.role === 'admin' || u.role === 'store') ? { uid: ctr('uid'), inv: ctr('inv') } : {}; }
 function snapshot(u) {
   const asg = assignedSet(u), out = {};
   COLLS.forEach(c => { out[c] = all(c).map(r => shape(u, c, r, asg)).filter(Boolean); });
   out.settings = shapeSettings(u, get('settings', 'main'));
   out.counters = counters(u);
-  return { rev: +metaGet('rev'), data: out };
+  const o = findOrg(u.org) || {};
+  return { rev: +metaGet('rev'), data: out, org: { slug: o.slug, name: o.name, plan: o.plan, demo: o.slug === 'demo' } };
 }
 function changes(u, since) {
   const rev = +metaGet('rev');
   if (since > rev) return { reload: true, rev };
-  const rows = st('SELECT coll,id,data,deleted FROM records WHERE rev>? ORDER BY rev').all(since);
+  const rows = st('SELECT coll,id,data,deleted FROM records WHERE org=? AND rev>? ORDER BY rev').all(ORG, since);
   const asg = assignedSet(u), up = {}, dl = {};
   rows.forEach(r => {
     if (r.deleted) { (dl[r.coll] = dl[r.coll] || []).push(r.id); return; }
@@ -314,7 +343,7 @@ function createSample(u, b) {
     Object.assign(d, { desc: str(dd.desc, 300, { req: 'Describe the sample' }), qty, due: dd.due });
   }
   return tx(() => {
-    const n = +metaGet('uid'), invNo = +metaGet('inv'); metaSet('uid', n + 1); metaSet('inv', invNo + 1);
+    const n = ctr('uid'), invNo = ctr('inv'); ctrSet('uid', n + 1); ctrSet('inv', invNo + 1);
     const yy = b.receipt.slice(2, 4);
     const s = { id: 's' + n, uid: 'UID-' + yy + '-' + L.pad(n, 6), ulr: test.nabl ? settings.cert + '-' + yy + '-' + L.pad(n, 6) + '-F' : '', receipt: b.receipt, clientId: client.id, projectId: proj.id, sampledBy: b.sampledBy, billing: b.billing, testId: test.id, mark, d, photo, cond: b.cond, reason, rep: { name: repName, mobile: String(rep.mobile), sig }, assignee: asg.id, createdBy: u.id, reportStatus: 'testing' };
     const jobs = test.kind === 'cube'
@@ -389,34 +418,41 @@ function recordPayment(u, invId, b) {
 }
 function adminUsers(u, method, id, b) {
   if (method === 'POST') {
-    const login = str(b.login, 20, { req: 'Enter a login name' }).toLowerCase();
-    if (!/^[a-z0-9._-]{3,20}$/.test(login)) bad('Login name: 3–20 letters, digits, dot, dash or underscore');
-    if (all('users').some(x => x.login === login)) bad('This login name is taken');
-    if (!/^\d{4,8}$/.test(String(b.pin || ''))) bad('PIN must be 4 to 8 digits');
+    const email = str(b.email, 120).toLowerCase();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad('Enter a valid email address');
+    if (email && all('users').some(x => (x.email || '') === email)) bad('This email is already added');
+    let login = str(b.login, 20).toLowerCase(), c = { salt: '', hash: '' };
+    if (login || b.pin) {
+      if (!/^[a-z0-9._-]{3,20}$/.test(login)) bad('Login name: 3–20 letters, digits, dot, dash or underscore');
+      if (all('users').some(x => x.login === login)) bad('This login name is taken');
+      if (!/^\d{4,8}$/.test(String(b.pin || ''))) bad('PIN must be 4 to 8 digits');
+      c = newCred(b.pin);
+    } else if (!email) bad('Give a login name and PIN, or an email for Google sign-in');
     if (!ROLES.includes(b.role)) bad('Choose a role');
-    const c = newCred(b.pin);
-    const rec = { id: 'u_' + rid(), login, name: str(b.name, 60, { req: 'Enter the full name' }), role: b.role, active: true, salt: c.salt, hash: c.hash };
-    return tx(() => { put('users', rec, u, 'create', 'User ' + login + ' (' + rec.role + ') added'); return pubUser(rec, true); });
+    const rec = { id: 'u_' + rid(), login, email, name: str(b.name, 60, { req: 'Enter the full name' }), role: b.role, active: true, salt: c.salt, hash: c.hash };
+    return tx(() => { put('users', rec, u, 'create', 'User ' + (login || email) + ' (' + rec.role + ') added'); return pubUser(rec, true); });
   }
   const cur = get('users', id); if (!cur) bad('User not found', 404);
   const next = Object.assign({}, cur);
   if (b.name != null) next.name = str(b.name, 60, { req: 'Enter the full name' });
   if (b.role != null) { if (!ROLES.includes(b.role)) bad('Choose a role'); next.role = b.role; }
   if (b.active != null) next.active = !!b.active;
+  if (b.email != null) { const em = str(b.email, 120).toLowerCase(); if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) bad('Enter a valid email address'); if (em && all('users').some(x => x.id !== id && (x.email || '') === em)) bad('This email is already added'); next.email = em; }
   if (b.pin != null && b.pin !== '') { if (!/^\d{4,8}$/.test(String(b.pin))) bad('PIN must be 4 to 8 digits'); Object.assign(next, newCred(b.pin)); }
   if (id === u.id && (!next.active || next.role !== 'admin')) bad('You cannot disable or demote your own account');
   const others = all('users').filter(x => x.id !== id && x.active && x.role === 'admin').length;
   if (cur.role === 'admin' && (!next.active || next.role !== 'admin') && others === 0) bad('Keep at least one active admin');
   return tx(() => {
     put('users', next, u, 'update', (b.pin ? 'PIN reset; ' : '') + diffSummary(Object.assign({}, cur, { salt: 0, hash: 0 }), Object.assign({}, next, { salt: 0, hash: 0 })));
-    if (!next.active) st('DELETE FROM sessions WHERE user_id=?').run(id);
+    if (!next.active) st('DELETE FROM sessions WHERE org=? AND user_id=?').run(ORG, id);
     return pubUser(next, true);
   });
 }
 function resetDemo(u, b) {
+  if (ORG !== 'demo') bad('Only the demo lab can be reset', 403);
   if (b.confirm !== 'RESET') bad('Send {"confirm":"RESET"} to reset');
   return tx(() => {
-    st('UPDATE records SET deleted=1,rev=?').run(nextRev());
+    st('UPDATE records SET deleted=1,rev=? WHERE org=?').run(nextRev(), ORG);
     seedDb(); audit(u, 'reset', null, null, 'Demo data restored');
     return { ok: true };
   });
@@ -442,21 +478,89 @@ const route = (method, re, roles, fn) => routes.push({ method, re, roles, fn });
 const ok = (res, code, obj) => { const b = JSON.stringify(obj); res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(b); };
 
 route('GET', /^\/api\/health$/, null, c => {
-  const out = { ok: true, demo: DEMO };
-  if (DEMO) out.demoAccounts = all('users').filter(x => x.active && DEMO_PINS[x.login] && pinOk(x, DEMO_PINS[x.login])).map(x => ({ login: x.login, pin: DEMO_PINS[x.login], role: x.role }));
+  const out = { ok: true, demo: DEMO, googleClientId: GOOGLE_CLIENT_ID };
+  if (DEMO) out.demoAccounts = withOrg('demo', () => all('users')).filter(x => x.active && DEMO_PINS[x.login] && pinOk(x, DEMO_PINS[x.login])).map(x => ({ login: x.login, pin: DEMO_PINS[x.login], role: x.role }));
   return out;
 });
 route('POST', /^\/api\/login$/, null, c => {
-  const login = String(c.body.login || '').trim().toLowerCase(), key = c.ip + '|' + login;
+  const lab = String(c.body.lab || 'demo').trim().toLowerCase(), login = String(c.body.login || '').trim().toLowerCase(), key = c.ip + '|' + lab + '|' + login;
   throttle(key);
-  const u = all('users').find(x => x.login === login);
-  if (!u || !pinOk(u, c.body.pin)) { failed(key); bad('Wrong login name or PIN', 401); }
-  if (!u.active) bad('This account is disabled. Ask the admin.', 403);
-  attempts.delete(key);
-  audit(u, 'login', 'users', u.id, '');
-  return { token: newSession(u.id), user: pubUser(u, true) };
+  const org = findOrg(lab);
+  if (!org || (lab === 'demo' && !DEMO)) { failed(key); bad('Wrong lab code, login name or PIN', 401); }
+  return withOrg(org.slug, () => {
+    const u = login ? all('users').find(x => x.login === login) : null;
+    if (!u || !pinOk(u, c.body.pin)) { failed(key); bad('Wrong lab code, login name or PIN', 401); }
+    if (!u.active) bad('This account is disabled. Ask the admin.', 403);
+    attempts.delete(key);
+    audit(u, 'login', 'users', u.id, '');
+    return { token: newSession(u.id), user: pubUser(u, true) };
+  });
 });
 route('POST', /^\/api\/logout$/, '*', c => { const m = /^Bearer ([a-f0-9]{64})$/.exec(c.req.headers.authorization || ''); if (m) st('DELETE FROM sessions WHERE token_hash=?').run(sha(m[1])); return { ok: true }; });
+
+/* ---------------- Google sign-in and lab sign-up ---------------- */
+const google = { jwks: null, at: 0 };
+async function googleKeys() {
+  if (google.jwks && Date.now() - google.at < 36e5) return google.jwks;
+  const r = await fetch('https://www.googleapis.com/oauth2/v3/certs');
+  if (!r.ok) throw new ApiError(502, 'Could not reach Google. Try again.');
+  google.jwks = (await r.json()).keys; google.at = Date.now(); return google.jwks;
+}
+const b64u = b => Buffer.from(b, 'base64url');
+async function verifyGoogle(credential) {
+  if (!GOOGLE_CLIENT_ID) bad('Google sign-in is not set up on this server', 501);
+  const parts = String(credential || '').split('.'); if (parts.length !== 3) bad('Google sign-in failed', 401);
+  let head, pay;
+  try { head = JSON.parse(b64u(parts[0]).toString()); pay = JSON.parse(b64u(parts[1]).toString()); } catch (e) { bad('Google sign-in failed', 401); }
+  if (head.alg !== 'RS256') bad('Google sign-in failed', 401);
+  const key = (await googleKeys()).find(k => k.kid === head.kid); if (!key) bad('Google sign-in failed', 401);
+  const good = crypto.verify('RSA-SHA256', Buffer.from(parts[0] + '.' + parts[1]), crypto.createPublicKey({ key, format: 'jwk' }), b64u(parts[2]));
+  if (!good) bad('Google sign-in failed', 401);
+  if (!['accounts.google.com', 'https://accounts.google.com'].includes(pay.iss) || pay.aud !== GOOGLE_CLIENT_ID || !(pay.exp * 1000 > Date.now())) bad('Google sign-in expired. Try again.', 401);
+  if (!pay.email || pay.email_verified !== true) bad('Your Google email is not verified', 401);
+  return { email: String(pay.email).toLowerCase(), name: String(pay.name || pay.email.split('@')[0]).slice(0, 60) };
+}
+const sign = o => { const p = Buffer.from(JSON.stringify(o)).toString('base64url'); return p + '.' + crypto.createHmac('sha256', APP_SECRET).update(p).digest('base64url'); };
+function unsign(t) {
+  const [p, m] = String(t || '').split('.'); if (!p || !m) return null;
+  const want = crypto.createHmac('sha256', APP_SECRET).update(p).digest('base64url');
+  if (m.length !== want.length || !crypto.timingSafeEqual(Buffer.from(m), Buffer.from(want))) return null;
+  try { const o = JSON.parse(Buffer.from(p, 'base64url').toString()); return o.exp > Date.now() ? o : null; } catch (e) { return null; }
+}
+route('POST', /^\/api\/google$/, null, async c => {
+  const g = await (c.verify || verifyGoogle)(c.body.credential);
+  const want = String(c.body.lab || '').trim().toLowerCase();
+  const found = sysOrgs().filter(o => (o.slug !== 'demo' || DEMO) && (!want || o.slug === want)).map(o => ({ o, u: withOrg(o.slug, () => all('users')).find(x => (x.email || '') === g.email && x.active) })).filter(x => x.u);
+  if (found.length === 1) {
+    const { o, u } = found[0];
+    return withOrg(o.slug, () => { audit(u, 'login', 'users', u.id, 'Google'); return { token: newSession(u.id), user: pubUser(u, true) }; });
+  }
+  if (found.length > 1) return { choose: found.map(x => ({ slug: x.o.slug, name: x.o.name })) };
+  if (want) bad('This Google account is not a member of that lab', 403);
+  return { signup: { token: sign({ email: g.email, name: g.name, exp: Date.now() + 15 * 60e3 }), email: g.email, name: g.name } };
+});
+const signups = new Map();
+route('POST', /^\/api\/signup$/, null, c => {
+  const t = unsign(c.body.token); if (!t) bad('Sign-up expired. Sign in with Google again.', 401);
+  const hr = signups.get(c.ip) || []; const recent = hr.filter(x => x > Date.now() - 36e5);
+  if (recent.length >= 5) bad('Too many labs created from this network. Try later.', 429);
+  const name = str(c.body.labName, 80, { req: 'Enter your lab name' });
+  let slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'lab';
+  const taken = new Set(sysOrgs().map(o => o.slug)); taken.add('demo'); taken.add('_sys');
+  if (taken.has(slug)) slug = slug.slice(0, 18) + '-' + rid().slice(0, 4);
+  const org = { id: slug, slug, name, plan: 'trial', createdOn: L.today(), ownerEmail: t.email };
+  recent.push(Date.now()); signups.set(c.ip, recent);
+  return tx(() => {
+    putOrg(org);
+    return withOrg(slug, () => {
+      const admin = { id: 'u_' + rid(), login: '', email: t.email, name: t.name, role: 'admin', active: true, salt: '', hash: '' };
+      seedBlank(admin);
+      audit(admin, 'signup', 'orgs', slug, 'Lab ' + name + ' created');
+      return { token: newSession(admin.id), user: pubUser(admin, true), lab: slug };
+    });
+  });
+});
+
 route('GET', /^\/api\/bootstrap$/, '*', c => Object.assign({ user: pubUser(c.u, true) }, snapshot(c.u)));
 route('GET', /^\/api\/changes$/, '*', c => changes(c.u, parseInt(c.url.searchParams.get('since'), 10) || 0));
 route('POST', /^\/api\/samples$/, ['admin', 'store'], c => createSample(c.u, c.body));
@@ -469,7 +573,7 @@ route('PUT', /^\/api\/users\/([\w-]+)$/, ['admin'], c => adminUsers(c.u, 'PUT', 
 route('POST', /^\/api\/admin\/reset$/, ['admin'], c => resetDemo(c.u, c.body));
 route('GET', /^\/api\/audit$/, ['admin'], c => {
   const lim = Math.min(500, parseInt(c.url.searchParams.get('limit'), 10) || 100);
-  return { entries: st('SELECT id,ts,user_name,action,coll,rec_id,summary FROM audit ORDER BY id DESC LIMIT ?').all(lim) };
+  return { entries: st('SELECT id,ts,user_name,action,coll,rec_id,summary FROM audit WHERE org=? ORDER BY id DESC LIMIT ?').all(ORG, lim) };
 });
 route('GET', /^\/api\/export\/(\w+)\.csv$/, ['admin', 'accounts'], c => {
   const coll = c.m[1]; if (!(CSV_ROLES[c.u.role] || []).includes(coll)) bad('You cannot export ' + coll, 403);
@@ -488,7 +592,7 @@ route('DELETE', /^\/api\/(\w+)\/([\w-]+)$/, '*', c => {
 
 /* ---------------- http ---------------- */
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
-const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleusercontent.com; connect-src 'self' https://accounts.google.com; frame-src https://accounts.google.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 function secure(res) {
   res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('Content-Security-Policy', CSP);
@@ -530,7 +634,8 @@ const server = http.createServer(async (req, res) => {
       if (hit.roles !== '*' && !hit.roles.includes(u.role)) bad('Your role cannot do this', 403);
     }
     const body = (req.method === 'GET' || req.method === 'DELETE') ? {} : await readBody(req);
-    const out = hit.fn({ req, res, u, m, url, body, ip });
+    if (u) ORG = u.org;
+    const out = await hit.fn({ req, res, u, m, url, body, ip, verify: module.exports.__verify });
     if (out && out.__csv != null) {
       res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="' + out.name + '"', 'Cache-Control': 'no-store' });
       return res.end(out.__csv);
@@ -549,4 +654,4 @@ if (require.main === module) {
   const stop = async () => { if (pg) { try { await pg.flush(); } catch (e) { /* ignore */ } } server.close(() => { try { db.close(); } catch (e) { /* ignore */ } process.exit(0); }); setTimeout(() => process.exit(0), 3000).unref(); };
   process.on('SIGINT', stop); process.on('SIGTERM', stop);
 }
-module.exports = { server };
+module.exports = { server, __verify: null, __setKeys: k => { google.jwks = k; google.at = Date.now(); }, __clientId: () => GOOGLE_CLIENT_ID };
