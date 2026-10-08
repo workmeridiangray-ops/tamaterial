@@ -3,8 +3,16 @@
   "version": "1.0.0",
   "description": "Lab management app with backend and CRM for an NABL-accredited construction material testing lab",
   "main": "server.js",
-  "scripts": { "start": "node server.js", "test": "node test/api.test.js" },
-  "engines": { "node": ">=22.5.0" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/api.test.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "license": "UNLICENSED",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
 }

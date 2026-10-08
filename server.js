@@ -22,8 +22,9 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const SESSION_DAYS = 7;
 const BODY_LIMIT = 8 * 1024 * 1024;
 
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-const db = new DatabaseSync(DB_PATH);
+const DATABASE_URL = process.env.DATABASE_URL || '';
+if (!DATABASE_URL) fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+const db = new DatabaseSync(DATABASE_URL ? ':memory:' : DB_PATH);
 db.exec(`
 PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS records(coll TEXT NOT NULL,id TEXT NOT NULL,data TEXT NOT NULL,rev INTEGER NOT NULL,deleted INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(coll,id));
@@ -135,7 +136,13 @@ function seedDb() {
   ins.run('settings', 'main', JSON.stringify(Object.assign({ id: 'main' }, seed.settings)), rev);
   metaSet('uid', seed.counters.uid); metaSet('inv', seed.counters.inv); metaSet('seeded', '1');
 }
-if (!metaGet('seeded')) tx(() => { seedDb(); audit(null, 'seed', null, null, 'Demo data loaded'); });
+const seedIfEmpty = () => { if (!metaGet('seeded')) tx(() => { seedDb(); audit(null, 'seed', null, null, 'Demo data loaded'); }); };
+let pg = null, ready = Promise.resolve();
+if (DATABASE_URL) {
+  pg = require('./lib/pgsync')(DATABASE_URL, db);
+  ready = (async () => { await pg.init(); seedIfEmpty(); await pg.flush(); })();
+  ready.catch(e => { console.error('Database start-up failed:', e.message); process.exit(1); });
+} else seedIfEmpty();
 const DEMO_PINS = { admin: '1111', rahul: '2222', suresh: '3333', meera: '4444', imran: '5555' };
 
 /* ---------------- role-based views ---------------- */
@@ -512,6 +519,7 @@ const server = http.createServer(async (req, res) => {
     try { return serveStatic(req, res, url); } catch (e) { res.writeHead(400); return res.end('Bad request'); }
   }
   try {
+    await ready;
     const ip = req.socket.remoteAddress || '';
     let hit = null, m = null;
     for (const r of routes) { if (r.method !== req.method) continue; m = r.re.exec(url.pathname); if (m) { hit = r; break; } }
@@ -527,6 +535,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="' + out.name + '"', 'Cache-Control': 'no-store' });
       return res.end(out.__csv);
     }
+    if (pg && req.method !== 'GET') pg.schedule();
     ok(res, 200, out);
   } catch (e) {
     if (e instanceof ApiError) return ok(res, e.status, { error: e.message });
@@ -536,8 +545,8 @@ const server = http.createServer(async (req, res) => {
 });
 setInterval(() => { try { st('DELETE FROM sessions WHERE expires<?').run(Date.now()); } catch (e) { /* ignore */ } }, 3600e3).unref();
 if (require.main === module) {
-  server.listen(PORT, HOST, () => console.log('TechAssures Lab on http://' + (HOST === '0.0.0.0' ? 'localhost' : HOST) + ':' + PORT + '  (db: ' + DB_PATH + ', demo mode: ' + (DEMO ? 'on' : 'off') + ')'));
-  const stop = () => { server.close(() => { try { db.close(); } catch (e) { /* ignore */ } process.exit(0); }); setTimeout(() => process.exit(0), 3000).unref(); };
+  server.listen(PORT, HOST, () => console.log('TechAssures Lab on http://' + (HOST === '0.0.0.0' ? 'localhost' : HOST) + ':' + PORT + '  (db: ' + (DATABASE_URL ? 'postgres' : DB_PATH) + ', demo mode: ' + (DEMO ? 'on' : 'off') + ')'));
+  const stop = async () => { if (pg) { try { await pg.flush(); } catch (e) { /* ignore */ } } server.close(() => { try { db.close(); } catch (e) { /* ignore */ } process.exit(0); }); setTimeout(() => process.exit(0), 3000).unref(); };
   process.on('SIGINT', stop); process.on('SIGTERM', stop);
 }
 module.exports = { server };

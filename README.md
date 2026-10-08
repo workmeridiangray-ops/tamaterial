@@ -13,6 +13,7 @@ Demo logins (DEMO_MODE on): admin/1111, rahul/2222 (Store), suresh/3333 and imra
 - DEMO_MODE=0 hides demo accounts. **For real use: set it to 0, log in as admin and change every PIN (Admin > Users).**
 
 ## What the backend does
+- Set DATABASE_URL (Neon, Supabase or any Postgres) to keep data across restarts; without it a local SQLite file is used.
 - Persists clients, projects, tests, samples, results, invoices, payments, CRM leads/interactions/tasks, settings.
 - Server allocates UID / ULR / job / invoice numbers, enforces the date gate, strength calculation, advance-bill block on sending, and overpayment block.
 - Roles enforced server-side: store and testers never receive prices or payments; testers only get their own jobs without client info; CRM and money are admin/accounts only.
