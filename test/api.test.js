@@ -84,6 +84,16 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   ok(r144.s === 200 && r144.j.sample.reportStatus === 'testing', 'sample stays in testing while the 28-day job is pending');
 
   ok((await call('POST', '/api/jobs/' + due.id + '/result', S, { rows, geo: GEO })).s === 409 || true, 'setup is checked');
+  // work orders: rates, file upload
+  const wo = await call('POST', '/api/workorders', A, { clientId: 'c1', no: 'WO/2026/01', date: L.addDays(T, -5), validTill: L.addDays(T, 300), rates: { t_wat: '1000' }, value: '50000' });
+  ok(wo.s === 200 && wo.j.rates.t_wat === '1000' && wo.j.status === 'active', 'work order saved with its own rates');
+  ok((await call('POST', '/api/workorders', R, { clientId: 'c1', no: 'X', date: T })).s === 403, 'store cannot add work orders');
+  ok((await call('POST', '/api/workorders/' + wo.j.id + '/file', A, { name: 'wo.png', data: 'data:image/png;base64,iVBORw0KGgo=' })).j.workorder.hasFile === true, 'work order file uploads');
+  ok((await call('POST', '/api/workorders/' + wo.j.id + '/file', A, { name: 'x.exe', data: 'data:application/x-msdownload;base64,AA==' })).s === 400, 'only PDF or images accepted');
+  ok((await call('GET', '/api/workorders/' + wo.j.id + '/file', M)).j.data.startsWith('data:image/png'), 'work order file downloads for accounts');
+  ok((await call('GET', '/api/workorders/' + wo.j.id + '/file', S)).s === 403, 'tester cannot download work orders');
+  const wob = (await call('GET', '/api/bootstrap', A)).j.data.workorders.find(w => w.id === wo.j.id);
+  ok(wob.hasFile && !wob.file, 'file is not sent in bulk listings');
   // review flow on the water sample
   const P = await login('priya', '6666');
   const wj = (await call('GET', '/api/bootstrap', S)).j.data.jobs.find(j => j.sampleId === next.sample.id);
@@ -103,6 +113,24 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   const fin = await call('POST', '/api/samples/' + next.sample.id + '/approve', P, { confirm: true, remark: 'Fine', geo: GEO });
   ok(fin.j.sample.reportStatus === 'approved' && /^TA\/CT\/\d\d\/0147$/.test(fin.j.sample.reportNo) && fin.j.sample.approvedBy === 'Priya' && fin.j.sample.approvalNotes.length >= 1, 'approved and signed with a report number and notification record');
   ok(!((await call('GET', '/api/bootstrap', P)).j.data.invoices || []).length, 'reviewer sees no invoices');
+  const invA = (await call('GET', '/api/bootstrap', A)).j.data.invoices.find(i => i.sampleId === next.sample.id);
+  ok(invA.lines[0].rate === 1000 && invA.lines[0].woNo === 'WO/2026/01' && invA.source === 'report' && invA.reportNo === fin.j.sample.reportNo && invA.total === 1180, 'invoice is created from the approved report at the work order rate (1000 + 18% GST)');
+  ok(invA.issuedOn === T && invA.due === L.addDays(T, 30), 'credit invoice is dated from the report, due in 30 days');
+  ok((await call('POST', '/api/samples/s142/invoice', M)).s === 409, 'cannot invoice a report that is not approved');
+  // vendor bills
+  const vb = await call('POST', '/api/vendorbills', M, { vendor: 'Calibration Co', category: 'calibration', billNo: 'C-1', date: T, due: L.addDays(T, 15), amount: 5000 });
+  ok(vb.s === 200 && vb.j.payments.length === 0, 'vendor bill added');
+  ok((await call('POST', '/api/vendorbills/' + vb.j.id + '/pay', M, { amount: 2000, date: T, mode: 'UPI', ref: 'U1' })).j.bill.payments.length === 1, 'part payment recorded');
+  ok((await call('POST', '/api/vendorbills/' + vb.j.id + '/pay', M, { amount: 4000, date: T, mode: 'UPI' })).s === 400, 'cannot pay more than the balance');
+  ok((await call('POST', '/api/vendorbills', S, { vendor: 'x', date: T, amount: 1 })).s === 403, 'tester cannot add vendor bills');
+  ok(!(await call('GET', '/api/bootstrap', S)).j.data.vendorbills.length, 'vendor bills are hidden from testers');
+  // quotations
+  const q = await call('POST', '/api/quotes', M, { clientId: 'c1', subject: 'Cube testing', lines: [{ testId: 't_cube', qty: 10, rate: 300 }], gstPct: 18 });
+  ok(q.s === 200 && /^QT-\d\d-0001$/.test(q.j.no) && q.j.total === 3540 && q.j.status === 'draft', 'quotation numbered, totals worked out on the server');
+  const q2 = await call('POST', '/api/quotes', M, { prospect: 'New Builder', lines: [{ desc: 'Steel test', qty: 2, rate: 900 }] });
+  ok(q2.j.no.endsWith('-0002') && q2.j.total === 2124, 'prospects can be quoted too');
+  ok((await call('POST', '/api/quotes', M, { lines: [] })).s === 400, 'quotation needs lines');
+  ok((await call('POST', '/api/quotes', R, { clientId: 'c1', lines: [{ desc: 'x', qty: 1, rate: 1 }] })).s === 403, 'store cannot make quotations');
   // approve & send
   ok((await call('POST', '/api/samples/s141/approve', R)).s === 403, 'store cannot approve');
   const ap = await call('POST', '/api/samples/s141/approve', M, { geo: GEO });

@@ -56,7 +56,7 @@ function audit(actor, action, coll, recId, summary) {
   st('INSERT INTO audit(org,ts,user_id,user_name,action,coll,rec_id,summary) VALUES(?,?,?,?,?,?,?,?)')
     .run(ORG, new Date().toISOString(), actor ? actor.id : null, actor ? actor.name : 'system', action, coll || null, recId || null, String(summary || '').slice(0, 400));
 }
-const SKIP_DIFF = { photo: 1, sig: 1, rep: 1, hash: 1, salt: 1 };
+const SKIP_DIFF = { file: 1, photo: 1, sig: 1, rep: 1, hash: 1, salt: 1 };
 function diffSummary(old, obj) {
   if (!old) return 'created';
   const out = [];
@@ -137,7 +137,7 @@ function failed(key) {
 }
 
 /* ---------------- seed ---------------- */
-const COLLS = ['users', 'tests', 'clients', 'projects', 'samples', 'jobs', 'invoices', 'payments', 'leads', 'interactions', 'tasks', 'notifications', 'tickets'];
+const COLLS = ['users', 'tests', 'clients', 'projects', 'samples', 'jobs', 'invoices', 'payments', 'leads', 'interactions', 'tasks', 'notifications', 'tickets', 'workorders', 'vendorbills', 'quotes'];
 function seedDb() {                       /* the demo lab: ORG must be 'demo' */
   const seed = buildSeed(), rev = nextRev();
   const ins = st('INSERT INTO records(org,coll,id,data,rev,deleted) VALUES(?,?,?,?,?,0) ON CONFLICT(org,coll,id) DO UPDATE SET data=excluded.data,rev=excluded.rev,deleted=0');
@@ -197,6 +197,8 @@ function shape(u, coll, r, asg) {
     case 'jobs': return u.role === 'tester' && r.assignee !== u.id ? null : r;
     case 'invoices': case 'payments': return MONEY_ROLES.includes(u.role) ? r : null;
     case 'leads': case 'interactions': case 'tasks': return CRM_ROLES.includes(u.role) ? r : null;
+    case 'workorders': { if (!MONEY_ROLES.includes(u.role)) return null; const w = Object.assign({}, r); delete w.file; return w; }
+    case 'vendorbills': case 'quotes': return MONEY_ROLES.includes(u.role) ? r : null;
     case 'tickets': return (u.role === 'admin' || r.raisedBy === u.id || r.assignee === u.id) ? r : null;
     case 'notifications': return r.userId === u.id ? r : null;      /* everyone sees only their own */
     default: return null;
@@ -243,7 +245,10 @@ const GENERIC = {
   leads: { roles: CRM_ROLES, deletable: true },
   interactions: { roles: CRM_ROLES, deletable: true },
   tasks: { roles: CRM_ROLES, deletable: true },
-  settings: { roles: ['admin'] }
+  settings: { roles: ['admin'] },
+  workorders: { roles: ['admin', 'accounts'], deletable: true },
+  vendorbills: { roles: ['admin', 'accounts'], deletable: true },
+  quotes: { roles: ['admin', 'accounts'], deletable: true }
 };
 const LEAD_STAGES = ['new', 'contacted', 'quoted', 'won', 'lost'];
 const INT_TYPES = ['call', 'visit', 'email', 'whatsapp', 'note'];
@@ -275,6 +280,38 @@ function clean(coll, b, old, actor) {
     Object.keys(b.rates || {}).forEach(k => { if (!tests.some(t => t.id === k)) return; const v = b.rates[k]; if (v === '' || v == null) rates[k] = ''; else rates[k] = String(money(v, 'Rate')); });
     const cd = parseInt(b.creditDays, 10);
     return { id, code, name: str(b.name, 120, { req: 'Client name is required' }), address: str(b.address, 300), gst: gst.toUpperCase(), terms, creditDays: String(isNaN(cd) ? 0 : cd), contact: str(b.contact, 80), phone, rates };
+  }
+  if (coll === 'workorders') {
+    if (!get('clients', b.clientId)) bad('Choose the client');
+    if (!L.isDate(b.date)) bad('Enter the work order date');
+    const tests = all('tests'), rates = {};
+    Object.keys(b.rates || {}).forEach(k => { if (!tests.some(t => t.id === k)) return; const v = b.rates[k]; rates[k] = (v === '' || v == null) ? '' : String(money(v, 'Rate')); });
+    const no = str(b.no, 60, { req: 'Enter the work order number' });
+    return { id, clientId: b.clientId, no, date: b.date, validTill: optDate(b.validTill, 'Valid till'), rates, notes: str(b.notes, 500), status: b.status === 'closed' ? 'closed' : 'active',
+      value: b.value === '' || b.value == null ? '' : String(money(b.value, 'Work order value')), file: old ? old.file : undefined, fileName: old ? old.fileName : '', hasFile: !!(old && old.file) };
+  }
+  if (coll === 'vendorbills') {
+    const cats = ['calibration', 'subcontract', 'consumables', 'transport', 'equipment', 'rent', 'other'];
+    return { id, vendor: str(b.vendor, 80, { req: 'Enter the vendor name' }), desc: str(b.desc, 200), category: cats.includes(b.category) ? b.category : 'other', billNo: str(b.billNo, 40),
+      date: L.isDate(b.date) ? b.date : bad('Enter the vendor bill date'), due: optDate(b.due, 'Due date'), amount: (() => { const a = money(b.amount, 'Amount'); if (!(a > 0)) bad('Enter the bill amount'); return L.r2(a); })(), payments: old ? old.payments : [], createdOn: old ? old.createdOn : L.today() };
+  }
+  if (coll === 'quotes') {
+    const settings = get('settings', 'main') || {}, tests = all('tests');
+    const lines = (Array.isArray(b.lines) ? b.lines : []).slice(0, 40).map((l, i) => {
+      const qty = L.num(l.qty), rate = money(l.rate, 'Rate'); if (!(qty > 0)) bad('Line ' + (i + 1) + ': enter a quantity');
+      const t = tests.find(x => x.id === l.testId);
+      return { testId: t ? t.id : '', desc: str(l.desc || (t && t.name), 200, { req: 'Line ' + (i + 1) + ': add a description' }), qty, rate, amount: L.r2(qty * rate) };
+    });
+    if (!lines.length) bad('Add at least one test to the quotation');
+    const gp = L.num(b.gstPct), gstPct = isNaN(gp) ? (isNaN(L.num(settings.gst)) ? 18 : L.num(settings.gst)) : gp;
+    if (gstPct < 0 || gstPct > 100) bad('GST % must be between 0 and 100');
+    const client = b.clientId ? (get('clients', b.clientId) || bad('Unknown client')) : null, prospect = str(b.prospect, 120);
+    if (!client && !prospect) bad('Choose a client or enter the prospect name');
+    const sub = L.r2(lines.reduce((a, l) => a + l.amount, 0)), gst = L.r2(sub * gstPct / 100);
+    let no = old && old.no; if (!no) { const n = ctr('qt') + 1; ctrSet('qt', n); no = 'QT-' + L.today().slice(2, 4) + '-' + L.pad(n, 4); }
+    const status = ['draft', 'sent', 'accepted', 'rejected'].includes(b.status) ? b.status : 'draft';
+    return { id, no, clientId: client ? client.id : '', prospect: client ? '' : prospect, contact: str(b.contact, 80), phone: str(b.phone, 20), subject: str(b.subject, 160), date: L.isDate(b.date) ? b.date : L.today(), validTill: optDate(b.validTill, 'Valid till') || L.addDays(L.today(), 15),
+      lines, gstPct, subtotal: sub, gst, total: L.r2(sub + gst), terms: str(b.terms, 1200), notes: str(b.notes, 500), status, workorderId: old ? old.workorderId || '' : '', createdBy: old ? old.createdBy : actor.id };
   }
   if (coll === 'projects') {
     if (!get('clients', b.clientId)) bad('Unknown client');
@@ -454,7 +491,7 @@ function createSample(u, b) {
     const jobs = test.kind === 'cube'
       ? d.ages.map(a => ({ id: 'j' + n + '_' + a, sampleId: s.id, age: a, due: L.addDays(d.casting, a), assignee: asg.id, status: 'pending', results: null, remarks: '' }))
       : [{ id: 'j' + n, sampleId: s.id, age: null, due: d.due, assignee: asg.id, status: 'pending', results: null, remarks: '' }];
-    const inv = L.buildInvoice({ settings, tests, clients }, s, invNo);
+    const inv = L.buildInvoice({ settings, tests, clients, workorders: all('workorders') }, s, invNo);
     s.invoiceId = inv.id; s.billNo = inv.no;
     put('samples', s, u, 'create', 'Sample ' + s.uid + ' received for ' + client.name + geoTxt(geo));
     jobs.forEach(j => put('jobs', j, u, 'create', jobLabel(test, j) + ' due ' + j.due));
@@ -534,6 +571,40 @@ function returnReport(u, id, b) {
     return { sample: s };
   });
 }
+/* Invoice from the approved report, priced from the client's active work order (then client rate, then standard rate). */
+function issueInvoice(u, s) {
+  const settings = get('settings', 'main'), tests = all('tests'), clients = all('clients'), ctx = { settings, tests, clients, workorders: all('workorders') }, today = L.today();
+  const client = clients.find(c => c.id === s.clientId);
+  const days = parseInt(client && client.creditDays, 10) || parseInt(settings.creditDays, 10) || 30;
+  let inv = s.invoiceId && get('invoices', s.invoiceId);
+  if (!inv) {
+    const n = ctr('inv'); ctrSet('inv', n + 1);
+    inv = L.buildInvoice(ctx, s, n, today); inv.date = today; inv.due = s.billing === 'Advance' ? today : L.addDays(today, days);
+    s.invoiceId = inv.id; s.billNo = inv.no;
+  } else {
+    const fresh = L.buildInvoice(ctx, s, 0, today);
+    if (fresh.total + 0.004 >= paidOf(inv)) { inv.lines = fresh.lines; inv.subtotal = fresh.subtotal; inv.gstPct = fresh.gstPct; inv.gst = fresh.gst; inv.total = fresh.total; }
+    if (s.billing === 'Credit') { inv.date = today; inv.due = L.addDays(today, days); }
+  }
+  inv.issuedOn = today; inv.reportNo = s.reportNo || ''; inv.source = 'report';
+  put('invoices', inv, u, 'invoice', inv.no + ' issued from report ' + (s.reportNo || s.uid) + ' · total ₹' + inv.total + (inv.lines[0] && inv.lines[0].woNo ? ' · work order ' + inv.lines[0].woNo : ''));
+  return inv;
+}
+function vendorPay(u, id, b) {
+  const v = get('vendorbills', id); if (!v) bad('Bill not found', 404);
+  const paid = L.r2((v.payments || []).reduce((a, p) => a + p.amount, 0)), bal = L.r2(v.amount - paid), amount = L.r2(L.num(b.amount));
+  if (!(amount > 0)) bad('Enter an amount greater than 0');
+  if (amount > bal + 0.004) bad('Amount is more than the balance of ₹' + bal);
+  if (!L.isDate(b.date) || b.date > L.today()) bad('Choose a valid payment date (not in the future)');
+  if (!['Cash', 'UPI', 'Bank transfer', 'Cheque'].includes(b.mode)) bad('Choose a payment mode');
+  return tx(() => { v.payments = (v.payments || []).concat([{ id: 'vp' + rid(), date: b.date, amount, mode: b.mode, ref: str(b.ref, 60), by: u.name }]); put('vendorbills', v, u, 'payment', v.vendor + ' · paid ₹' + amount + ' via ' + b.mode); return { bill: v }; });
+}
+function woFile(u, id, b) {
+  const w = get('workorders', id); if (!w) bad('Work order not found', 404);
+  const data = String(b.data || ''); if (!/^data:(application\/pdf|image\/jpeg|image\/png);base64,/.test(data) || data.length > 2.4e6) bad('Upload a PDF, JPG or PNG under 1.7 MB');
+  w.file = data; w.fileName = str(b.name, 100) || 'work-order'; w.hasFile = true;
+  return tx(() => { put('workorders', w, u, 'upload', 'Work order ' + w.no + ' file uploaded: ' + w.fileName); const o = Object.assign({}, w); delete o.file; return { workorder: o }; });
+}
 function approveReport(u, id, b) {
   const geo = geoOf(b, false);
   const s = get('samples', id); if (!s) bad('Sample not found', 404);
@@ -549,6 +620,8 @@ function approveReport(u, id, b) {
     testers.forEach(tu => { notify(tu.id, 'n_ok_' + s.id + '_' + tu.id, { type: 'approved', title: 'Report approved', body: s.reportNo + ' approved by ' + u.name, sampleId: s.id }); notes.push({ who: 'Tester: ' + tu.name, text: 'Report ' + s.reportNo + ' approved. Test moved to Approved.', how: 'In-app', at: now }); });
     const acc = staffOf(['accounts', 'admin']).filter(x => x.id !== u.id); acc.forEach(a => notify(a.id, 'n_okacc_' + s.id + '_' + a.id, { type: 'approved', title: 'Report approved, ready to send', body: s.reportNo + ' · ' + (cl.name || '') + (pj.name ? ' · ' + pj.name : ''), sampleId: s.id }));
     if (acc.length) notes.push({ who: 'Accounts department', text: 'Report ' + s.reportNo + ' is ready to send (' + (cl.name || '') + (pj.name ? ', ' + pj.name : '') + ').', how: 'In-app', at: now });
+    const inv = issueInvoice(u, s);
+    if (acc.length) notes.push({ who: 'Accounts department', text: 'Invoice ' + inv.no + ' created from the report: ₹' + inv.total + (inv.lines[0].woNo ? ' at work order ' + inv.lines[0].woNo + ' rates' : '') + '.', how: 'In-app', at: now });
     s.approvalNotes = notes;
     put('samples', s, u, 'approve', s.uid + ' report approved and signed' + geoTxt(geo));
     return s;
@@ -729,6 +802,10 @@ route('POST', /^\/api\/jobs\/([\w-]+)\/result$/, ['admin', 'tester'], c => saveR
 route('POST', /^\/api\/samples\/([\w-]+)\/submit$/, ['admin', 'tester'], c => submitReview(c.u, c.m[1], c.body));
 route('POST', /^\/api\/samples\/([\w-]+)\/return$/, ['admin', 'reviewer', 'accounts'], c => returnReport(c.u, c.m[1], c.body));
 route('POST', /^\/api\/samples\/([\w-]+)\/approve$/, ['admin', 'accounts', 'reviewer'], c => ({ sample: approveReport(c.u, c.m[1], c.body) }));
+route('POST', /^\/api\/samples\/([\w-]+)\/invoice$/, ['admin', 'accounts'], c => { const s = get('samples', c.m[1]); if (!s) bad('Sample not found', 404); if (!['approved', 'sent'].includes(s.reportStatus)) bad('The report must be approved first', 409); return tx(() => { const inv = issueInvoice(c.u, s); put('samples', s, c.u, 'invoice', s.uid + ' invoice ' + inv.no); return { invoice: inv, sample: s }; }); });
+route('POST', /^\/api\/vendorbills\/([\w-]+)\/pay$/, ['admin', 'accounts'], c => vendorPay(c.u, c.m[1], c.body));
+route('POST', /^\/api\/workorders\/([\w-]+)\/file$/, ['admin', 'accounts'], c => woFile(c.u, c.m[1], c.body));
+route('GET', /^\/api\/workorders\/([\w-]+)\/file$/, ['admin', 'accounts'], c => { const w = get('workorders', c.m[1]); if (!w || !w.file) bad('No file uploaded', 404); return { name: w.fileName, data: w.file }; });
 route('POST', /^\/api\/samples\/([\w-]+)\/send$/, ['admin', 'accounts'], c => ({ sample: sendReport(c.u, c.m[1], c.body) }));
 route('POST', /^\/api\/invoices\/([\w-]+)\/payments$/, ['admin', 'accounts'], c => recordPayment(c.u, c.m[1], c.body));
 route('POST', /^\/api\/users$/, ['admin'], c => adminUsers(c.u, 'POST', null, c.body));
