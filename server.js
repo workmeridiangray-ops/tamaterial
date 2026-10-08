@@ -12,6 +12,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 const L = require('./lib/logic');
+const N = require('./lib/notifier');
 const { buildSeed } = require('./lib/seed');
 
 const PORT = +process.env.PORT || 3000;
@@ -366,7 +367,30 @@ function putQuiet(coll, obj) {            /* system-written record: synced to de
 /* one notification per (id): calling again with the same id does nothing, so reminders are never repeated */
 function notify(userId, id, o) {
   if (!userId || get('notifications', id)) return;
-  putQuiet('notifications', Object.assign({ id, userId, at: new Date().toISOString(), read: false }, o));
+  const { mail, ...rec } = o;
+  putQuiet('notifications', Object.assign({ id, userId, at: new Date().toISOString(), read: false }, rec));
+  dispatch(ORG, userId, Object.assign({ id }, rec), !!mail);
+}
+/* push and email go out after the request, never block it, and never fail it */
+const PUBLIC_URL = (process.env.PUBLIC_URL || 'https://techassures-lab.onrender.com').replace(/\/$/, '');
+const vapid = () => { let v = metaGet('vapid'); if (!v) { v = JSON.stringify(N.newVapid()); metaSet('vapid', v); } return JSON.parse(v); };
+const subsGet = org => { try { return JSON.parse(metaGet('push:' + org) || '{}'); } catch (e) { return {}; } };
+const subsSet = (org, m) => metaSet('push:' + org, JSON.stringify(m));
+function dispatch(org, userId, n, mail) {
+  setImmediate(async () => {
+    try {
+      const u = withOrg(org, () => get('users', userId)); if (!u) return;
+      const link = PUBLIC_URL + '/?lab=' + encodeURIComponent(org);
+      if (mail && u.email) N.sendMail({ to: u.email, subject: n.title, text: n.body || '', link }).catch(e => console.error('mail', e.message));
+      const map = subsGet(org), list = map[userId] || []; if (!list.length) return;
+      const v = vapid(), keep = [];
+      for (const sub of list) {
+        let r = 'fail'; try { r = await N.sendPush(v, sub, { title: n.title, body: n.body || '', url: link, tag: n.id || n.type }); } catch (e) { console.error('push', e.message); }
+        if (r !== 'gone') keep.push(sub);
+      }
+      if (keep.length !== list.length) { const m2 = subsGet(org); m2[userId] = keep; subsSet(org, m2); }
+    } catch (e) { console.error('dispatch', e.message); }
+  });
 }
 const staffOf = roles => all('users').filter(x => x.active && roles.includes(x.role));
 function scanDue(now) {
@@ -555,7 +579,7 @@ function submitReview(u, id, b) {
     s.review = { to: rv.id, toName: rv.name, by: u.id, byName: u.name, at: new Date().toISOString(), note: str(b.note, 400), email: !!b.email, whatsapp: !!b.whatsapp, checks, round, geo };
     delete s.returnReason; s.reportStatus = 'awaiting';
     put('samples', s, u, 'submit', s.uid + ' sent for review to ' + rv.name + (round > 1 ? ' (again)' : '') + geoTxt(geo));
-    notify(rv.id, 'n_rev_' + s.id + '_' + round, { type: 'awaiting', title: 'Report to review', body: s.uid + ' · from ' + u.name + (s.review.note ? ' · ' + s.review.note.slice(0, 60) : ''), sampleId: s.id });
+    notify(rv.id, 'n_rev_' + s.id + '_' + round, { type: 'awaiting', title: 'Report to review', body: s.uid + ' · from ' + u.name + (s.review.note ? ' · ' + s.review.note.slice(0, 60) : ''), sampleId: s.id, mail: !!b.email });
     return { sample: s };
   });
 }
@@ -567,7 +591,7 @@ function returnReport(u, id, b) {
     s.reportStatus = 'returned'; s.returnReason = reason; s.returnedBy = u.name; s.returnedAt = new Date().toISOString();
     put('samples', s, u, 'return', s.uid + ' returned to tester: ' + reason + geoTxt(geo));
     const n = (s.review && s.review.round) || 1;
-    new Set(all('jobs').filter(j => j.sampleId === s.id).map(j => j.assignee)).forEach(a => notify(a, 'n_ret_' + s.id + '_' + n, { type: 'returned', title: 'Report returned for correction', body: s.uid + ' · ' + reason.slice(0, 80), sampleId: s.id }));
+    new Set(all('jobs').filter(j => j.sampleId === s.id).map(j => j.assignee)).forEach(a => notify(a, 'n_ret_' + s.id + '_' + n, { type: 'returned', title: 'Report returned for correction', body: s.uid + ' · ' + reason.slice(0, 80), sampleId: s.id, mail: true }));
     return { sample: s };
   });
 }
@@ -617,8 +641,8 @@ function approveReport(u, id, b) {
     s.reportNo = 'TA/CT/' + s.uid.slice(4, 6) + '/' + L.pad(num, 4); s.reviewRemark = str(b.remark, 300); delete s.returnReason;
     const jobs = all('jobs').filter(j => j.sampleId === s.id), testers = [...new Set(jobs.map(j => j.assignee))].map(x => get('users', x)).filter(Boolean);
     const cl = get('clients', s.clientId) || {}, pj = get('projects', s.projectId) || {}, notes = [];
-    testers.forEach(tu => { notify(tu.id, 'n_ok_' + s.id + '_' + tu.id, { type: 'approved', title: 'Report approved', body: s.reportNo + ' approved by ' + u.name, sampleId: s.id }); notes.push({ who: 'Tester: ' + tu.name, text: 'Report ' + s.reportNo + ' approved. Test moved to Approved.', how: 'In-app', at: now }); });
-    const acc = staffOf(['accounts', 'admin']).filter(x => x.id !== u.id); acc.forEach(a => notify(a.id, 'n_okacc_' + s.id + '_' + a.id, { type: 'approved', title: 'Report approved, ready to send', body: s.reportNo + ' · ' + (cl.name || '') + (pj.name ? ' · ' + pj.name : ''), sampleId: s.id }));
+    testers.forEach(tu => { notify(tu.id, 'n_ok_' + s.id + '_' + tu.id, { type: 'approved', title: 'Report approved', body: s.reportNo + ' approved by ' + u.name, sampleId: s.id, mail: true }); notes.push({ who: 'Tester: ' + tu.name, text: 'Report ' + s.reportNo + ' approved. Test moved to Approved.', how: 'In-app', at: now }); });
+    const acc = staffOf(['accounts', 'admin']).filter(x => x.id !== u.id); acc.forEach(a => notify(a.id, 'n_okacc_' + s.id + '_' + a.id, { type: 'approved', title: 'Report approved, ready to send', body: s.reportNo + ' · ' + (cl.name || '') + (pj.name ? ' · ' + pj.name : ''), sampleId: s.id, mail: true }));
     if (acc.length) notes.push({ who: 'Accounts department', text: 'Report ' + s.reportNo + ' is ready to send (' + (cl.name || '') + (pj.name ? ', ' + pj.name : '') + ').', how: 'In-app', at: now });
     const inv = issueInvoice(u, s);
     if (acc.length) notes.push({ who: 'Accounts department', text: 'Invoice ' + inv.no + ' created from the report: ₹' + inv.total + (inv.lines[0].woNo ? ' at work order ' + inv.lines[0].woNo + ' rates' : '') + '.', how: 'In-app', at: now });
@@ -715,6 +739,16 @@ route('GET', /^\/api\/health$/, null, c => {
   const out = { ok: true, demo: DEMO, googleClientId: GOOGLE_CLIENT_ID };
   if (DEMO) out.demoAccounts = withOrg('demo', () => all('users')).filter(x => x.active && DEMO_PINS[x.login] && pinOk(x, DEMO_PINS[x.login])).map(x => ({ login: x.login, pin: DEMO_PINS[x.login], role: x.role }));
   return out;
+});
+route('GET', /^\/api\/push\/key$/, '*', c => ({ key: vapid().pub, mail: N.mailOn() }));
+route('POST', /^\/api\/push\/subscribe$/, '*', c => {
+  const sub = c.body.sub; if (!sub || !/^https:\/\//.test(String(sub.endpoint || '')) || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) bad('Not a valid push subscription');
+  const map = subsGet(c.u.org), list = (map[c.u.id] || []).filter(x => x.endpoint !== sub.endpoint);
+  list.push({ endpoint: String(sub.endpoint), keys: { p256dh: String(sub.keys.p256dh), auth: String(sub.keys.auth) } });
+  map[c.u.id] = list.slice(-5); subsSet(c.u.org, map); return { ok: true };
+});
+route('POST', /^\/api\/push\/unsubscribe$/, '*', c => {
+  const map = subsGet(c.u.org); map[c.u.id] = (map[c.u.id] || []).filter(x => x.endpoint !== String(c.body.endpoint || '')); subsSet(c.u.org, map); return { ok: true };
 });
 route('POST', /^\/api\/login$/, null, c => {
   const lab = String(c.body.lab || 'demo').trim().toLowerCase(), login = String(c.body.login || '').trim().toLowerCase(), key = c.ip + '|' + lab + '|' + login;
@@ -869,6 +903,17 @@ function readBody(req) {
     req.on('error', reject);
   });
 }
+const hesc = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function verifyPage(res, slug, sid) {
+  const org = findOrg(slug), s = org && withOrg(org.slug, () => get('samples', sid));
+  const t = s && withOrg(org.slug, () => get('tests', s.testId));
+  const good = s && ['approved', 'sent'].includes(s.reportStatus);
+  const row = (k, v) => '<tr><th>' + k + '</th><td>' + hesc(v || '-') + '</td></tr>';
+  const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Report verification</title><style>body{font:16px/1.5 system-ui,sans-serif;background:#f3f6fb;margin:0;color:#16233b}main{max-width:480px;margin:0 auto;padding:24px 16px}.c{background:#fff;border-radius:14px;padding:20px;box-shadow:0 1px 4px #0002}.ok{color:#0a7a3d}.no{color:#b3261e}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:12px}th{text-align:left;color:#6b7790;font-weight:500;padding:6px 8px 6px 0;width:40%}td{padding:6px 0}tr+tr{border-top:1px solid #e5eaf2}p{color:#6b7790;font-size:13px}</style></head><body><main><div class="c">' +
+    (good ? '<h1 class="ok">&#10003; Genuine report</h1><div>Issued by ' + hesc(org.name) + '</div><table>' + row('Report no.', s.reportNo) + row('Date of issue', s.approvedOn) + row('Test', t && t.name) + row('Identification', s.mark) + row('ULR', s.ulr) + row('Approved by', s.approvedBy) + '</table><p>This confirms the report was issued by the laboratory. Compare the details above with your printed copy. Customer details and results are not shown here.</p>'
+      : '<h1 class="no">Report not found</h1><p>This code does not match an issued report. If you hold a printed copy, treat it as unverified and contact the laboratory.</p>') + '</div></main></body></html>';
+  res.writeHead(good ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(html);
+}
 function serveStatic(req, res, url) {
   let p = decodeURIComponent(url.pathname); if (p === '/') p = '/index.html';
   const file = path.join(PUBLIC_DIR, p);
@@ -880,6 +925,8 @@ const server = http.createServer(async (req, res) => {
   secure(res);
   const url = new URL(req.url, 'http://x');
   if (!url.pathname.startsWith('/api/')) {
+    const vm = /^\/v\/([\w-]+)\/([\w-]+)$/.exec(url.pathname);
+    if (vm && req.method === 'GET') { await ready; return verifyPage(res, vm[1], vm[2]); }
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
     try { return serveStatic(req, res, url); } catch (e) { res.writeHead(400); return res.end('Bad request'); }
   }

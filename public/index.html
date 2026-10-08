@@ -245,7 +245,7 @@ table.tb tr.tot td{font-weight:700;border-bottom:0}
 .rtag{font-size:11px;border:1px solid var(--warn);color:var(--warn);border-radius:4px;padding:1px 6px;white-space:nowrap}.rtag.fin{border-color:var(--acc-ink);color:var(--acc-ink)}
 .tbs{overflow-x:auto}.stmt{background:var(--acc-soft);border:1px solid var(--line);padding:8px;border-radius:6px;font-size:12px}
 .rem{padding-left:18px;font-size:12px}
-.sigs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;font-size:12px}.sigs .sl{border-bottom:1px solid var(--g3);height:34px;margin-bottom:4px}.sg{font-family:cursive;font-size:18px}
+.qrv{display:flex;align-items:center;gap:12px;margin-top:14px;padding-top:10px;border-top:1px dashed var(--g3);font-size:11px}.qrv svg{width:84px;height:84px;flex:none}.sigs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;font-size:12px}.sigs .sl{border-bottom:1px solid var(--g3);height:34px;margin-bottom:4px}.sg{font-family:cursive;font-size:18px}
 .sw{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);margin-bottom:8px}
 .sw b{display:block}.sw span{display:block;font-size:13px;color:var(--g1)}.sw i{width:46px;height:26px;border-radius:13px;background:var(--g3);position:relative;flex:none}
 .sw i::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.15s}.sw.on{border-color:var(--acc-ink)}.sw.on i{background:var(--acc-ink)}.sw.on i::after{left:23px}
@@ -267,6 +267,7 @@ table.tb tr.tot td{font-weight:700;border-bottom:0}
 <body>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="/qrcode.js"></script>
 <script>
 (function(){
 'use strict';
@@ -609,7 +610,7 @@ async function loadAudit(){
 }
 async function finishLogin(r){
  S.token=r.token;lsSet(TKEY,S.token);await loadAll();
- S.login=blankLogin();S.signup=null;S.choose=null;S.route='home';S.m={};startPoll();checkAlerts(true);scheduleLocal();firstPerms();
+ S.login=blankLogin();S.signup=null;S.choose=null;S.route='home';S.m={};startPoll();checkAlerts(true);ensurePush();scheduleLocal();firstPerms();
 }
 async function onlineLogin(){
  const L=S.login;L.err='';S.busy=true;render();
@@ -668,7 +669,7 @@ async function boot(){
  }catch(e){}
  if(S.online){
   S.db=emptyDb();S.user=null;S.token=lsGet(TKEY)||'';
-  if(S.token){try{await loadAll();startPoll();checkAlerts(true);scheduleLocal();firstPerms()}catch(e){S.token='';S.user=null;lsDel(TKEY)}}
+  if(S.token){try{await loadAll();startPoll();checkAlerts(true);ensurePush();scheduleLocal();firstPerms()}catch(e){S.token='';S.user=null;lsDel(TKEY)}}
  }
  S.booting=false;render();
 }
@@ -1160,10 +1161,22 @@ async function askAllPerms(){
  if(S.alertState==='granted')scheduleLocal();
  lsSet('ta_perms_asked','1');render();
 }
+const pushOK=()=>!isNative()&&'serviceWorker' in navigator&&'PushManager' in window&&window.isSecureContext;
+async function ensurePush(){
+ if(!pushOK()||!S.online||!S.user||!window.Notification||Notification.permission!=='granted')return;
+ try{
+  const reg=await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;
+  const k=await api('GET','/api/push/key');
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub){const raw=atob(k.key.replace(/-/g,'+').replace(/_/g,'/'));const arr=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);
+   sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:arr})}
+  await api('POST','/api/push/subscribe',{sub:sub.toJSON()});
+ }catch(e){}
+}
 async function enableAlerts(){
  try{
   if(isNative()){await askAllPerms();return}
-  else if(window.Notification){await Notification.requestPermission()}
+  else if(window.Notification){await Notification.requestPermission();await ensurePush()}
  }catch(e){}
  render();
 }
@@ -1422,6 +1435,8 @@ function reportsView(){
 
 /* ================= APPROVE & SEND ================= */
 const gradeFck=g=>{const n=parseInt(String(g||'').replace(/[^0-9]/g,''),10);return isNaN(n)?null:n};
+function qrSvg(text){try{const q=qrcode(0,'M');q.addData(text);q.make();return q.createSvgTag({cellSize:4,margin:0,scalable:true})}catch(e){return ''}}
+const verifyUrl=s=>location.origin+'/v/'+encodeURIComponent(S.org?S.org.slug:'demo')+'/'+encodeURIComponent(s.id);
 function reportHtml(s){
  const t=ts(s.testId),c=cl(s.clientId),p=pr(s.projectId),jb=jobsOf(s.id).slice().sort((a,b)=>(a.age||0)-(b.age||0)),fin=s.reportStatus==='approved'||s.reportStatus==='sent';
  const hid=!s.clientId,H='<i class="mut">Hidden from tester</i>',E=x=>x==null||x===''?'—':esc(x);
@@ -1455,6 +1470,7 @@ function reportHtml(s){
  rem.push('Results relate only to the sample(s) as received and tested.');done.forEach(j=>{if(j.remarks)rem.push(j.remarks)});if(s.reviewRemark)rem.push(s.reviewRemark);
  h+='<h3>'+(t.kind==='cube'&&j28&&fck?'5':'4')+'. Remarks</h3><ol class="rem">'+rem.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol><div class="xs mut" style="text-align:center;margin:10px 0">End of report</div>'+
  '<div class="sigs"><div><div class="sl"></div><b>Tested by</b><div>'+E(testedBy)+'</div>'+(first.doneAt?'<div class="xs mut">Signed '+esc(tkWhen(first.doneAt))+'</div>':'')+'</div><div><div class="sl"></div><b>Reviewed by</b><div>'+(fin?E(s.approvedBy):'<span class="mut">Pending</span>')+'</div></div><div><div class="sl">'+(fin?'<i class="sg">'+esc(s.approvedBy)+'</i>':'')+'</div><b style="color:var(--warn)">Authorised signatory</b><div>'+(fin?E(s.approvedBy):'<span class="mut">Signature pending review</span>')+'</div>'+(fin&&s.approvedAt?'<div class="xs mut">Digitally signed '+esc(tkWhen(s.approvedAt))+'</div>':'')+'</div></div>'+
+ (fin?'<div class="qrv">'+qrSvg(verifyUrl(s))+'<div><b>Verify this report</b><br>Scan the code to confirm this report was issued by the laboratory.<br><span class="mono">'+esc(rno)+'</span></div></div>':'')+
  '<div class="ft"><p>This report shall not be reproduced except in full without written approval of the laboratory. Results relate only to the items tested.</p></div></div>';
  return h;
 }

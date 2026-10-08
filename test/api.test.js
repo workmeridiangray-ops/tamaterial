@@ -201,6 +201,26 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   ok(csv.status === 200 && /^id,code,name/.test(await csv.text()), 'CSV export works for accounts');
   ok((await fetch(base + '/api/export/users.csv', { headers: { Authorization: 'Bearer ' + M } })).status === 403, 'users export is admin only');
 
+  // push, email and public report verification
+  const N = require('../lib/notifier'), crypto = require('crypto');
+  const ua = crypto.createECDH('prime256v1'); ua.generateKeys(); const auth = crypto.randomBytes(16);
+  const subj = { endpoint: 'https://push.example/abc', keys: { p256dh: ua.getPublicKey().toString('base64url'), auth: auth.toString('base64url') } };
+  const enc = N.encrypt(subj, JSON.stringify({ title: 'Hello', body: 'Report approved' }));
+  ok(JSON.parse(N.decrypt(ua.getPrivateKey(), ua.getPublicKey(), auth, enc)).title === 'Hello', 'push payload encrypts and decrypts');
+  const vk = N.newVapid(); let seen = null;
+  ok((await N.sendPush(vk, subj, { title: 'x' }, async (u, o) => { seen = o; return { ok: true, status: 201 }; })) === 'ok' && /^vapid t=.+, k=/.test(seen.headers.Authorization) && seen.headers['Content-Encoding'] === 'aes128gcm', 'push request is signed with VAPID');
+  ok((await N.sendPush(vk, subj, { title: 'x' }, async () => ({ ok: false, status: 410 }))) === 'gone', 'expired subscription is reported gone');
+  const pk = await call('GET', '/api/push/key', S); ok(pk.s === 200 && pk.j.key && pk.j.key.length > 60, 'logged-in user gets the push key');
+  ok((await call('GET', '/api/push/key')).s === 401, 'push key needs login');
+  ok((await call('POST', '/api/push/subscribe', S, { sub: { endpoint: 'http://x', keys: {} } })).s === 400, 'bad subscription rejected');
+  ok((await call('POST', '/api/push/subscribe', S, { sub: subj })).j.ok, 'subscription saved');
+  ok((await call('POST', '/api/push/unsubscribe', S, { endpoint: subj.endpoint })).j.ok, 'subscription removed');
+  ok(!N.mailOn(), 'email stays off until a key and sender are set');
+  const vsid = next.sample.id, vp = await fetch(base + '/v/demo/' + vsid), vt = await vp.text();
+  ok(vp.status === 200 && vt.includes('Genuine report') && !vt.includes('Shree'), 'public verify page confirms an issued report without customer details');
+  ok((await fetch(base + '/v/demo/nope')).status === 404 && (await fetch(base + '/v/nolab/' + vsid)).status === 404, 'verify page rejects unknown reports and labs');
+  ok((await fetch(base + '/qrcode.js')).status === 200 && (await fetch(base + '/sw.js')).status === 200, 'QR library and service worker are served');
+
   // reset
   ok((await call('POST', '/api/admin/reset', A, {})).s === 400, 'reset needs confirmation');
   ok((await call('POST', '/api/admin/reset', A, { confirm: 'RESET' })).j.ok, 'reset works');
