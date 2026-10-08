@@ -214,6 +214,7 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   ok((await call('GET', '/api/push/key')).s === 401, 'push key needs login');
   ok((await call('POST', '/api/push/subscribe', S, { sub: { endpoint: 'http://x', keys: {} } })).s === 400, 'bad subscription rejected');
   ok((await call('POST', '/api/push/subscribe', S, { sub: subj })).j.ok, 'subscription saved');
+  ok((await call('POST', '/api/push/subscribe', S, { sub: { fcm: 'tok123' } })).j.ok, 'device token saved');
   ok((await call('POST', '/api/push/unsubscribe', S, { endpoint: subj.endpoint })).j.ok, 'subscription removed');
   ok(!N.mailOn(), 'email stays off until a key and sender are set');
   const vsid = next.sample.id, vp = await fetch(base + '/v/demo/' + vsid), vt = await vp.text();

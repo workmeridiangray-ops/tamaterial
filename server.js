@@ -385,7 +385,9 @@ function dispatch(org, userId, n, mail) {
       const map = subsGet(org), list = map[userId] || []; if (!list.length) return;
       const v = vapid(), keep = [];
       for (const sub of list) {
-        let r = 'fail'; try { r = await N.sendPush(v, sub, { title: n.title, body: n.body || '', url: link, tag: n.id || n.type }); } catch (e) { console.error('push', e.message); }
+        let r = 'fail';
+        if (sub.fcm) { try { r = await N.sendFcm(sub.fcm, { title: n.title, body: n.body || '', url: link, tag: n.id || n.type }); } catch (e) { console.error('fcm', e.message); } if (r === 'off') r = 'fail'; if (r !== 'gone') keep.push(sub); continue; }
+        try { r = await N.sendPush(v, sub, { title: n.title, body: n.body || '', url: link, tag: n.id || n.type }); } catch (e) { console.error('push', e.message); }
         if (r !== 'gone') keep.push(sub);
       }
       if (keep.length !== list.length) { const m2 = subsGet(org); m2[userId] = keep; subsSet(org, m2); }
@@ -742,13 +744,18 @@ route('GET', /^\/api\/health$/, null, c => {
 });
 route('GET', /^\/api\/push\/key$/, '*', c => ({ key: vapid().pub, mail: N.mailOn() }));
 route('POST', /^\/api\/push\/subscribe$/, '*', c => {
-  const sub = c.body.sub; if (!sub || !/^https:\/\//.test(String(sub.endpoint || '')) || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) bad('Not a valid push subscription');
+  const sub = c.body.sub;
+  if (sub && sub.fcm) {
+    const map = subsGet(c.u.org), list = (map[c.u.id] || []).filter(x => x.fcm !== sub.fcm); list.push({ fcm: String(sub.fcm).slice(0, 400) });
+    map[c.u.id] = list.slice(-5); subsSet(c.u.org, map); return { ok: true };
+  }
+  if (!sub || !/^https:\/\//.test(String(sub.endpoint || '')) || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) bad('Not a valid push subscription');
   const map = subsGet(c.u.org), list = (map[c.u.id] || []).filter(x => x.endpoint !== sub.endpoint);
   list.push({ endpoint: String(sub.endpoint), keys: { p256dh: String(sub.keys.p256dh), auth: String(sub.keys.auth) } });
   map[c.u.id] = list.slice(-5); subsSet(c.u.org, map); return { ok: true };
 });
 route('POST', /^\/api\/push\/unsubscribe$/, '*', c => {
-  const map = subsGet(c.u.org); map[c.u.id] = (map[c.u.id] || []).filter(x => x.endpoint !== String(c.body.endpoint || '')); subsSet(c.u.org, map); return { ok: true };
+  const map = subsGet(c.u.org); map[c.u.id] = (map[c.u.id] || []).filter(x => x.endpoint !== String(c.body.endpoint || '') && x.fcm !== String(c.body.fcm || '\0')); subsSet(c.u.org, map); return { ok: true };
 });
 route('POST', /^\/api\/login$/, null, c => {
   const lab = String(c.body.lab || 'demo').trim().toLowerCase(), login = String(c.body.login || '').trim().toLowerCase(), key = c.ip + '|' + lab + '|' + login;

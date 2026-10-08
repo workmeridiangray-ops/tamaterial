@@ -610,7 +610,7 @@ async function loadAudit(){
 }
 async function finishLogin(r){
  S.token=r.token;lsSet(TKEY,S.token);await loadAll();
- S.login=blankLogin();S.signup=null;S.choose=null;S.route='home';S.m={};startPoll();checkAlerts(true);ensurePush();scheduleLocal();firstPerms();
+ S.login=blankLogin();S.signup=null;S.choose=null;S.route='home';S.m={};startPoll();checkAlerts(true);ensurePush();ensureNativePush();scheduleLocal();firstPerms();
 }
 async function onlineLogin(){
  const L=S.login;L.err='';S.busy=true;render();
@@ -669,7 +669,7 @@ async function boot(){
  }catch(e){}
  if(S.online){
   S.db=emptyDb();S.user=null;S.token=lsGet(TKEY)||'';
-  if(S.token){try{await loadAll();startPoll();checkAlerts(true);ensurePush();scheduleLocal();firstPerms()}catch(e){S.token='';S.user=null;lsDel(TKEY)}}
+  if(S.token){try{await loadAll();startPoll();checkAlerts(true);ensurePush();ensureNativePush();scheduleLocal();firstPerms()}catch(e){S.token='';S.user=null;lsDel(TKEY)}}
  }
  S.booting=false;render();
 }
@@ -1173,9 +1173,20 @@ async function ensurePush(){
   await api('POST','/api/push/subscribe',{sub:sub.toJSON()});
  }catch(e){}
 }
+async function ensureNativePush(){
+ if(!isNative()||!S.online||!S.user)return;
+ try{
+  const P=window.Capacitor.registerPlugin('PushNotifications');
+  const pr=await P.checkPermissions();if(pr.receive!=='granted'){const r=await P.requestPermissions();if(r.receive!=='granted')return}
+  if(!window.__fcmL){window.__fcmL=1;
+   await P.addListener('registration',t=>{api('POST','/api/push/subscribe',{sub:{fcm:t.value}}).catch(()=>{})});
+   await P.addListener('pushNotificationActionPerformed',()=>{try{checkAlerts(true)}catch(e){}})}
+  await P.register();
+ }catch(e){}
+}
 async function enableAlerts(){
  try{
-  if(isNative()){await askAllPerms();return}
+  if(isNative()){await askAllPerms();ensureNativePush();return}
   else if(window.Notification){await Notification.requestPermission();await ensurePush()}
  }catch(e){}
  render();

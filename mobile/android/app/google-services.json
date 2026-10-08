@@ -1,0 +1,10 @@
+{
+  "project_info": {"project_number": "957034870478", "project_id": "assures-573b5", "storage_bucket": "assures-573b5.firebasestorage.app"},
+  "client": [{
+    "client_info": {"mobilesdk_app_id": "1:957034870478:android:3885d6a3088ef10374829f", "android_client_info": {"package_name": "in.techassures.lab"}},
+    "oauth_client": [],
+    "api_key": [{"current_key": "AIzaSyCHMct-nKwwU0zObdT1rQDIb0mgH3-d1-0"}],
+    "services": {"appinvite_service": {"other_platform_oauth_client": []}}
+  }],
+  "configuration_version": "1"
+}
