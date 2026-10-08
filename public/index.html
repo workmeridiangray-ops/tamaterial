@@ -548,7 +548,7 @@ async function loadAudit(){
 }
 async function finishLogin(r){
  S.token=r.token;lsSet(TKEY,S.token);await loadAll();
- S.login=blankLogin();S.signup=null;S.choose=null;S.route='home';S.m={};startPoll();checkAlerts(true);scheduleLocal();
+ S.login=blankLogin();S.signup=null;S.choose=null;S.route='home';S.m={};startPoll();checkAlerts(true);scheduleLocal();firstPerms();
 }
 async function onlineLogin(){
  const L=S.login;L.err='';S.busy=true;render();
@@ -607,7 +607,7 @@ async function boot(){
  }catch(e){}
  if(S.online){
   S.db=emptyDb();S.user=null;S.token=lsGet(TKEY)||'';
-  if(S.token){try{await loadAll();startPoll();checkAlerts(true);scheduleLocal()}catch(e){S.token='';S.user=null;lsDel(TKEY)}}
+  if(S.token){try{await loadAll();startPoll();checkAlerts(true);scheduleLocal();firstPerms()}catch(e){S.token='';S.user=null;lsDel(TKEY)}}
  }
  S.booting=false;render();
 }
@@ -1063,9 +1063,20 @@ function wizView(){
 const LNP=()=>{try{return window.Capacitor.registerPlugin('LocalNotifications')}catch(e){return null}};
 const nhash=str=>{let h=7;for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))>>>0;return (h%2000000000)+1};
 function alertPerm(){if(isNative())return S.alertState||'unknown';return window.Notification?Notification.permission:'unsupported'}
+/* ask for everything the Android app needs: alerts, location, camera, photos */
+const firstPerms=()=>{if(isNative()&&!lsGet('ta_perms_asked'))setTimeout(askAllPerms,600)};
+async function askAllPerms(){
+ if(!isNative())return;
+ const reg=n=>{try{return window.Capacitor.registerPlugin(n)}catch(e){return null}};
+ try{const ln=LNP();if(ln){const r=await ln.requestPermissions();S.alertState=r.display==='granted'?'granted':'denied'}}catch(e){}
+ try{const g=reg('Geolocation');if(g)await g.requestPermissions({permissions:['location']})}catch(e){}
+ try{const c=reg('Camera');if(c)await c.requestPermissions({permissions:['camera','photos']})}catch(e){}
+ if(S.alertState==='granted')scheduleLocal();
+ lsSet('ta_perms_asked','1');render();
+}
 async function enableAlerts(){
  try{
-  if(isNative()){const ln=LNP();const r=await ln.requestPermissions();S.alertState=r.display==='granted'?'granted':'denied';if(S.alertState==='granted')scheduleLocal()}
+  if(isNative()){await askAllPerms();return}
   else if(window.Notification){await Notification.requestPermission()}
  }catch(e){}
  render();
@@ -1104,7 +1115,7 @@ async function scheduleLocal(){
 function inboxView(){
  const list=myNotes(),perm=alertPerm();
  const when=a=>{const t=new Date(a);return pad(t.getDate(),2)+' '+MON[t.getMonth()]+', '+pad(t.getHours(),2)+':'+pad(t.getMinutes(),2)};
- const alertCard=(perm==='granted')?'':'<div class="note" style="margin-bottom:12px">Phone alerts are off. '+(perm==='denied'?'Allow notifications for this app in your phone settings.':'<button class="lnk" data-act="enablealerts">Turn on alerts on this device</button>')+'</div>';
+ const alertCard=(perm==='granted')?'':'<div class="note" style="margin-bottom:12px">Phone alerts or permissions are off. '+(perm==='denied'?'Allow notifications for this app in your phone settings.':'<button class="lnk" data-act="enablealerts">Turn on alerts on this device</button>')+'</div>';
  return pgHead('Notifications','inboxback',unreadN()?unreadN()+' unread':'All caught up')+alertCard+
   (unreadN()?'<button class="btn blk" style="margin-bottom:12px" data-act="readall">Mark all as read</button>':'')+
   (list.length?list.slice(0,80).map(n=>'<button class="row" data-act="opennote" data-id="'+esc(n.id)+'"><div class="grow"><div class="t">'+(n.read?'':'<span class="dot"></span> ')+esc(n.title)+'</div><div class="s">'+esc(n.body)+'</div><div class="s">'+esc(when(n.at))+'</div></div>'+ic('chev')+'</button>').join(''):empty('No notifications yet. You will see new tests assigned to you and reminders before each test is due.'));
