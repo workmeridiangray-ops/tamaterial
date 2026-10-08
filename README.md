@@ -36,3 +36,7 @@ Email and push
 Email: set BREVO_API_KEY (or RESEND_API_KEY) and MAIL_FROM, e.g. "TechAssures Lab <you@yourdomain.com>" (the sender must be verified at the provider). Review requests (when the toggle is on), returned reports and approvals are emailed to users who have an email address. PUBLIC_URL sets the link in emails.
 Push: works with no setup. Web push keys are created on first run and stored in the database. Users tap "Turn on alerts on this device" in Notifications. On iPhone the app must be added to the Home Screen first.
 Reports carry a QR code that opens /v/<lab>/<report id>, a public page that confirms the report is genuine without showing customer details.
+
+## Platform console (for whoever runs the product)
+
+`/console` lists every lab (users, samples, billing, last activity), opens any lab's records with photos, downloads per-lab backups, suspends or reactivates a lab, and shows system status. Sign-in is Google only. The owner is set by the `PLATFORM_ADMINS` env var (comma-separated emails, default work.meridiangray@gmail.com); the owner can add or remove team members inside the console, so nobody needs the Neon or Render logins.

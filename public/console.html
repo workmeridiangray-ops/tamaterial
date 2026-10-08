@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>TechAssures Console</title>
+<style>
+:root{--paper:#FCFCFA;--wash:#F1F2EE;--surface:#fff;--ink:#121413;--g1:#4C4F4D;--g2:#848784;--line:#E4E4DF;--acc:#1F4E79;--acc-soft:rgba(31,78,121,.11);--ok:#1c7c4a;--bad:#B3261E;--warn:#A8530A}
+@media (prefers-color-scheme:dark){:root{--paper:#0E100F;--wash:#141716;--surface:#1A1D1B;--ink:#F3F4F0;--g1:#B4B7B2;--g2:#8A8D89;--line:#2B2F2C;--acc:#6FA8DC;--acc-soft:rgba(111,168,220,.18);--ok:#58c58a;--bad:#F2766E;--warn:#E0883A}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--paper);color:var(--ink);overflow-x:hidden}
+header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:10px}
+header b{font-size:17px}header .sp{flex:1}header .who{font-size:12px;color:var(--g2);max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+main{max-width:860px;margin:0 auto;padding:16px}
+.tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto}
+.tabs button,.btn,.chip{font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:8px 13px;cursor:pointer;white-space:nowrap}
+.tabs button.on,.chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.btn.pri{background:var(--acc);color:#fff;border-color:var(--acc)}.btn.dng{color:var(--bad);border-color:var(--bad)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line);cursor:pointer}.row:first-child{border-top:0}
+.grow{flex:1;min-width:0}.t{font-weight:600;overflow:hidden;text-overflow:ellipsis}.s,.mut{color:var(--g2);font-size:13px}.mono{font-family:ui-monospace,Menlo,monospace}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--g2)}
+.bdg{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;background:var(--acc-soft);color:var(--acc)}.bdg.bad{background:rgba(179,38,30,.12);color:var(--bad)}.bdg.ok{background:rgba(28,124,74,.14);color:var(--ok)}
+h2{font-size:16px;margin:16px 0 8px}input,select{font:inherit;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}pre{white-space:pre-wrap;word-break:break-word;font-size:12px}
+img.ph{max-width:100%;border-radius:8px;background:#fff;margin:6px 0}
+#login{max-width:380px;margin:18vh auto;text-align:center}#login h1{font-size:22px;margin-bottom:6px}#login p{color:var(--g2);margin-bottom:18px}
+.err{color:var(--bad);margin-top:12px;font-size:14px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;z-index:9;max-width:90vw}
+</style></head><body>
+<div id="app"></div><div id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let TK='';try{TK=sessionStorage.getItem('tacon')||''}catch(e){}
+const S={tab:'labs',ov:null,lab:null,coll:null,list:null,rec:null,q:'',act:null,err:''};
+function toast(m){const t=$('toast');t.innerHTML='<div class="toast">'+esc(m)+'</div>';setTimeout(()=>t.innerHTML='',3200)}
+async function api(m,p,b){
+  const r=await fetch(p,{method:m,headers:{'Content-Type':'application/json','X-Console':TK},body:b?JSON.stringify(b):undefined});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401){TK='';try{sessionStorage.removeItem('tacon')}catch(e){}S.ov=null;render()}
+  if(!r.ok)throw new Error(j.error||'Request failed');return j;
+}
+async function dl(path,name){
+  const r=await fetch(path,{headers:{'X-Console':TK}});if(!r.ok){toast('Download failed');return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=name;document.body.appendChild(a);a.click();a.remove();
+}
+function dataFile(u,name){try{const [h,b]=u.split(',');const mime=(h.match(/data:([^;]+)/)||[])[1]||'application/octet-stream';const bin=atob(b),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);const l=document.createElement('a');l.href=URL.createObjectURL(new Blob([a],{type:mime}));l.download=name+'.'+(mime.split('/')[1]||'bin');document.body.appendChild(l);l.click();l.remove()}catch(e){toast('Cannot open file')}}
+const fdt=ts=>{if(!ts)return '—';const d=new Date(ts);return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})+', '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})};
+const inr=n=>'₹'+Number(n||0).toLocaleString('en-IN');
+
+async function loadOv(){try{S.ov=await api('GET','/api/console/overview')}catch(e){if(TK)toast(e.message)}render()}
+function render(){
+  const a=$('app');
+  if(!TK||!S.ov){a.innerHTML=loginView();if(!TK)initGoogle();else loadOv();return}
+  a.innerHTML=head()+'<main>'+body()+'</main>';
+}
+function head(){return '<header><b>TechAssures Console</b><span class="sp"></span><span class="who">'+esc(S.ov.who)+'</span><button class="btn" onclick="out()">Sign out</button></header>'}
+function loginView(){return '<div id="login"><h1>TechAssures Console</h1><p>For the team that runs TechAssures Lab. Sign in with your Google account.</p><div id="gbtn" style="display:flex;justify-content:center"></div><div class="err">'+esc(S.err)+'</div></div>'}
+async function initGoogle(){
+  try{
+    const h=await (await fetch('/api/health')).json();
+    const go=()=>{window.google.accounts.id.initialize({client_id:h.googleClientId,callback:async r=>{try{const j=await api('POST','/api/console/login',{credential:r.credential});TK=j.token;try{sessionStorage.setItem('tacon',TK)}catch(e){}S.err='';await loadOv()}catch(e){S.err=e.message;render()}}});window.google.accounts.id.renderButton($('gbtn'),{theme:'outline',size:'large',shape:'pill',text:'continue_with'})};
+    if(window.google&&window.google.accounts)return go();
+    const sc=document.createElement('script');sc.src='https://accounts.google.com/gsi/client';sc.async=true;sc.onload=go;document.head.appendChild(sc);
+  }catch(e){S.err='Could not load Google sign-in';render()}
+}
+function out(){TK='';S.ov=null;try{sessionStorage.removeItem('tacon')}catch(e){}render()}
+function tabs(){return '<div class="tabs">'+[['labs','Labs'],['act','Activity'],['sys','System & team']].map(x=>'<button class="'+(S.tab===x[0]&&!S.lab?'on':'')+'" onclick="go(\''+x[0]+'\')">'+x[1]+'</button>').join('')+'</div>'}
+function go(t){S.tab=t;S.lab=null;S.coll=null;S.rec=null;if(t==='act'){S.act=null;api('GET','/api/console/activity').then(r=>{S.act=r.entries;render()})}render()}
+function body(){
+  if(S.lab)return labView();
+  let h=tabs();
+  if(S.tab==='labs'){
+    const L=S.ov.labs,tot=k=>L.reduce((a,x)=>a+x[k],0);
+    h+='<div class="stats"><div class="stat"><b>'+L.length+'</b><span>Labs</span></div><div class="stat"><b>'+tot('users')+'</b><span>Users</span></div><div class="stat"><b>'+tot('samples')+'</b><span>Samples</span></div><div class="stat"><b>'+inr(tot('billed'))+'</b><span>Billed in total</span></div></div>';
+    h+='<div class="card">'+L.map(x=>'<div class="row" onclick="openLab(\''+esc(x.slug)+'\')"><div class="grow"><div class="t">'+esc(x.name)+' '+(x.suspended?'<span class="bdg bad">Suspended</span>':'<span class="bdg">'+esc(x.plan)+'</span>')+'</div><div class="s">'+esc(x.slug)+' · '+x.users+' users · '+x.clients+' clients · '+x.samples+' samples · '+inr(x.billed)+'</div><div class="s">Owner '+esc(x.ownerEmail||'—')+' · created '+esc(x.createdOn||'')+' · last active '+esc(fdt(x.lastActive))+'</div></div><span class="mut">›</span></div>').join('')+'</div>';
+  }else if(S.tab==='act'){
+    h+=!S.act?'<p class="mut">Loading…</p>':'<div class="card">'+S.act.map(a=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(a.action)+' · '+esc(a.user_name||'')+'</div><div class="s">'+esc(fdt(a.ts))+' · '+esc(a.org)+' · '+esc((a.summary||'').slice(0,140))+'</div></div></div>').join('')+'</div>';
+  }else{
+    const sy=S.ov.system,yn=v=>v?'<span class="bdg ok">On</span>':'<span class="bdg bad">Off</span>';
+    h+='<div class="card"><h2 style="margin-top:0">System</h2><div class="row" style="cursor:default"><div class="grow">Database</div><span>'+esc(sy.database)+'</span></div><div class="row" style="cursor:default"><div class="grow">Email alerts</div>'+yn(sy.email)+'</div><div class="row" style="cursor:default"><div class="grow">Browser / iPhone push</div>'+yn(sy.webPush)+'</div><div class="row" style="cursor:default"><div class="grow">Android push</div>'+yn(sy.androidPush)+'</div><div class="row" style="cursor:default"><div class="grow">Demo lab</div>'+yn(S.ov.demo)+'</div><div class="row" style="cursor:default"><div class="grow">Address</div><span class="mono">'+esc(sy.publicUrl)+'</span></div></div>';
+    h+='<div class="card"><h2 style="margin-top:0">People with console access</h2><div class="row" style="cursor:default"><div class="grow"><div class="t">Owner</div><div class="s">Set on the server</div></div></div>'+S.ov.team.map(t=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(t.email)+'</div><div class="s">'+esc(t.name||'')+' added '+esc(t.addedOn||'')+'</div></div>'+(S.ov.owner?'<button class="btn dng" onclick="team(\''+esc(t.email)+'\',1)">Remove</button>':'')+'</div>').join('');
+    if(S.ov.owner)h+='<div style="display:flex;gap:8px;margin-top:12px"><input id="tem" placeholder="Their Google email" type="email"><button class="btn pri" onclick="team($(\'tem\').value)">Add</button></div><p class="mut" style="margin-top:8px">They sign in at /console with that Google account. No passwords are shared. Remove them any time.</p>';
+    h+='</div>';
+  }
+  return h;
+}
+async function team(email,remove){try{const r=await api('POST','/api/console/team',{email,remove:!!remove});S.ov.team=r.team;render();toast(remove?'Removed':'Added')}catch(e){toast(e.message)}}
+async function openLab(slug){try{S.lab=await api('GET','/api/console/lab/'+slug);S.coll=null;S.rec=null;render();window.scrollTo(0,0)}catch(e){toast(e.message)}}
+function labView(){
+  const L=S.lab,l=L.lab;
+  let h='<div class="tabs"><button onclick="go(\'labs\')">← All labs</button></div><div class="card"><h2 style="margin-top:0">'+esc(l.name)+' '+(l.suspended?'<span class="bdg bad">Suspended</span>':'<span class="bdg">'+esc(l.plan)+'</span>')+'</h2><div class="s">'+esc(l.slug)+' · owner '+esc(l.ownerEmail||'—')+' · created '+esc(l.createdOn||'')+'</div>'+
+   '<div class="stats" style="margin-top:12px"><div class="stat"><b>'+l.users+'</b><span>Users</span></div><div class="stat"><b>'+l.clients+'</b><span>Clients</span></div><div class="stat"><b>'+l.samples+'</b><span>Samples</span></div><div class="stat"><b>'+inr(l.billed)+'</b><span>Billed</span></div></div>'+
+   '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" onclick="dl(\'/api/console/lab/'+esc(l.slug)+'/backup\',\'backup-'+esc(l.slug)+'.json\')">Download backup</button>'+
+   '<select style="width:auto" onchange="setPlan(this.value)">'+['trial','paid','demo'].map(p=>'<option'+(p===l.plan?' selected':'')+'>'+p+'</option>').join('')+'</select>'+
+   (l.slug==='demo'?'':'<button class="btn dng" onclick="suspend('+(!l.suspended)+')">'+(l.suspended?'Reactivate lab':'Suspend lab')+'</button>')+'</div></div>';
+  if(S.rec)return h+recView();
+  h+='<h2>Data</h2><div class="chips">'+L.colls.map(c=>'<button class="chip'+(S.coll===c.name?' on':'')+'" onclick="pick(\''+c.name+'\')">'+esc(c.name)+' · '+c.count+'</button>').join('')+'</div>';
+  if(S.coll){
+    h+='<div style="display:flex;gap:8px;margin-bottom:10px"><input id="q" placeholder="Search in '+esc(S.coll)+'" value="'+esc(S.q)+'"><button class="btn" onclick="S.q=$(\'q\').value;pick(S.coll,1)">Search</button></div>';
+    h+=!S.list?'<p class="mut">Loading…</p>':(S.list.rows.length?'<div class="card">'+S.list.rows.map(r=>'<div class="row" onclick="openRec(\''+esc(r.id)+'\')"><div class="grow"><div class="t">'+esc(String(r.name||r.no||r.uid||r.title||r.id))+'</div><div class="s">'+esc([r.status,r.reportStatus,r.d,r.date,r.total&&inr(r.total)].filter(Boolean).join(' · ').slice(0,120))+'</div></div><span class="mut">›</span></div>').join('')+'</div><p class="mut">Showing '+S.list.rows.length+' of '+S.list.total+'</p>':'<p class="mut">Nothing found.</p>');
+  }
+  h+='<h2>Users</h2><div class="card">'+L.users.map(u=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(u.name)+' '+(u.active?'':'<span class="bdg bad">Disabled</span>')+'</div><div class="s">'+esc(u.role)+' · '+esc(u.login||u.email||'')+'</div></div></div>').join('')+'</div>';
+  h+='<h2>Recent sign-ins</h2><div class="card">'+(L.signins.length?L.signins.map(a=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(a.user_name||'?')+' · '+(a.action==='login_failed'?'<span class="bdg bad">Failed</span>':'<span class="bdg ok">'+esc(a.action)+'</span>')+'</div><div class="s">'+esc(fdt(a.ts))+' · '+esc((a.summary||'').slice(0,100))+'</div></div></div>').join(''):'<p class="mut">None yet.</p>')+'</div>';
+  return h;
+}
+async function pick(c,keep){S.coll=c;S.rec=null;S.list=null;if(!keep)S.q='';render();try{S.list=await api('GET','/api/console/lab/'+S.lab.lab.slug+'/data/'+c+'?q='+encodeURIComponent(S.q||''))}catch(e){toast(e.message)}render()}
+async function openRec(id){try{const r=await api('GET','/api/console/lab/'+S.lab.lab.slug+'/data/'+S.coll+'/'+id);S.rec={id,rec:r.rec};render();window.scrollTo(0,0)}catch(e){toast(e.message)}}
+function recView(){
+  const r=S.rec.rec,imgs=[],files=[];
+  const walk=(v,p)=>{if(typeof v==='string'){if(/^data:image\//.test(v))imgs.push([p,v]);else if(/^data:/.test(v))files.push([p,v]);return}if(Array.isArray(v))v.forEach((x,i)=>walk(x,p+'.'+i));else if(v&&typeof v==='object')Object.keys(v).forEach(k=>walk(v[k],p?p+'.'+k:k))};
+  walk(r,'');window.__files=files;
+  const flat=JSON.stringify(r,(k,v)=>typeof v==='string'&&v.startsWith('data:')?'[file]':v,2);
+  return '<button class="btn" onclick="S.rec=null;render()">← Back to '+esc(S.coll)+'</button><div class="card" style="margin-top:12px"><h2 style="margin-top:0">'+esc(S.coll)+' · <span class="mono">'+esc(S.rec.id)+'</span></h2>'+
+   (imgs.length?'<h2>Photos and signatures</h2>'+imgs.map(x=>'<div class="mut mono">'+esc(x[0])+'</div><img class="ph" src="'+x[1]+'" alt="">').join(''):'')+
+   (files.length?'<h2>Attached files</h2>'+files.map((f,i)=>'<button class="chip" onclick="dataFile(window.__files['+i+'][1],\'file\')">Download '+esc(f[0])+'</button>').join(' '):'')+
+   '<h2>All fields</h2><pre class="mono">'+esc(flat)+'</pre></div>';
+}
+async function suspend(v){if(!confirm(v?'Suspend this lab? Nobody in it can sign in until you reactivate it.':'Reactivate this lab?'))return;try{await api('POST','/api/console/lab/'+S.lab.lab.slug,{suspended:v});await refreshLab();toast(v?'Lab suspended':'Lab reactivated')}catch(e){toast(e.message)}}
+async function setPlan(p){try{await api('POST','/api/console/lab/'+S.lab.lab.slug,{plan:p});await refreshLab();toast('Plan updated')}catch(e){toast(e.message)}}
+async function refreshLab(){const slug=S.lab.lab.slug;S.lab=await api('GET','/api/console/lab/'+slug);S.ov=await api('GET','/api/console/overview');render()}
+render();
+</script></body></html>

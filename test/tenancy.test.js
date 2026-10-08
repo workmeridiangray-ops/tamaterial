@@ -89,5 +89,28 @@ function idToken(email, over, key) {
   ok((await call('GET', '/api/audit?kind=signins', gr.j.token)).s === 403, 'only admins can see sign-ins');
   const bl = await call('POST', '/api/login', null, { lab: 'alpha-testing-lab', login: 'tess', pin: '1234' });
   ok((await call('POST', '/api/logout', bl.j.token, {})).j.ok, 'logout');
+  // platform console
+  const con = (m, pth, tok, body) => fetch(base + pth, { method: m, headers: { 'Content-Type': 'application/json', 'X-Console': tok || '' }, body: body ? JSON.stringify(body) : undefined }).then(async r => ({ s: r.status, j: await r.json().catch(() => ({})) }));
+  ok((await con('GET', '/api/console/overview', '')).s === 401, 'console needs sign-in');
+  ok((await call('POST', '/api/console/login', null, { credential: idToken('stranger@gmail.com') })).s === 403, 'console refuses a stranger');
+  const ccl = await call('POST', '/api/console/login', null, { credential: idToken('work.meridiangray@gmail.com') });
+  ok(ccl.j.token && ccl.j.owner, 'owner signs in to the console');
+  const ov = await con('GET', '/api/console/overview', ccl.j.token);
+  ok(ov.j.labs.length >= 2 && ov.j.labs.some(x => x.slug === 'alpha-testing-lab'), 'console lists all labs');
+  ok((await con('POST', '/api/console/team', ccl.j.token, { email: 'helper@gmail.com' })).j.team.length === 1, 'owner adds a team member');
+  const hl = await call('POST', '/api/console/login', null, { credential: idToken('helper@gmail.com') });
+  ok(hl.j.token && !hl.j.owner, 'team member signs in');
+  ok((await con('POST', '/api/console/team', hl.j.token, { email: 'x@y.com' })).s === 403, 'team member cannot add people');
+  const lv = await con('GET', '/api/console/lab/alpha-testing-lab', hl.j.token);
+  ok(lv.j.users.length >= 1 && !JSON.stringify(lv.j).includes('"hash"'), 'console shows a lab without password hashes');
+  const bk = await fetch(base + '/api/console/lab/alpha-testing-lab/backup', { headers: { 'X-Console': hl.j.token } });
+  ok(bk.ok && (await bk.json()).data.users.length >= 1, 'console backup works');
+  ok((await con('POST', '/api/console/lab/alpha-testing-lab', hl.j.token, { suspended: true })).j.lab.suspended, 'lab can be suspended');
+  ok((await call('POST', '/api/login', null, { lab: 'alpha-testing-lab', login: 'tess', pin: '1234' })).s === 403, 'suspended lab cannot sign in');
+  ok((await call('GET', '/api/bootstrap', gr.j.token)).s === 401, 'suspended lab sessions end');
+  await con('POST', '/api/console/lab/alpha-testing-lab', hl.j.token, { suspended: false });
+  ok((await call('POST', '/api/login', null, { lab: 'alpha-testing-lab', login: 'tess', pin: '1234' })).s === 200, 'lab works again after reactivation');
+  await con('POST', '/api/console/team', ccl.j.token, { email: 'helper@gmail.com', remove: true });
+  ok((await call('POST', '/api/console/login', null, { credential: idToken('helper@gmail.com') })).s === 403, 'removed member loses access');
   console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); server.close(); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

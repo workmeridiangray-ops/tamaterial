@@ -120,6 +120,7 @@ function authUser(req) {
   if (!m) return null;
   const s = st('SELECT org,user_id,expires FROM sessions WHERE token_hash=?').get(sha(m[1]));
   if (!s || s.expires < Date.now()) return null;
+  { const o = findOrg(s.org); if (o && o.suspended) return null; }
   ORG = s.org;
   const u = get('users', s.user_id);
   if (!u || !u.active) return null;
@@ -762,6 +763,7 @@ route('POST', /^\/api\/login$/, null, c => {
   throttle(key);
   const org = findOrg(lab);
   if (!org || (lab === 'demo' && !DEMO)) { failed(key); bad('Wrong lab code, login name or PIN', 401); }
+  if (org.suspended) bad('This lab is suspended. Please contact TechAssures support.', 403);
   return withOrg(org.slug, () => {
     const u = login ? all('users').find(x => x.login === login) : null;
     if (!u || !pinOk(u, c.body.pin)) { failed(key); audit({ id: '', name: login || '(blank)' }, 'login_failed', 'users', u ? u.id : '', 'Wrong PIN · ' + whereOf(c.req, c.ip)); bad('Wrong lab code, login name or PIN', 401); }
@@ -805,7 +807,7 @@ function unsign(t) {
 route('POST', /^\/api\/google$/, null, async c => {
   const g = await (c.verify || verifyGoogle)(c.body.credential);
   const want = String(c.body.lab || '').trim().toLowerCase();
-  const found = sysOrgs().filter(o => (o.slug !== 'demo' || DEMO) && (!want || o.slug === want)).map(o => ({ o, u: withOrg(o.slug, () => all('users')).find(x => (x.email || '') === g.email && x.active) })).filter(x => x.u);
+  const found = sysOrgs().filter(o => !o.suspended && (o.slug !== 'demo' || DEMO) && (!want || o.slug === want)).map(o => ({ o, u: withOrg(o.slug, () => all('users')).find(x => (x.email || '') === g.email && x.active) })).filter(x => x.u);
   if (found.length === 1) {
     const { o, u } = found[0];
     return withOrg(o.slug, () => { audit(u, 'login', 'users', u.id, 'Google · ' + whereOf(c.req, c.ip)); return { token: newSession(u.id), user: pubUser(u, true) }; });
@@ -858,6 +860,75 @@ route('GET', /^\/api\/audit$/, ['admin'], c => {
     return { entries: st("SELECT id,ts,user_id,user_name,action,coll,rec_id,summary FROM audit WHERE org=? AND action IN ('login','login_failed','signup') ORDER BY id DESC LIMIT ?").all(ORG, lim) };
   return { entries: st('SELECT id,ts,user_name,action,coll,rec_id,summary FROM audit WHERE org=? ORDER BY id DESC LIMIT ?').all(ORG, lim) };
 });
+/* ---------------- platform console: for the people who run TechAssures Lab itself (all labs, no database login needed) ---------------- */
+const consoleOwners = () => String(process.env.PLATFORM_ADMINS || 'work.meridiangray@gmail.com').toLowerCase().split(/[\s,;]+/).filter(Boolean);
+const consoleTeam = () => { try { return JSON.parse(withOrg('_sys', () => metaGet('console_team')) || '[]'); } catch (e) { return []; } };
+const consoleAllowed = em => consoleOwners().includes(em) || consoleTeam().some(x => x.email === em);
+function consoleAuth(c) {
+  const t = unsign(c.req.headers['x-console'] || ''); if (!t || !t.con || !consoleAllowed(t.email)) bad('Please sign in to the console again', 401);
+  return t;
+}
+const conRoute = (method, re, fn) => route(method, re, null, c => { const t = consoleAuth(c); c.who = t.email; return fn(c); });
+route('POST', /^\/api\/console\/login$/, null, async c => {
+  const g = await (c.verify || verifyGoogle)(c.body.credential);
+  if (!consoleAllowed(g.email)) bad('This Google account does not have console access. Ask the owner to add you.', 403);
+  withOrg('_sys', () => audit({ id: '', name: g.email }, 'console_login', 'console', '', 'Console sign-in · ' + whereOf(c.req, c.ip)));
+  return { token: sign({ con: 1, email: g.email, exp: Date.now() + 12 * 36e5 }), email: g.email, name: g.name, owner: consoleOwners().includes(g.email) };
+});
+const labStats = o => withOrg(o.slug, () => {
+  const inv = all('invoices'), last = st('SELECT ts FROM audit WHERE org=? ORDER BY id DESC LIMIT 1').get(o.slug);
+  return { slug: o.slug, name: o.name, plan: o.plan, createdOn: o.createdOn, ownerEmail: o.ownerEmail, suspended: !!o.suspended,
+    users: all('users').length, clients: all('clients').length, samples: all('samples').length, invoices: inv.length,
+    billed: Math.round(inv.reduce((a, x) => a + (Number(x.total) || 0), 0)), lastActive: last ? last.ts : '' };
+});
+conRoute('GET', /^\/api\/console\/overview$/, c => {
+  const labs = sysOrgs().map(labStats);
+  return { who: c.who, owner: consoleOwners().includes(c.who), labs, demo: DEMO, system: { database: pg ? 'Neon Postgres (synced)' : 'Local file only', email: N.mailOn(), webPush: true, androidPush: N.fcmOn(), publicUrl: PUBLIC_URL }, team: consoleTeam() };
+});
+const conLab = c => { const o = findOrg(c.m[1]); if (!o) bad('No such lab', 404); return o; };
+conRoute('GET', /^\/api\/console\/lab\/([\w-]+)$/, c => {
+  const o = conLab(c);
+  return withOrg(o.slug, () => ({ lab: labStats(o), colls: COLLS.map(n => ({ name: n, count: all(n).length })),
+    users: all('users').map(u => ({ id: u.id, name: u.name, role: u.role, active: u.active, login: u.login || '', email: u.email || '' })),
+    signins: st("SELECT ts,user_name,action,summary FROM audit WHERE org=? AND action IN ('login','login_failed','signup') ORDER BY id DESC LIMIT 25").all(o.slug) }));
+});
+conRoute('GET', /^\/api\/console\/lab\/([\w-]+)\/data\/(\w+)$/, c => {
+  const o = conLab(c), n = c.m[2]; if (!COLLS.includes(n)) bad('Unknown collection', 404);
+  const q = String(c.url.searchParams.get('q') || '').toLowerCase().trim();
+  let rows = withOrg(o.slug, () => all(n)).map(r => dataClean(r, false)); if (q) rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+  return { total: rows.length, rows: rows.slice(0, 100) };
+});
+conRoute('GET', /^\/api\/console\/lab\/([\w-]+)\/data\/(\w+)\/([\w-]+)$/, c => {
+  const o = conLab(c), n = c.m[2]; if (!COLLS.includes(n)) bad('Unknown collection', 404);
+  const r = withOrg(o.slug, () => get(n, c.m[3])); if (!r) bad('Not found', 404); return { rec: dataClean(r, true) };
+});
+conRoute('GET', /^\/api\/console\/lab\/([\w-]+)\/backup$/, c => {
+  const o = conLab(c), out = { lab: o.slug, exportedAt: new Date().toISOString(), data: {} };
+  withOrg(o.slug, () => COLLS.forEach(n => { out.data[n] = all(n).map(r => dataClean(r, true)); }));
+  withOrg('_sys', () => audit({ id: '', name: c.who }, 'console_backup', 'orgs', o.slug, 'Backup downloaded'));
+  return { __json: JSON.stringify(out), name: 'backup-' + o.slug + '-' + L.today() + '.json' };
+});
+conRoute('POST', /^\/api\/console\/lab\/([\w-]+)$/, c => {
+  const o = conLab(c); if (o.slug === 'demo' && c.body.suspended) bad('The demo lab cannot be suspended');
+  const n = Object.assign({}, o);
+  if (typeof c.body.suspended === 'boolean') n.suspended = c.body.suspended;
+  if (c.body.plan) n.plan = String(c.body.plan).slice(0, 20);
+  withOrg('_sys', () => { put('orgs', n, null, 'update', 'Lab ' + o.slug + (n.suspended ? ' suspended' : ' updated') + ' by ' + c.who); });
+  if (n.suspended) st('DELETE FROM sessions WHERE org=?').run(o.slug);
+  if (pg) pg.schedule();
+  return { lab: labStats(n) };
+});
+conRoute('GET', /^\/api\/console\/activity$/, c => ({ entries: st("SELECT ts,org,user_name,action,coll,summary FROM audit ORDER BY id DESC LIMIT 150").all() }));
+conRoute('POST', /^\/api\/console\/team$/, c => {
+  if (!consoleOwners().includes(c.who)) bad('Only the owner can change console access', 403);
+  const email = String(c.body.email || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) bad('Enter a valid Google email');
+  let team = consoleTeam().filter(x => x.email !== email);
+  if (!c.body.remove) team.push({ email, name: String(c.body.name || '').slice(0, 60), addedOn: L.today() });
+  withOrg('_sys', () => metaSet('console_team', JSON.stringify(team)));
+  if (pg) pg.schedule();
+  return { team };
+});
+
 /* Data browser for the lab's own admin: look through everything stored for this lab, no database login needed */
 const dataClean = (r, full) => {
   const walk = v => {
@@ -950,7 +1021,7 @@ function verifyPage(res, slug, sid) {
   res.writeHead(good ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(html);
 }
 function serveStatic(req, res, url) {
-  let p = decodeURIComponent(url.pathname); if (p === '/') p = '/index.html';
+  let p = decodeURIComponent(url.pathname); if (p === '/') p = '/index.html'; if (p === '/console') p = '/console.html';
   const file = path.join(PUBLIC_DIR, p);
   if (!file.startsWith(PUBLIC_DIR + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('Not found'); }
   res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
