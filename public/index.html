@@ -19,7 +19,7 @@
 :root{
   --paper:#FCFCFA;--wash:#F7F7F4;--surface:#FFFFFF;--ink:#121413;--ink2:#1D201E;
   --g1:#4C4F4D;--g2:#848784;--g3:#B9BBB7;--line:#E4E4DF;
-  --acc:#678B05;--acc-ink:#4A6404;--acc-soft:rgba(103,139,5,.12);
+  --acc:#1F4E79;--acc-ink:#1F4E79;--acc-soft:rgba(31,78,121,.11);
   --warn:#A8530A;--warn-soft:rgba(168,83,10,.12);--bad:#B3261E;--bad-soft:rgba(179,38,30,.10);
   --hdr:#121413;--shadow:0 1px 2px rgba(18,20,19,.06),0 4px 14px rgba(18,20,19,.05);
 }
@@ -27,7 +27,7 @@
   :root{
     --paper:#0E100F;--wash:#141716;--surface:#1A1D1B;--ink:#F3F4F0;--ink2:#E4E6E1;
     --g1:#B4B7B2;--g2:#8A8D89;--g3:#555855;--line:#2B2F2C;
-    --acc:#8DB81C;--acc-ink:#587A05;--acc-soft:rgba(141,184,28,.16);
+    --acc:#6FA8DC;--acc-ink:#2F6AA5;--acc-soft:rgba(111,168,220,.18);
     --warn:#E0883A;--warn-soft:rgba(224,136,58,.16);--bad:#F2766E;--bad-soft:rgba(242,118,110,.14);
     --hdr:#0A0B0A;--shadow:0 1px 2px rgba(0,0,0,.4);
   }
@@ -225,6 +225,43 @@ table.tb tr.tot td{font-weight:700;border-bottom:0}
 .hbar{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
 .hbar i{display:block;height:100%;background:var(--acc);border-radius:4px}
 @media (max-width:380px){.brand span.l{display:none}.stat b{font-size:19px}}
+
+/* review flow */
+.cal{padding:12px}.calh{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.cdw,.cdg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.cdw span{font-size:12px;color:var(--g1);font-weight:600;padding:4px 0}
+.cdg i{display:block}
+.cd{position:relative;min-height:44px;border-radius:10px;font-weight:600;color:var(--ink);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;background:transparent}
+.cd.past{color:var(--g2)}.cd.today{box-shadow:inset 0 0 0 2px var(--acc-ink)}
+.cd.sel{background:var(--ink);color:var(--surface)}
+.cd b{font-size:11px;min-width:18px;height:18px;border-radius:9px;background:var(--acc-ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;padding:0 4px}
+.cd b.od{background:var(--bad)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--g1)}
+.ld{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--acc-ink);margin-right:4px}.ld.od{background:var(--bad)}.ld.ring{background:transparent;box-shadow:inset 0 0 0 2px var(--acc-ink)}
+.stepn{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--acc-soft);color:var(--acc-ink);font-size:13px;align-items:center;justify-content:center;margin-right:8px}
+.rpwrap{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
+.rpwrap .rpt{font-size:12px;border:0}
+.rt{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px}.rt th,.rt td{border:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top;overflow-wrap:anywhere}.rt th{background:var(--wash);font-weight:600;color:var(--g1);width:22%}
+.rtag{font-size:11px;border:1px solid var(--warn);color:var(--warn);border-radius:4px;padding:1px 6px;white-space:nowrap}.rtag.fin{border-color:var(--acc-ink);color:var(--acc-ink)}
+.tbs{overflow-x:auto}.stmt{background:var(--acc-soft);border:1px solid var(--line);padding:8px;border-radius:6px;font-size:12px}
+.rem{padding-left:18px;font-size:12px}
+.sigs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;font-size:12px}.sigs .sl{border-bottom:1px solid var(--g3);height:34px;margin-bottom:4px}.sg{font-family:cursive;font-size:18px}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);margin-bottom:8px}
+.sw b{display:block}.sw span{display:block;font-size:13px;color:var(--g1)}.sw i{width:46px;height:26px;border-radius:13px;background:var(--g3);position:relative;flex:none}
+.sw i::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.15s}.sw.on{border-color:var(--acc-ink)}.sw.on i{background:var(--acc-ink)}.sw.on i::after{left:23px}
+.cbx{display:flex;gap:12px;align-items:flex-start;text-align:left;width:100%;padding:14px 4px;margin:6px 0}.cbx i{width:26px;height:26px;border-radius:6px;border:2px solid var(--g2);flex:none;display:flex;align-items:center;justify-content:center;color:#fff}.cbx.on i{background:var(--acc-ink);border-color:var(--acc-ink)}
+.chk{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.chk:last-child{border:0}.chk>span{flex:none;display:flex;width:24px;height:24px;align-items:center;justify-content:center;color:#fff;border-radius:50%}.chk .ok{background:var(--acc-ink)}.chk .no{background:var(--bad)}
+.ph3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.ph3 img,.noph{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:var(--wash);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--g2)}.ph3 span{font-size:11px;color:var(--g1);display:block;margin-top:4px}
+.phrow{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px}.phrow img{width:56px;height:56px;object-fit:cover;border-radius:8px}.phrow .lnk{margin-left:auto}
+.mini{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:var(--wash);border-radius:10px;padding:10px;margin:10px 0}.mini span{display:block;font-size:11px;color:var(--g1)}.mini b{font-size:14px}
+.card.late{border-color:var(--bad)}.grp .gh{display:flex;align-items:center;gap:10px}.gd{width:10px;height:10px;border-radius:50%;background:var(--acc-ink)}.gd.r{background:var(--bad)}.gd.g{background:#2e7d32}
+.cnt{min-width:28px;height:28px;border-radius:14px;background:var(--acc-ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;padding:0 8px}.cnt.r{background:var(--bad)}.cnt.g{background:#2e7d32}
+.okdot{width:48px;height:48px;border-radius:50%;background:var(--acc-soft);color:var(--acc-ink);display:flex;align-items:center;justify-content:center}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+.fullrep{position:fixed;inset:0;background:var(--paper);z-index:60;overflow:auto;padding:12px}.fr-top{display:flex;gap:10px;justify-content:space-between;margin-bottom:12px}
+@media print{body.pr #app>*:not(.fullrep){display:none!important}body.pr .fr-top{display:none}body.pr .fullrep{position:static;padding:0}}
+.hdr.r-reviewer{background:#1F4E79}
+.cnt.g,.gd.g{background:#2e7d32}
 </style>
 </head>
 <body>
@@ -286,20 +323,21 @@ lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 
 const ic=(n,s)=>'<svg class="ic" width="'+(s||22)+'" height="'+(s||22)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+IC[n]+'</svg>';
 
 /* ---------- constants ---------- */
-const ROLE_LABEL={admin:'Admin',store:'Store',tester:'Tester',accounts:'Accounts'};
+const ROLE_LABEL={admin:'Admin',store:'Store',tester:'Tester',accounts:'Accounts',reviewer:'Reviewer'};
 const MODS=[
  {id:'create',label:'Create new test',short:'New test',icon:'flask'},
  {id:'schedule',label:'Testing schedule',short:'Schedule',icon:'clip'},
  {id:'reports',label:'Reports & accounts',short:'Reports',icon:'chart'},
+ {id:'reviews',label:'Reviews',short:'Reviews',icon:'check'},
  {id:'approve',label:'Approve & send',short:'Approve',icon:'check'},
  {id:'bills',label:'Track bill',short:'Bills',icon:'receipt'},
  {id:'clients',label:'Clients & history',short:'Clients',icon:'users'},
  {id:'crm',label:'CRM & follow-ups',short:'CRM',icon:'chat'},
  {id:'tickets',label:'Tickets & support',short:'Tickets',icon:'chat'},
  {id:'admin',label:'Admin',short:'Admin',icon:'gear'}];
-const PERM={admin:['create','schedule','reports','approve','bills','clients','crm','tickets','admin'],store:['create','clients','tickets'],tester:['schedule','tickets'],accounts:['reports','approve','bills','clients','crm','tickets']};
-const NAVPICK={admin:['create','schedule','approve','bills'],store:['create','clients','tickets'],tester:['schedule','tickets'],accounts:['reports','approve','bills','clients']};
-const RSTAT={testing:'In testing',awaiting:'Awaiting approval',approved:'Approved',sent:'Sent'};
+const PERM={reviewer:['reviews','tickets'],admin:['create','schedule','reports','reviews','approve','bills','clients','crm','tickets','admin'],store:['create','clients','tickets'],tester:['schedule','tickets'],accounts:['reports','approve','bills','clients','crm','tickets']};
+const NAVPICK={reviewer:['reviews','tickets'],admin:['create','schedule','approve','bills'],store:['create','clients','tickets'],tester:['schedule','tickets'],accounts:['reports','approve','bills','clients']};
+const RSTAT={draft:'Draft',returned:'Returned',testing:'In testing',awaiting:'Awaiting approval',approved:'Approved',sent:'Sent'};
 
 /* ---------- seed ---------- */
 function seed(){
@@ -435,7 +473,7 @@ const paidOf=i=>r2(D().payments.filter(p=>p.invoiceId===i.id).reduce((a,p)=>a+(+
 const balOf=i=>r2(i.total-paidOf(i));
 function bstat(i){const b=balOf(i);if(b<=0)return'Paid';if(i.due<today())return'Overdue';if(paidOf(i)>0)return'Part paid';return'Unpaid'}
 const bcls=s=>({Paid:'ok',Overdue:'bad','Part paid':'warn',Unpaid:'warn'}[s]||'');
-const rcls=s=>({testing:'',awaiting:'warn',approved:'ok',sent:'dark'}[s]||'');
+const rcls=s=>({draft:'warn',returned:'bad',testing:'',awaiting:'warn',approved:'ok',sent:'dark'}[s]||'');
 const bdg=(t,c)=>'<span class="bd '+(c||'')+'">'+esc(t)+'</span>';
 const can=m=>S.user&&PERM[S.user.role].indexOf(m)>=0&&(m!=='tickets'||S.online);
 const isTester=()=>S.user&&S.user.role==='tester';
@@ -627,7 +665,7 @@ function fld(label,inner,err,hint){return '<div class="fld"><label class="lbl">'
 function chipRow(sp,cur,opts){return '<div class="chips">'+opts.map(x=>'<button type="button" class="chip'+(String(cur)===String(x[0])?' on':'')+'" data-act="set" data-sp="'+sp+'" data-v="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div>'}
 const goA=(r,set)=>'data-go="'+r+'"'+(set?' data-set="'+esc(JSON.stringify(set))+'"':'');
 const M=r=>S.m[r]||(S.m[r]=defs(r));
-function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{f:'All',q:'',invId:null,pay:null},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null},tickets:{tab:'open',id:null,adding:false,nt:null,reply:''}})[r]||{}}
+function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null,day:null,month:null,sendId:null,send:null,sentDone:null},reviews:{month:null,day:null,sampleId:null,remark:'',ret:false,reason:'',sign:false,done:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{f:'All',q:'',invId:null,pay:null},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null},tickets:{tab:'open',id:null,adding:false,nt:null,reply:''}})[r]||{}}
 function go(r,set){S.route=r;S.m[r]=Object.assign(defs(r),set||{});window.scrollTo(0,0);render()}
 const pgHead=(title,backAct,sub)=>'<div class="pg">'+(backAct?'<button class="ibtn" data-act="'+backAct+'" aria-label="Back">'+ic('back')+'</button>':'')+'<div class="grow"><h1>'+title+'</h1>'+(sub?'<div class="mut sm">'+sub+'</div>':'')+'</div></div>';
 const empty=t=>'<div class="empty">'+t+'</div>';
@@ -639,7 +677,7 @@ const labName=()=>S.org&&!S.org.demo?S.org.name:'TechAssures Lab';
 const myNotes=()=>(D().notifications||[]).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)));
 const unreadN=()=>myNotes().filter(n=>!n.read).length;
 const bellBtn=()=>S.online?'<button class="hbtn" data-act="bell" aria-label="Notifications">'+ic('bell')+(unreadN()?'<span class="nbadge">'+(unreadN()>9?'9+':unreadN())+'</span>':'')+'</button>':'';
-function header(){return '<div class="hdr"><div class="brand"><i></i>'+(S.org&&!S.org.demo?esc(S.org.name):'TechAssures<span class="l"> Lab</span>')+'</div><div class="who">'+esc(ROLE_LABEL[S.user.role])+': '+esc(S.user.name)+'</div>'+bellBtn()+'<button class="hbtn" data-act="logout" aria-label="Log out">'+ic('out')+'</button></div>'}
+function header(){return '<div class="hdr r-'+S.user.role+'"><div class="brand"><i></i>'+(S.org&&!S.org.demo?esc(S.org.name):'TechAssures<span class="l"> Lab</span>')+'</div><div class="who">'+esc(ROLE_LABEL[S.user.role])+': '+esc(S.user.name)+'</div>'+bellBtn()+'<button class="hbtn" data-act="logout" aria-label="Log out">'+ic('out')+'</button></div>'}
 function shell(body){
  const navMods=NAVPICK[S.user.role].filter(can);
  const items=[{id:'home',short:'Home',icon:'home'}].concat(navMods.map(id=>MODS.find(m=>m.id===id)));
@@ -687,11 +725,13 @@ function homeView(){
  const month=T.slice(0,7),mCount=D0.samples.filter(s=>s.receipt.slice(0,7)===month).length,inTest=D0.samples.filter(s=>s.reportStatus==='testing').length;
  let prim,tiles;
  if(role==='tester'){prim='<button class="btn pri blk" '+goA('schedule',{tab:'due'})+'>'+ic('clip')+' Open testing schedule</button>';tiles=[['Due / overdue',dueJ.length,'schedule',{tab:'due'},dueJ.length>0],['Upcoming',upJ.length,'schedule',{tab:'upcoming'}],['Done',doneJ.length,'schedule',{tab:'done'}]]}
+ else if(role==='reviewer'){const rv=reviewList();prim='<button class="btn pri blk" '+goA('reviews',{})+'>'+ic('check')+' Open reviews</button>';tiles=[['To review',rv.length,'reviews',{},rv.length>0],['Returned',D0.samples.filter(x=>x.reportStatus==='returned').length,'reviews',{}],['Approved',D0.samples.filter(x=>x.reportStatus==='approved'||x.reportStatus==='sent').length,'reviews',{}]]}
  else if(role==='accounts'){prim='<button class="btn pri blk" '+goA('approve',{tab:'awaiting'})+'>'+ic('check')+' Approve reports</button>';tiles=[['Awaiting approval',aw.length,'approve',{tab:'awaiting'},aw.length>0],['Unpaid bills',open.length,'bills',{f:'Unpaid'}],['Pending money',inr(pend),'bills',{f:'All'}]]}
  else if(role==='store'){prim='<button class="btn pri blk" data-act="newsample">'+ic('plus')+' New sample</button>';tiles=[['Samples this month',mCount,'create',{}],['In testing',inTest,'create',{}],['Clients',D0.clients.length,'clients',{}]]}
  else{prim='<button class="btn pri blk" data-act="newsample">'+ic('plus')+' New sample</button>';tiles=[['Due / overdue tests',dueJ.length,'schedule',{tab:'due'},dueJ.length>0],['Awaiting approval',aw.length,'approve',{tab:'awaiting'},aw.length>0],['Pending money',inr(pend),'bills',{f:'All'}]]}
  const att=[];
  if(can('schedule'))dueJ.slice().sort((a,b)=>a.due<b.due?-1:1).slice(0,4).forEach(j=>{const s=sm(j.sampleId);att.push({t:s.uid+' · '+jobLabel(j),s:j.due<T?'Overdue since '+fd(j.due):'Due today',go:['schedule',{tab:'due',jobId:j.id}],bad:j.due<T})});
+ if(can('reviews'))reviewList().slice(0,4).forEach(x=>att.push({t:x.uid+' · report to review',s:cl(x.clientId).name,go:['reviews',{sampleId:x.id}]}));
  if(can('approve')){aw.slice(0,3).forEach(s=>att.push({t:s.uid+' · report awaiting approval',s:cl(s.clientId).name,go:['approve',{tab:'awaiting',sampleId:s.id}]}));
   D0.samples.filter(s=>s.reportStatus==='approved').forEach(s=>{const i=invOf(s);if(s.billing==='Advance'&&i&&balOf(i)>0)att.push({t:s.uid+' · send blocked',s:'Advance bill '+i.no+' unpaid',go:['bills',{invId:i.id}],bad:true})})}
  if(can('bills'))overdue.slice(0,3).forEach(i=>att.push({t:i.no+' overdue · '+inr(balOf(i)),s:cl(i.clientId).name+' · due '+fd(i.due),go:['bills',{invId:i.id}],bad:true}));
@@ -762,7 +802,7 @@ function adminView(){
   const nu=m.nu,e=nu.err||{};
   body=D().users.map(u=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(u.name)+(u.id===S.user.id?' <span class="mut sm">(you)</span>':'')+'</div><div class="s"><span class="mono">'+esc(u.login||u.email)+'</span>'+(u.login&&u.email?' · '+esc(u.email):'')+' · '+esc(ROLE_LABEL[u.role])+'</div></div>'+bdg(u.active?'Active':'Disabled',u.active?'ok':'bad')+(S.online&&u.active?'<button class="btn sm" data-act="invite" data-id="'+u.id+'">Invite</button> ':'')+'<button class="btn sm" data-act="touser" data-id="'+u.id+'">'+(u.active?'Disable':'Enable')+'</button></div>').join('')+
   '<div class="card" style="margin-top:14px"><h3 style="margin-bottom:12px">Add user</h3>'+fld('Full name',inp('m.admin.nu.name',nu.name,{err:e.name}),e.name)+(S.online?fld('Google email (optional)',inp('m.admin.nu.email',nu.email,{err:e.email,ph:'name@gmail.com'}),e.email,'They can sign in with Google. Leave login and PIN empty for Google-only.'):'')+fld('Login name'+(S.online?' (optional)':''),inp('m.admin.nu.login',nu.login,{err:e.login}),e.login)+
-  fld('Role',sel('m.admin.nu.role',nu.role,[['store','Store'],['tester','Tester'],['accounts','Accounts'],['admin','Admin']]))+fld('PIN (4 digits'+(S.online?', optional':'')+')',inp('m.admin.nu.pin',nu.pin,{mode:'numeric',max:4,err:e.pin}),e.pin)+
+  fld('Role',sel('m.admin.nu.role',nu.role,[['store','Store'],['tester','Tester'],['reviewer','Reviewer'],['accounts','Accounts'],['admin','Admin']]))+fld('PIN (4 digits'+(S.online?', optional':'')+')',inp('m.admin.nu.pin',nu.pin,{mode:'numeric',max:4,err:e.pin}),e.pin)+
   '<button class="btn pri blk" data-act="adduser">Add user</button></div>';
  }else if(m.tab==='tests'){
   body=D().tests.map((t,i)=>'<div class="card">'+fld('Test name',inp('db.tests.'+i+'.name',t.name))+fld('IS code reference',inp('db.tests.'+i+'.code',t.code))+
@@ -775,7 +815,7 @@ function adminView(){
  }else{
   const s=D().settings;
   body='<div class="card">'+fld('NABL certificate number',inp('db.settings.cert',s.cert),'','Used as the prefix of every ULR, e.g. <span class="mono">'+esc(s.cert)+'-'+yy()+'-000146-F</span>')+
-  fld('GST %',inp('db.settings.gst',s.gst,{mode:'decimal'}))+fld('Default credit days',inp('db.settings.creditDays',s.creditDays,{mode:'numeric'}))+'<p class="hint">Saved automatically.</p></div>';
+  fld('GST %',inp('db.settings.gst',s.gst,{mode:'decimal'}))+fld('Default credit days',inp('db.settings.creditDays',s.creditDays,{mode:'numeric'}))+fld('Testing machines',inp('db.settings.machines',s.machines||'',{ph:'CTM-01, CTM-02'}),'','Comma separated. Testers pick one when they enter readings.')+'<p class="hint">Saved automatically.</p></div>';
  }
  return pgHead('Admin',null,S.online?'Connected to server':'Offline demo · data stays in this browser')+tabsBar('admtab',m.tab,[['users','Users'],['tests','Tests & rates'],['settings','Settings'],['signins','Sign-ins'],['activity','Activity']])+body+
  ((S.online&&S.org&&!S.org.demo)?'':'<div class="card" style="margin-top:22px"><h3>Demo data</h3><p class="mut sm" style="margin:6px 0 12px">Restore the original sample clients, samples and bills. Everything you added will be removed.</p><button class="btn dng blk" data-act="reset">Reset demo data</button></div>');
@@ -1178,28 +1218,85 @@ function saveSampleLocal(geo){
 }
 
 /* ================= TESTING SCHEDULE ================= */
+/* ---------- shared helpers: machines, calendar, reviewers ---------- */
+const machinesList=()=>String((D().settings&&D().settings.machines)||'CTM-01').split(',').map(x=>x.trim()).filter(Boolean);
+const MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const dayOf=iso=>{const t=new Date(iso);return t.getFullYear()+'-'+pad(t.getMonth()+1,2)+'-'+pad(t.getDate(),2)};
+const shiftMon=(ym,k)=>{const p=ym.split('-').map(Number),d=new Date(p[0],p[1]-1+k,1);return d.getFullYear()+'-'+pad(d.getMonth()+1,2)};
+const reviewersList=()=>D().users.filter(u=>u.active&&(u.role==='reviewer'||u.role==='admin'));
+const defaultReviewer=()=>{const r=D().users.filter(u=>u.active&&u.role==='reviewer');return r.length===1?r[0].id:''};
+function calHtml(ym,counts,over,sel,pre,sub,legend){
+ const p=ym.split('-').map(Number),dim=new Date(p[0],p[1],0).getDate(),lead=(new Date(p[0],p[1]-1,1).getDay()+6)%7,T=today();
+ let cells='';for(let i=0;i<lead;i++)cells+='<i></i>';
+ for(let d=1;d<=dim;d++){const ds=ym+'-'+pad(d,2),n=counts[ds]||0;
+  cells+='<button type="button" class="cd'+(ds===sel?' sel':'')+(ds===T?' today':'')+(ds<T?' past':'')+'" data-act="'+pre+'day" data-v="'+ds+'"><span>'+d+'</span>'+(n?'<b class="'+(over[ds]?'od':'')+'">'+n+'</b>':'')+'</button>'}
+ return '<div class="card cal"><div class="calh"><button class="ibtn" data-act="'+pre+'mon" data-v="-1" aria-label="Previous month">'+ic('back')+'</button><div class="grow" style="text-align:center"><h3>'+MONF[p[1]-1]+' '+p[0]+'</h3><div class="mut sm">'+sub+'</div></div><button class="ibtn" data-act="'+pre+'mon" data-v="1" aria-label="Next month">'+ic('chev')+'</button></div>'+
+ '<div class="cdw"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div><div class="cdg">'+cells+'</div><div class="legend">'+legend+'</div></div>';
+}
+const ages=s=>jobsOf(s.id).map(j=>j.age).filter(x=>x).sort((a,b)=>a-b);
+function avgOf(s){const dj=jobsOf(s.id).filter(j=>j.status==='done'&&j.results).sort((a,b)=>(b.age||0)-(a.age||0))[0];return dj?(dj.results.avg!=null?(+dj.results.avg).toFixed(2):dj.results.value):'—'}
 function scheduleView(){
  const m=M('schedule');
+ if(m.sentDone)return submittedView(m);
+ if(m.sendId)return sendView(m);
  if(m.jobId)return jobDetail(m);
  const jobs=myJobs(),T=today();
  const cnt=k=>jobs.filter(j=>jobTab(j)===k).length;
- let list=jobs.filter(j=>jobTab(j)===m.tab).sort((a,b)=>m.tab==='done'?(a.due<b.due?1:-1):(a.due<b.due?-1:1));
- return pgHead('Testing schedule',null,isTester()?'Your assigned tests':'All tests')+
- tabsBar('schtab',m.tab,[['due','Due & overdue ('+cnt('due')+')'],['upcoming','Upcoming ('+cnt('upcoming')+')'],['done','Done ('+cnt('done')+')']])+
- (list.map(j=>{const s=sm(j.sampleId);const od=j.status!=='done'&&j.due<T;
-  return '<button class="row" data-act="openjob" data-id="'+j.id+'"><div class="grow"><div class="t"><span class="mono">'+esc(s.uid)+'</span></div><div class="s">'+esc(jobLabel(j))+' · '+esc(s.mark)+'</div><div class="s">'+(j.status==='done'?'Tested '+fd(j.doneOn||j.due):(od?'Overdue since ':'Due ')+(j.due===T?'today':fd(j.due)))+(isTester()?'':' · '+esc(us(j.assignee).name||''))+'</div></div>'+(od?bdg('Overdue','bad'):j.due===T&&j.status!=='done'?bdg('Today','warn'):'')+'<span class="mut">'+ic('chev',18)+'</span></button>'}).join('')||empty(m.tab==='done'?'No completed tests yet.':'Nothing here right now.'));
+ const tabs=tabsBar('schtab',m.tab,[['due','Calendar'],['upcoming','Upcoming ('+cnt('upcoming')+')'],['done','Done ('+cnt('done')+')']]);
+ const row=j=>{const s=sm(j.sampleId);const od=j.status!=='done'&&j.due<T;
+  return '<button class="row" data-act="openjob" data-id="'+j.id+'"><div class="grow"><div class="t"><span class="mono">'+esc(s.ulr||s.uid)+'</span></div><div class="s">'+esc(jobLabel(j))+' · '+esc(s.mark)+(s.d&&s.d.grade?' · '+esc(s.d.grade):'')+'</div><div class="s">'+(j.status==='done'?'Tested '+fd(j.doneOn||j.due):(od?'Overdue since ':'Due ')+(j.due===T?'today':fd(j.due)))+(isTester()?'':' · '+esc(us(j.assignee).name||''))+'</div></div>'+(od?bdg('Overdue','bad'):j.due===T&&j.status!=='done'?bdg('Today','warn'):'')+'<span class="mut">'+ic('chev',18)+'</span></button>'};
+ if(m.tab!=='due'){
+  const list=jobs.filter(j=>jobTab(j)===m.tab).sort((a,b)=>m.tab==='done'?(a.due<b.due?1:-1):(a.due<b.due?-1:1));
+  return pgHead('Testing schedule',null,isTester()?'Your assigned tests':'All tests')+tabs+(list.map(row).join('')||empty(m.tab==='done'?'No completed tests yet.':'Nothing here right now.'));
+ }
+ const mon=m.month||T.slice(0,7),sel=m.day||T,pend=jobs.filter(j=>j.status!=='done'),counts={},over={};
+ pend.forEach(j=>{counts[j.due]=(counts[j.due]||0)+1;if(j.due<T)over[j.due]=1});
+ const inMon=pend.filter(j=>j.due.slice(0,7)===mon).length;
+ const dayJobs=sel===T?pend.filter(j=>j.due<=T):pend.filter(j=>j.due===sel);
+ const odJ=dayJobs.filter(j=>j.due<T).sort((a,b)=>a.due<b.due?-1:1),todayJ=dayJobs.filter(j=>j.due>=T);
+ const drafts=D().samples.filter(x=>x.reportStatus==='draft'),rets=D().samples.filter(x=>x.reportStatus==='returned');
+ const draftRow=x=>'<button class="row" data-act="opensend" data-id="'+x.id+'"><div class="grow"><div class="t"><span class="mono">'+esc(x.ulr||x.uid)+'</span></div><div class="s">'+esc(ts(x.testId).name)+' · all tests done</div></div>'+bdg('Send for review','warn')+'</button>';
+ const retRow=x=>{const j=jobsOf(x.id).filter(y=>y.status==='done')[0];return '<div class="card" style="border-color:var(--bad)"><div class="t"><span class="mono">'+esc(x.ulr||x.uid)+'</span> '+bdg('Returned','bad')+'</div><div class="note bad" style="margin:10px 0"><b>'+esc(x.returnedBy||'Reviewer')+'</b>: '+esc(x.returnReason||'')+'</div><div class="btns">'+(j?'<button class="btn" data-act="openjob" data-id="'+j.id+'">Fix readings</button>':'')+'<button class="btn pri" data-act="opensend" data-id="'+x.id+'">Send again</button></div></div>'};
+ return pgHead('Testing schedule',null,isTester()?'Your assigned tests':'All tests')+tabs+
+ calHtml(mon,counts,over,sel,'sch',inMon+' test'+(inMon===1?'':'s')+' to do this month','<span><i class="ld"></i> Tests due</span><span><i class="ld od"></i> Overdue</span><span><i class="ld ring"></i> Today</span>')+
+ (drafts.length?'<div class="sec"><h2>Ready to send for review</h2></div>'+drafts.map(draftRow).join(''):'')+
+ (rets.length?'<div class="sec"><h2>Returned for correction</h2></div>'+rets.map(retRow).join(''):'')+
+ '<div class="sec"><h2>'+(sel===T?'Today, '+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'}):fd(sel))+'</h2></div>'+
+ (odJ.length?'<p class="lbl" style="color:var(--bad)">Overdue</p>'+odJ.map(row).join(''):'')+(todayJ.length?'<p class="lbl">Scheduled</p>'+todayJ.map(row).join(''):'')+(!odJ.length&&!todayJ.length?empty('No tests on this day.'):'');
+}
+function submittedView(m){
+ const s=sm(m.sentDone);if(!s){m.sentDone=null;return scheduleView()}
+ const su=(jobsOf(s.id).filter(j=>j.setup)[0]||{}).setup||{},rv=s.review||{};
+ return pgHead('Submitted')+'<div class="card"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div class="okdot">'+ic('check',26)+'</div><h2 style="margin:0">Submitted for review</h2></div>'+
+ '<div class="two" style="margin-bottom:10px"><div><div class="xs mut">ULR no.</div><div class="mono"><b>'+esc(s.ulr||s.uid)+'</b></div></div><div style="text-align:right">'+bdg('Under review')+'</div></div>'+
+ '<dl class="dl"><dt>Test</dt><dd>'+esc(ts(s.testId).name)+'</dd>'+(s.d.grade?'<dt>Grade</dt><dd>'+esc(s.d.grade)+'</dd>':'')+'<dt>Average</dt><dd>'+esc(avgOf(s))+' '+esc(ts(s.testId).ru||'')+'</dd>'+(su.machine?'<dt>Machine</dt><dd>'+esc(su.machine)+'</dd>':'')+'<dt>Sent to</dt><dd>'+esc(rv.toName||'')+'</dd><dt>Submitted at</dt><dd>'+esc(tkWhen(rv.at||new Date().toISOString()))+'</dd></dl></div>'+
+ '<button class="btn pri blk" data-act="sentback">Back to my tests</button>';
+}
+function sendView(m){
+ const s=sm(m.sendId);if(!s||!['draft','returned'].includes(s.reportStatus)){m.sendId=null;return scheduleView()}
+ const f=m.send||(m.send={reviewer:defaultReviewer(),email:false,whatsapp:false,note:'',confirm:false,err:''});
+ const sw=(k,t,sub,on,fixed)=>'<button type="button" class="sw'+(on?' on':'')+'" '+(fixed?'disabled':'data-act="sendtog" data-k="'+k+'"')+'><div><b>'+t+'</b><span>'+sub+'</span></div><i></i></button>';
+ return pgHead('Report and send for review','sendback','')+'<div class="card" style="border-color:var(--acc)"><div class="xs mut">ULR no.</div><div class="mono" style="font-size:18px"><b>'+esc(s.ulr||s.uid)+'</b></div></div>'+
+ (s.reportStatus==='returned'?'<div class="note bad"><b>Returned by '+esc(s.returnedBy||'reviewer')+'</b><div>'+esc(s.returnReason||'')+'</div></div>':'')+
+ '<div class="sec"><h2><span class="stepn">1</span> Report</h2><button class="btn sm" data-act="fullrep" data-id="'+s.id+'">View full size</button></div><div class="rpwrap">'+reportHtml(s)+'</div><p class="hint">Customer details are filled from the job record and hidden from you. The reviewer sees them.</p>'+
+ '<div class="sec"><h2><span class="stepn">2</span> Reviewer</h2></div>'+fld('Send to',sel('m.schedule.send.reviewer',f.reviewer,reviewersList().map(u=>[u.id,u.name+' ('+ROLE_LABEL[u.role]+')']),{ph:'Select reviewer',err:f.err}),'','Only staff with reviewer rights are listed.')+
+ '<div class="sec"><h2><span class="stepn">3</span> Notify reviewer by</h2></div>'+sw('app','In-app review list','Always on',true,true)+sw('email','Email','reviewer work email',f.email)+sw('whatsapp','WhatsApp','reviewer mobile',f.whatsapp)+(f.email||f.whatsapp?'<p class="hint">Email and WhatsApp delivery is recorded but not switched on yet. The in-app alert always goes.</p>':'')+
+ '<div class="sec"><h2><span class="stepn">4</span> Note to reviewer</h2></div>'+ta('m.schedule.send.note',f.note,{ph:'Optional, e.g. client needs this report today'})+
+ '<button type="button" class="cbx'+(f.confirm?' on':'')+'" data-act="sendtog" data-k="confirm"><i>'+(f.confirm?ic('check',16):'')+'</i><span>I have checked the report. The readings match the machine display.</span></button>'+(f.err?'<div class="err" style="margin-bottom:8px">'+esc(f.err)+'</div>':'')+
+ '<button class="btn pri blk'+(S.busy?' off':'')+'" data-act="sendgo">'+(S.busy?'Sending…':'Send for review')+'</button>';
 }
 function initEntry(m,j){
  const s=sm(j.sampleId),t=ts(s.testId);
  if(t.kind==='cube'){
-  if(j.status==='done'&&j.results&&j.results.rows)m.entry={rows:j.results.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:String(r.load)})),remarks:j.remarks||'',err:{}};
-  else{const ex=expandRows(s.d),cnt=Math.max(1,Math.ceil((s.d.total||ex.length)/(s.d.ages.length||1)));const rows=[];for(let i=0;i<cnt;i++){const q=ex[i%ex.length];rows.push({l:q.l,b:q.b,h:q.h,load:''})}m.entry={rows:rows,remarks:'',err:{}}}
+  const su=j.setup||{},setup={machine:su.machine||machinesList()[0]||'',calDate:su.calDate||'',temp:su.temp!=null?String(su.temp):'27'};
+  if(j.status==='done'&&j.results&&j.results.rows)m.entry={setup:setup,rows:j.results.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:String(r.load),weight:r.weight!=null?String(r.weight):'',photo:r.photo||''})),remarks:j.remarks||'',err:{}};
+  else{const ex=expandRows(s.d),cnt=Math.max(1,Math.ceil((s.d.total||ex.length)/(s.d.ages.length||1)));const rows=[];for(let i=0;i<cnt;i++){const q=ex[i%ex.length];rows.push({l:q.l,b:q.b,h:q.h,load:'',weight:'',photo:''})}m.entry={setup:setup,rows:rows,remarks:'',err:{}}}
  }else m.entry={value:j.results&&j.results.value!=null?String(j.results.value):'',remarks:j.remarks||'',err:{}};
 }
 const strengthOf=r=>{const l=num(r.load);return l>0?r2(l*1000/(r.l*r.b)):null};
 function jobDetail(m){
  const j=D().jobs.find(x=>x.id===m.jobId);if(!j){m.jobId=null;return scheduleView()}
- const s=sm(j.sampleId),t=ts(s.testId),T=today(),done=j.status==='done';
+ const s=sm(j.sampleId),t=ts(s.testId),T=today(),redo=j.status==='done'&&s.reportStatus==='returned',done=j.status==='done'&&!redo;
  if(!m.entry)initEntry(m,j);
  const en=m.entry,er=en.err||{};
  const facts=[['UID',s.uid],['Test',t.name],['Method',t.code],['Identification mark',s.mark]];
@@ -1209,29 +1306,41 @@ function jobDetail(m){
  let form='';
  if(t.kind==='cube'){
   const sts=en.rows.map(strengthOf).filter(x=>x!=null),avg=sts.length?r2(sts.reduce((a,b)=>a+b,0)/sts.length):null;
-  form=en.rows.map((r,i)=>{const st=strengthOf(r);return fld('Cube '+(i+1)+' · '+r.l+'×'+r.b+'×'+r.h+' mm · failing load (kN)','<div class="two">'+inp('m.schedule.entry.rows.'+i+'.load',r.load,{mode:'decimal',ph:'kN',err:er['r'+i],dis:done})+'<div class="in" style="display:flex;align-items:center;background:var(--wash);font-weight:600">'+(st!=null?st.toFixed(2)+' N/mm²':'— N/mm²')+'</div></div>',er['r'+i])}).join('')+
+  const su=en.setup||{};
+  form='<h3 style="margin:0 0 10px">Test setup</h3>'+fld('Machine',sel('m.schedule.entry.setup.machine',su.machine,machinesList().map(x=>[x,x]),{dis:done,err:er.machine}),er.machine)+
+   '<div class="two">'+fld('Date of calibration',inp('m.schedule.entry.setup.calDate',su.calDate,{type:'date',maxd:today(),dis:done,err:er.calDate}),er.calDate)+fld('Valid till (1 year)','<div class="in" style="display:flex;align-items:center;background:var(--wash)">'+(su.calDate?fd(addDays(su.calDate,364)):'—')+'</div>')+'</div>'+
+   fld('Lab temperature (°C)',inp('m.schedule.entry.setup.temp',su.temp,{mode:'decimal',dis:done,err:er.temp}),er.temp,'Standard is 27 ± 2 °C')+'<h3 style="margin:14px 0 10px">Cube readings</h3>'+
+   en.rows.map((r,i)=>{const st=strengthOf(r);
+    return '<div class="card flat" style="margin-bottom:10px;padding:12px"><div class="xs mut" style="margin-bottom:8px"><b>Cube '+(i+1)+'</b> · '+r.l+'×'+r.b+'×'+r.h+' mm</div>'+
+    '<div class="two">'+fld('Weight (kg)',inp('m.schedule.entry.rows.'+i+'.weight',r.weight,{mode:'decimal',dis:done}))+fld('Max load P (kN)',inp('m.schedule.entry.rows.'+i+'.load',r.load,{mode:'decimal',ph:'kN',err:er['r'+i],dis:done}),er['r'+i])+'</div>'+
+    '<div class="in" style="display:flex;align-items:center;background:var(--wash);font-weight:600;margin-bottom:10px">Strength '+(st!=null?st.toFixed(2)+' N/mm²':'— N/mm²')+'</div>'+
+    (r.photo?'<div class="phrow"><img src="'+r.photo+'" alt="Cube '+(i+1)+'"><div><b style="color:var(--acc-ink)">Photo added</b></div>'+(done?'':'<label class="lnk" for="cpc'+i+'">Retake</label>')+'</div>':(done?'<div class="mut sm">No photo</div>':'<div class="btns"><label class="btn" for="cpc'+i+'">'+ic('camera')+' Take photo</label><label class="btn" for="cpg'+i+'">'+ic('image')+' Gallery</label></div>'))+
+    '<input class="vh" id="cpc'+i+'" type="file" accept="image/*" capture="environment" data-cubephoto="'+i+'"><input class="vh" id="cpg'+i+'" type="file" accept="image/*" data-cubephoto="'+i+'"></div>'}).join('')+
   (done?'':'<div class="btns" style="margin-bottom:14px"><button class="btn" data-act="addcube">'+ic('plus',18)+' Add cube</button>'+(en.rows.length>1?'<button class="btn" data-act="rmcube">'+ic('minus',18)+' Remove last</button>':'')+'</div>')+
   '<div class="note ok"><b>Average strength: '+(avg!=null?avg.toFixed(2)+' N/mm²':'—')+'</b><div class="xs mut">N/mm² = load × 1000 ÷ (L × B)</div></div>';
  }else form=fld('Result value ('+esc(t.ru||'value')+')',inp('m.schedule.entry.value',en.value,{mode:'decimal',err:er.value,dis:done}),er.value);
  form+=fld('Remarks (optional)',ta('m.schedule.entry.remarks',en.remarks,{dis:done}));
- const early=!done&&j.due>T;
+ const early=!done&&!redo&&j.due>T;
  return pgHead(jobLabel(j),'jobback','<span class="mono">'+esc(s.uid)+'</span>')+
  '<div class="card"><dl class="dl">'+facts.map(x=>'<dt>'+esc(x[0])+'</dt><dd>'+esc(x[1])+'</dd>').join('')+'</dl>'+(s.photo?'<img class="photo" src="'+s.photo+'" alt="Sample photo">':'')+'</div>'+
- '<div class="sec"><h2>'+(done?'Result':'Enter result')+'</h2>'+(done?bdg('Done','ok'):'')+'</div>'+
- (early?'<div class="note">The test date is '+fd(j.due)+'. Results can be saved only on or after that date.</div>':'')+
- '<div class="card">'+form+(done?'':'<button class="btn pri blk'+(early?' off':'')+'" data-act="savejob">Save result</button>')+'</div>';
+ (redo&&s.returnReason?'<div class="note bad"><b>Returned for correction</b><div>'+esc(s.returnReason)+'</div></div>':'')+'<div class="sec"><h2>'+(done?'Result':redo?'Correct result':'Enter result')+'</h2>'+(done?bdg('Done','ok'):'')+'</div>'+
+ (early&&!redo?'<div class="note">The test date is '+fd(j.due)+'. Results can be saved only on or after that date.</div>':'')+
+ '<div class="card">'+form+(done?'':'<button class="btn pri blk'+(early&&!redo?' off':'')+'" data-act="savejob">'+(redo?'Save correction':'Save result')+'</button>')+'</div>';
 }
 async function saveJob(){
  if(S.busy)return;
  const m=M('schedule'),j=D().jobs.find(x=>x.id===m.jobId),s=sm(j.sampleId),t=ts(s.testId),en=m.entry,err={};
- if(j.due>today()){toast('Results can be saved only on or after '+fd(j.due),1);return}
+ const redoJ=j.status==='done'&&s.reportStatus==='returned';
+ if(j.due>today()&&!redoJ){toast('Results can be saved only on or after '+fd(j.due),1);return}
  let results,payload;
  if(t.kind==='cube'){
   en.rows.forEach((r,i)=>{if(!(num(r.load)>0))err['r'+i]='Enter the failing load in kN'});
-  if(Object.keys(err).length){en.err=err;render();toast('Check the highlighted cubes',1);return}
-  const rows=en.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:num(r.load),strength:strengthOf(r)}));
+  const su=en.setup||{};
+  if(S.online){if(!su.machine)err.machine='Choose the machine';if(!su.calDate)err.calDate='Enter the calibration date';else if(su.calDate>today())err.calDate='Cannot be in the future';if(!(num(su.temp)>0))err.temp='Enter the lab temperature'}
+  if(Object.keys(err).length){en.err=err;render();toast('Check the highlighted fields',1);return}
+  const rows=en.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:num(r.load),strength:strengthOf(r),weight:num(r.weight)>0?num(r.weight):null,photo:r.photo||''}));
   results={rows:rows,avg:r2(rows.reduce((a,r)=>a+r.strength,0)/rows.length)};
-  payload={rows:en.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:num(r.load)})),remarks:(en.remarks||'').trim()};
+  payload={rows:en.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:num(r.load),weight:r.weight,photo:r.photo||''})),setup:{machine:su.machine,calDate:su.calDate,temp:su.temp},remarks:(en.remarks||'').trim()};
  }else{
   if(!(num(en.value)>=0)||String(en.value).trim()===''){en.err={value:'Enter the result value'};render();return}
   results={value:String(en.value).trim()};payload={value:results.value,remarks:(en.remarks||'').trim()};
@@ -1245,7 +1354,7 @@ async function saveJob(){
   try{
    const r=await api('POST','/api/jobs/'+j.id+'/result',payload);
    upsertLocal('jobs',r.job);if(r.sample)upsertLocal('samples',r.sample);
-   if(r.sample&&r.sample.reportStatus==='awaiting')msg='Result saved — report is awaiting approval';
+   if(r.sample&&(r.sample.reportStatus==='draft'||r.sample.reportStatus==='returned')){S.busy=false;m.jobId=null;m.entry=null;m.sendId=r.sample.id;m.send={reviewer:defaultReviewer(),email:false,whatsapp:false,note:'',confirm:false,err:''};toast('Result saved. Now send the report for review.');render();window.scrollTo(0,0);return}
   }catch(e){S.busy=false;toast(e.message,1);render();return}
   S.busy=false;
  }else{
@@ -1273,22 +1382,42 @@ function reportsView(){
 }
 
 /* ================= APPROVE & SEND ================= */
+const gradeFck=g=>{const n=parseInt(String(g||'').replace(/[^0-9]/g,''),10);return isNaN(n)?null:n};
 function reportHtml(s){
- const t=ts(s.testId),c=cl(s.clientId),p=pr(s.projectId),jb=jobsOf(s.id).slice().sort((a,b)=>(a.age||0)-(b.age||0));
- let res='';
+ const t=ts(s.testId),c=cl(s.clientId),p=pr(s.projectId),jb=jobsOf(s.id).slice().sort((a,b)=>(a.age||0)-(b.age||0)),fin=s.reportStatus==='approved'||s.reportStatus==='sent';
+ const hid=!s.clientId,H='<i class="mut">Hidden from tester</i>',E=x=>x==null||x===''?'—':esc(x);
+ const grid=pr=>{let h='<table class="rt"><tbody>';for(let i=0;i<pr.length;i+=2){const a=pr[i],b=pr[i+1];h+='<tr><th>'+a[0]+'</th><td>'+a[1]+'</td>'+(b?'<th>'+b[0]+'</th><td>'+b[1]+'</td>':'<td colspan="2"></td>')+'</tr>'}return h+'</tbody></table>'};
+ const done=jb.filter(j=>j.status==='done'),first=done[0]||{},su=first.setup||{},testedBy=us(first.doneBy).name||us(s.assignee).name||'';
+ const dates=[...new Set(done.map(j=>fd(j.doneOn||j.due)))].join(', ')||'—';
+ const num=parseInt(String(s.uid).slice(-6),10),rno=s.reportNo||('TA/CT/'+String(s.uid).slice(4,6)+'/'+pad(num,4));
+ const issue=s.approvedOn||today();
+ let h='<div class="rpt"><div class="rh"><div><div class="hd" style="font-weight:800;font-size:16px">'+esc(labName())+'</div><div class="xs mut">Material Testing Laboratory</div></div><div style="text-align:right"><div class="xs"><b>'+(t.nabl?'NABL accredited laboratory':'Test outside NABL scope')+'</b></div>'+(t.nabl?'<div class="xs mut">Certificate no. '+esc(D().settings.cert)+'</div>':'')+'</div></div>'+
+ '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><b>Test report: '+esc(t.kind==='cube'?'compressive strength of concrete cubes':t.name.toLowerCase())+'</b><span class="rtag'+(fin?' fin':'')+'">'+(fin?'Final':'Draft, pending review')+'</span></div>'+
+ grid([['ULR no.','<span class="mono">'+E(s.ulr)+'</span>'],['Report no.',fin?esc(rno):'<span class="mut">On approval</span>'],['Date of issue',fin?fd(issue):'—'],['Lab UID','<span class="mono">'+esc(s.uid)+'</span>']])+
+ '<h3>1. Customer details</h3>'+grid([['Customer',hid?H:E(c.name)],['Customer code',hid?H:E(c.code)],['Address',hid?H:E(c.address)],['GSTIN',hid?H:E(c.gst)],['Project',hid?H:E(p.name)],['Site',hid?H:E(p.site)]])+
+ '<h3>2. Sample and test details</h3>';
+ const pairs=[['Identification',E(s.mark)]];
+ if(t.kind==='cube'){pairs.push(['Grade of concrete',E(s.d.grade)],['Concrete source',E(s.d.source+(s.d.supplier?' ('+s.d.supplier+')':''))],['Sampled by',hid?H:E(s.sampledBy)],['Date of casting',fd(s.d.casting)],['Date of receipt',fd(s.receipt)],['Date of testing',esc(dates)],['Age at test',E(done.map(j=>j.age+' days').join(', '))],['Sample condition',E(s.cond)],['No. of cubes',E(s.d.total)])}
+ else pairs.push(['Description',E(s.d.desc)],['Quantity',E(s.d.qty+' '+t.unit)],['Sampled by',hid?H:E(s.sampledBy)],['Date of receipt',fd(s.receipt)],['Date of testing',esc(dates)],['Sample condition',E(s.cond)]);
+ pairs.push(['Test method',E(t.code)]);
+ if(t.kind==='cube'&&su.machine)pairs.push(['Testing machine',E(su.machine)+' (cal. '+fd(su.calDate)+', valid till '+fd(addDays(su.calDate,364))+')'],['Lab temperature',E(su.temp)+' °C']);
+ pairs.push(['Tested by',E(testedBy)]);
+ h+=grid(pairs)+'<h3>3. Test results</h3>';
  jb.forEach(j=>{
   if(t.kind==='cube'){
-   res+='<h3>'+j.age+'-day test'+(j.status==='done'?' · tested '+fd(j.doneOn||j.due):'')+'</h3>';
-   if(j.status!=='done')res+='<p class="mut">Result pending — test due '+fd(j.due)+'.</p>';
-   else res+='<table class="tb"><thead><tr><th>Cube</th><th>Size (mm)</th><th class="r">Load (kN)</th><th class="r">N/mm²</th></tr></thead><tbody>'+j.results.rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+r.l+'×'+r.b+'×'+r.h+'</td><td class="r">'+r.load+'</td><td class="r">'+(+r.strength).toFixed(2)+'</td></tr>').join('')+'<tr class="tot"><td colspan="3">Average compressive strength</td><td class="r">'+(+j.results.avg).toFixed(2)+'</td></tr></tbody></table>';
-  }else{
-   res+='<h3>Result</h3>'+(j.status!=='done'?'<p class="mut">Result pending — test due '+fd(j.due)+'.</p>':'<table class="tb"><tbody><tr><td>'+esc(t.name)+'</td><td class="r"><b>'+esc(j.results.value)+'</b> '+esc(t.ru||'')+'</td></tr>'+(j.remarks?'<tr><td colspan="2" class="mut">'+esc(j.remarks)+'</td></tr>':'')+'</tbody></table>');
-  }
+   h+='<div class="xs" style="margin:8px 0 4px"><b>'+j.age+'-day test</b>'+(j.status==='done'?' · tested '+fd(j.doneOn||j.due):'')+'</div>';
+   if(j.status!=='done')h+='<p class="mut">Result pending — test due '+fd(j.due)+'.</p>';
+   else h+='<div class="tbs"><table class="tb"><thead><tr><th>Cube</th><th class="r">L</th><th class="r">B</th><th class="r">H</th><th class="r">Wt (kg)</th><th class="r">Area (mm²)</th><th class="r">Load (kN)</th><th class="r">N/mm²</th></tr></thead><tbody>'+j.results.rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td class="r">'+r.l+'</td><td class="r">'+r.b+'</td><td class="r">'+r.h+'</td><td class="r">'+(r.weight!=null?r.weight:'—')+'</td><td class="r">'+(r.l*r.b)+'</td><td class="r">'+r.load+'</td><td class="r"><b>'+(+r.strength).toFixed(2)+'</b></td></tr>').join('')+'<tr class="tot"><td colspan="7">Average compressive strength (N/mm²)</td><td class="r">'+(+j.results.avg).toFixed(2)+'</td></tr></tbody></table></div>';
+  }else h+=(j.status!=='done'?'<p class="mut">Result pending — test due '+fd(j.due)+'.</p>':'<table class="tb"><tbody><tr><td>'+esc(t.name)+'</td><td class="r"><b>'+esc(j.results.value)+'</b> '+esc(t.ru||'')+'</td></tr></tbody></table>');
  });
- const samp=t.kind==='cube'?[['Grade',s.d.grade],['Source',s.d.source+(s.d.supplier?' — '+s.d.supplier:'')],['Date of casting',fd(s.d.casting)],['Cubes received',s.d.total]]:[['Description',s.d.desc],['Quantity',s.d.qty+' '+t.unit]];
- return '<div class="rpt"><div class="rh"><div><div class="hd" style="font-weight:800;font-size:16px">'+esc(labName())+'</div><div class="xs mut">Test Report · Pune</div><div class="xs mut">'+(t.nabl?'NABL accredited · Cert. '+esc(D().settings.cert):'Test outside NABL scope')+'</div></div><div style="text-align:right"><div class="xs mut">ULR</div><div class="mono">'+(s.ulr?esc(s.ulr):'—')+'</div><div class="xs mut" style="margin-top:4px">UID</div><div class="mono">'+esc(s.uid)+'</div></div></div>'+
- '<dl class="dl"><dt>Client</dt><dd>'+esc(c.name)+'</dd><dt>Address</dt><dd>'+esc(c.address)+'</dd><dt>Project</dt><dd>'+esc(p.name)+'</dd><dt>Site</dt><dd>'+esc(p.site)+'</dd><dt>Date of receipt</dt><dd>'+fd(s.receipt)+'</dd><dt>Sampled by</dt><dd>'+esc(s.sampledBy)+'</dd><dt>Identification</dt><dd>'+esc(s.mark)+'</dd><dt>Method</dt><dd>'+esc(t.name)+' — <span class="mono">'+esc(t.code)+'</span></dd>'+samp.map(x=>'<dt>'+x[0]+'</dt><dd>'+esc(x[1])+'</dd>').join('')+'</dl>'+res+
- '<div class="ft">'+(s.sampledBy==='Client'?'<p><b>Results apply only to the sample as received.</b></p>':'')+(s.approvedOn?'<p>Approved by '+esc(s.approvedBy)+' on '+fd(s.approvedOn)+'.</p>':'<p>Not yet approved.</p>')+'<p>This report relates only to the sample(s) tested. It shall not be reproduced except in full.</p></div></div>';
+ const j28=jb.filter(j=>j.age===28&&j.status==='done')[0],fck=gradeFck(s.d&&s.d.grade);
+ if(t.kind==='cube'&&j28&&fck){const av=+j28.results.avg,ok=av>=fck;h+='<h3>4. Statement of conformity</h3><div class="stmt">'+(fin?'':'<i>To be confirmed by the reviewer. </i>')+'The average compressive strength of '+av.toFixed(2)+' N/mm² at 28 days is '+(ok?'not less than':'less than')+' the specified characteristic strength of '+fck+' N/mm² for grade '+esc(s.d.grade)+'. '+(s.sampledBy==='Client'?'The result applies to the sample as received. ':'')+'The sample '+(ok?'conforms':'does not conform')+' to grade '+esc(s.d.grade)+'.</div>'}
+ const rem=[];if(t.kind==='cube'){rem.push('Test conducted as per '+t.code+'.');done.forEach(j=>rem.push('Cubes tested at the age of '+j.age+' days, cast on '+fd(s.d.casting)+' and tested on '+fd(j.doneOn||j.due)+'.'))}else rem.push('Test conducted as per '+t.code+'.');
+ rem.push('Results relate only to the sample(s) as received and tested.');done.forEach(j=>{if(j.remarks)rem.push(j.remarks)});if(s.reviewRemark)rem.push(s.reviewRemark);
+ h+='<h3>'+(t.kind==='cube'&&j28&&fck?'5':'4')+'. Remarks</h3><ol class="rem">'+rem.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol><div class="xs mut" style="text-align:center;margin:10px 0">End of report</div>'+
+ '<div class="sigs"><div><div class="sl"></div><b>Tested by</b><div>'+E(testedBy)+'</div>'+(first.doneAt?'<div class="xs mut">Signed '+esc(tkWhen(first.doneAt))+'</div>':'')+'</div><div><div class="sl"></div><b>Reviewed by</b><div>'+(fin?E(s.approvedBy):'<span class="mut">Pending</span>')+'</div></div><div><div class="sl">'+(fin?'<i class="sg">'+esc(s.approvedBy)+'</i>':'')+'</div><b style="color:var(--warn)">Authorised signatory</b><div>'+(fin?E(s.approvedBy):'<span class="mut">Signature pending review</span>')+'</div>'+(fin&&s.approvedAt?'<div class="xs mut">Digitally signed '+esc(tkWhen(s.approvedAt))+'</div>':'')+'</div></div>'+
+ '<div class="ft"><p>This report shall not be reproduced except in full without written approval of the laboratory. Results relate only to the items tested.</p></div></div>';
+ return h;
 }
 function reportText(s){
  const t=ts(s.testId),c=cl(s.clientId),p=pr(s.projectId),L=[];
@@ -1301,6 +1430,65 @@ function reportText(s){
  });
  if(s.sampledBy==='Client')L.push('Results apply only to the sample as received.');
  return L.join('\n');
+}
+/* ================= REVIEWS ================= */
+function reviewList(){
+ const me=S.user;
+ return D().samples.filter(x=>x.reportStatus==='awaiting'&&(me.role==='admin'||!x.review||!x.review.to||x.review.to===me.id));
+}
+const subDay=x=>x.review&&x.review.at?dayOf(x.review.at):x.receipt;
+function reviewCard(x,T){
+ const t=ts(x.testId),late=subDay(x)<T,rv=x.review||{};
+ return '<div class="card'+(late?' late':'')+'"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div class="mono"><b>'+esc(x.ulr||x.uid)+'</b></div>'+(late?bdg('Waiting since '+fd(subDay(x)).slice(0,6),'bad'):bdg('To review'))+'</div>'+
+ '<div style="margin:8px 0 2px"><b>'+esc(cl(x.clientId).name||'')+'</b></div><div class="sm mut">'+esc(pr(x.projectId).name||'')+'</div>'+
+ '<div class="mini"><div><span>Test</span><b>'+esc(t.kind==='cube'?'Cube':t.name)+'</b></div>'+(x.d.grade?'<div><span>Grade</span><b>'+esc(x.d.grade)+'</b></div>':'')+(ages(x).length?'<div><span>Age</span><b>'+ages(x).map(a=>a+'-day').join(', ')+'</b></div>':'')+'<div><span>Avg '+esc((t.ru||'').split(' ')[0])+'</span><b>'+esc(avgOf(x))+'</b></div></div>'+
+ '<div class="sm mut">Tester: '+esc(rv.byName||us(x.assignee).name||'')+(rv.at?'. Submitted '+esc(tkWhen(rv.at)):'')+'</div>'+
+ (rv.note?'<div class="note" style="margin:10px 0 0"><b>Note from tester</b><div>'+esc(rv.note)+'</div></div>':'')+
+ '<button class="btn pri blk" style="margin-top:12px" data-act="openrev" data-id="'+x.id+'">Review</button></div>';
+}
+function reviewsView(){
+ const m=M('reviews');
+ if(m.done)return reviewDone(m);
+ if(m.sampleId)return reviewDetail(m);
+ const T=today(),mon=m.month||T.slice(0,7),sel=m.day||T,aw=reviewList(),counts={},over={};
+ aw.forEach(x=>{const d=subDay(x);counts[d]=(counts[d]||0)+1;if(d<T)over[d]=1});
+ const inMon=aw.filter(x=>subDay(x).slice(0,7)===mon).length;
+ const toRev=(sel===T?aw.filter(x=>subDay(x)<=T):aw.filter(x=>subDay(x)===sel)),rets=D().samples.filter(x=>x.reportStatus==='returned'&&(sel===T||(x.returnedAt&&dayOf(x.returnedAt)===sel))),apps=D().samples.filter(x=>(x.reportStatus==='approved'||x.reportStatus==='sent')&&x.approvedOn===sel);
+ const grp=(title,sub,n,cls,body)=>'<div class="card grp"><div class="gh"><i class="gd '+cls+'"></i><div class="grow"><b>'+title+'</b><div class="mut sm">'+sub+'</div></div><span class="cnt '+cls+'">'+n+'</span></div></div>'+body;
+ return pgHead('Reviews',null,'Reports waiting for your sign-off')+
+ calHtml(mon,counts,over,sel,'rev',inMon+' waiting for review this month','<span><i class="ld"></i> To review</span><span><i class="ld od"></i> Waiting from earlier</span><span><i class="ld ring"></i> Today</span>')+
+ '<div class="sec"><h2>'+(sel===T?'Today, '+new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'}):fd(sel))+'</h2></div>'+
+ grp('To review',toRev.length?(toRev.filter(x=>subDay(x)<T).length?toRev.filter(x=>subDay(x)<T).length+' waiting from earlier':'Nothing late'):'Nothing waiting',toRev.length,'b',toRev.map(x=>reviewCard(x,T)).join('')||'')+
+ grp('Returned to tester','Waiting for correction',rets.length,'r',rets.map(x=>'<div class="row" style="cursor:default"><div class="grow"><div class="t mono">'+esc(x.ulr||x.uid)+'</div><div class="s">'+esc(x.returnReason||'')+'</div></div></div>').join(''))+
+ grp('Approved','Reports issued on this day',apps.length,'g',apps.map(x=>'<button class="row" data-act="openrev" data-id="'+x.id+'"><div class="grow"><div class="t mono">'+esc(x.ulr||x.uid)+'</div><div class="s">'+esc(cl(x.clientId).name||'')+' · '+esc(x.reportNo||'')+'</div></div>'+bdg('Approved','ok')+'</button>').join(''));
+}
+function reviewDetail(m){
+ const x=sm(m.sampleId);if(!x){m.sampleId=null;return reviewsView()}
+ const rv=x.review||{},checks=rv.checks||[];
+ if(x.reportStatus!=='awaiting')return pgHead('Report','revback',bdg(RSTAT[x.reportStatus]||'',rcls(x.reportStatus)))+reportHtml(x)+'<button class="btn blk" style="margin-top:12px" data-act="pdf" data-id="'+x.id+'">Download PDF</button>';
+ const photos=[];jobsOf(x.id).forEach(j=>{if(j.results&&j.results.rows)j.results.rows.forEach((r,i)=>photos.push({r:r,i:i,age:j.age}))});
+ const allOk=checks.every(c=>c.ok);
+ return pgHead('Review','revback')+'<div class="card" style="border-color:var(--acc)"><div style="display:flex;justify-content:space-between;gap:8px"><div class="mono"><b>'+esc(x.ulr||x.uid)+'</b></div>'+bdg('Under review')+'</div><div style="margin:8px 0 2px"><b>'+esc(cl(x.clientId).name||'')+'</b></div><div class="sm mut">'+esc(pr(x.projectId).site||pr(x.projectId).name||'')+'</div><div class="sm mut">From '+esc(rv.byName||us(x.assignee).name||'')+(rv.at?', '+esc(tkWhen(rv.at)):'')+'</div></div>'+
+ (rv.note?'<div class="note"><b>Note from tester</b><div>'+esc(rv.note)+'</div></div>':'')+
+ '<div class="sec"><h2><span class="stepn">1</span> Report</h2><button class="btn sm" data-act="fullrep" data-id="'+x.id+'">View full size</button></div><div class="rpwrap">'+reportHtml(x)+'</div>'+
+ '<div class="sec"><h2><span class="stepn">2</span> Checks</h2></div>'+(checks.length?'<div class="card flat" style="padding:4px 14px">'+checks.map(c=>'<div class="chk"><span class="'+(c.ok?'ok':'no')+'">'+ic(c.ok?'check':'x',18)+'</span><div><b>'+esc(c.title)+'</b><div class="sm mut">'+esc(c.note)+'</div></div></div>').join('')+'</div>':empty('No automatic checks for this older report.'))+
+ (checks.length&&!allOk?'<div class="note bad" style="margin-top:10px">One or more checks need your attention before you sign.</div>':'')+
+ (photos.length?'<p class="lbl" style="margin-top:14px">Cube photos</p><div class="ph3">'+photos.map(p=>p.r.photo?'<div><img src="'+p.r.photo+'" alt="Cube '+(p.i+1)+'"><span>Cube '+(p.i+1)+', '+(+p.r.strength).toFixed(2)+' N/mm²</span></div>':'<div><div class="noph">No photo</div><span>Cube '+(p.i+1)+', '+(+p.r.strength).toFixed(2)+' N/mm²</span></div>').join('')+'</div>':'')+
+ '<div class="sec"><h2><span class="stepn">3</span> Reviewer remark</h2></div>'+ta('m.reviews.remark',m.remark,{ph:'Optional, printed on the report'})+
+ (m.ret?'<div class="card" style="margin-top:12px;border-color:var(--bad)">'+fld('What should the tester correct?',ta('m.reviews.reason',m.reason,{ph:'Required'}),m.err,'')+'<div class="btns"><button class="btn" data-act="revret">Cancel</button><button class="btn pri'+(S.busy?' off':'')+'" data-act="revreturn">Send back to tester</button></div></div>':
+ '<button type="button" class="cbx'+(m.sign?' on':'')+'" data-act="revsign"><i>'+(m.sign?ic('check',16):'')+'</i><span>I have checked the report and readings. Sign digitally as authorised signatory.</span></button>'+(m.err?'<div class="err" style="margin-bottom:8px">'+esc(m.err)+'</div>':'')+
+ '<div class="btns" style="flex-wrap:nowrap"><button class="btn danger" style="flex:1" data-act="revret">Return</button><button class="btn pri'+(S.busy?' off':'')+'" style="flex:2" data-act="revapprove">Approve and sign</button></div>');
+}
+function reviewDone(m){
+ const x=sm(m.done);if(!x){m.done=null;return reviewsView()}
+ return pgHead('Report approved','revdoneback')+'<div class="card" style="background:var(--acc-soft);border-color:var(--acc)"><h2 style="color:var(--acc-ink);margin-bottom:10px">Final report issued</h2><div class="two"><div><div class="xs mut">Report no.</div><b class="mono">'+esc(x.reportNo||'')+'</b></div><div><div class="xs mut">Signed by</div><b>'+esc(x.approvedBy||'')+'</b></div></div><div style="margin-top:10px"><div class="xs mut">ULR no.</div><b class="mono">'+esc(x.ulr||x.uid)+'</b></div></div>'+
+ '<div class="card"><h3 style="margin-bottom:8px">Notifications sent</h3>'+((x.approvalNotes||[]).map(n=>'<div class="chk"><span class="ok">'+ic('check',18)+'</span><div><b>'+esc(n.who)+'</b><div>'+esc(n.text)+'</div><div class="xs mut">'+esc(n.how)+', '+esc(tkWhen(n.at).slice(-5))+'</div></div></div>').join('')||'<p class="mut">No one else needed to be notified.</p>')+'</div>'+
+ '<div class="sec"><h2><span class="stepn">1</span> Final report</h2><button class="btn sm" data-act="fullrep" data-id="'+x.id+'">View full size</button></div><div class="rpwrap">'+reportHtml(x)+'</div>'+
+ '<button class="btn pri blk" style="margin-top:12px" data-act="pdf" data-id="'+x.id+'">Download PDF</button><button class="btn blk" style="margin-top:10px" data-act="revdoneback">Back to all reviews</button>';
+}
+function fullRepView(){
+ const x=S.fullRep&&sm(S.fullRep);if(!x)return '';
+ return '<div class="fullrep"><div class="fr-top"><button class="btn" data-act="fullclose">Close</button><button class="btn pri" data-act="pdf" data-id="'+x.id+'">Download PDF</button></div>'+reportHtml(x)+'</div>';
 }
 function approveView(){
  const m=M('approve');
@@ -1315,7 +1503,7 @@ function approveDetail(m){
  const s=sm(m.sampleId);if(!s){m.sampleId=null;return approveView()}
  const i=invOf(s),blk=s.billing==='Advance'&&i&&balOf(i)>0;let act='';
  if(s.reportStatus==='testing')act='<div class="note">Testing is still in progress. This is a preview of the report so far.</div>';
- if(s.reportStatus==='awaiting')act='<button class="btn pri blk" data-act="approve" data-id="'+s.id+'">'+ic('check',20)+' Approve report</button>';
+ if(s.reportStatus==='awaiting')act=s.review?(can('reviews')?'<button class="btn pri blk" '+goA('reviews',{sampleId:s.id})+'>Open in Reviews</button>':'<div class="note">With reviewer '+esc(s.review.toName||'')+' for review.</div>'):'<button class="btn pri blk" data-act="approve" data-id="'+s.id+'">'+ic('check',20)+' Approve report</button>';
  if(s.reportStatus==='approved')act=(blk?'<div class="note bad"><b>Sending is blocked.</b> This is an Advance client and bill <span class="mono">'+esc(i.no)+'</span> has '+inr(balOf(i))+' unpaid. <button class="lnk" '+goA('bills',{invId:i.id})+'>Open the bill</button></div>':'')+'<button class="btn pri blk'+(blk?' off':'')+'" data-act="sendrep" data-id="'+s.id+'" '+(blk?'disabled':'')+'>'+ic('send',20)+' Send to client</button>';
  if(s.reportStatus==='sent')act='<div class="note ok">Marked as sent on '+fd(s.sentOn)+'.</div>';
  return pgHead('Report','aprback','<span class="mono">'+esc(s.uid)+'</span> · '+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus)))+trailHtml(s)+reportHtml(s)+
@@ -1365,13 +1553,13 @@ async function recordPay(){
 
 /* ================= RENDER & EVENTS ================= */
 function modBody(){
- return({create:createView,schedule:scheduleView,reports:reportsView,approve:approveView,bills:billsView,clients:clientsView,crm:crmView,tickets:ticketsView,admin:adminView})[S.route]();
+ return({create:createView,schedule:scheduleView,reports:reportsView,approve:approveView,bills:billsView,clients:clientsView,crm:crmView,tickets:ticketsView,reviews:reviewsView,admin:adminView})[S.route]();
 }
 function view(){
  if(S.booting)return '<div class="login"><div class="logo"><i></i><h1>TechAssures Lab</h1></div><p class="mut">Connecting…</p></div>';
  if(!S.user)return S.signup?signupView():S.choose?chooseView():loginView();
  if(S.wiz)return wizView()+confirmView();
- return shell(S.route==='home'?homeView():S.route==='inbox'?inboxView():(can(S.route)?modBody():blocked()))+confirmView();
+ return shell(S.route==='home'?homeView():S.route==='inbox'?inboxView():(can(S.route)?modBody():blocked()))+confirmView()+fullRepView();
 }
 const appEl=document.getElementById('app');
 const sigCache={url:'',img:null};
@@ -1408,6 +1596,11 @@ function onField(e){
 document.addEventListener('input',onField);
 document.addEventListener('change',e=>{
  const el=e.target;
+ if(el.dataset&&el.dataset.cubephoto!=null&&el.files&&el.files[0]){
+  const idx=+el.dataset.cubephoto,fr=new FileReader();
+  fr.onload=()=>{const im=new Image();im.onload=()=>{const K=Math.min(1,640/Math.max(im.width,im.height)),w=Math.round(im.width*K),h=Math.round(im.height*K),cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(im,0,0,w,h);const en=M('schedule').entry;if(en&&en.rows[idx]){en.rows[idx].photo=cv.toDataURL('image/jpeg',.6);render();toast('Photo added')}};im.onerror=()=>toast('Could not read that image',1);im.src=fr.result};
+  fr.readAsDataURL(el.files[0]);return;
+ }
  if(el.dataset&&el.dataset.photo&&el.files&&el.files[0]){
   const fr=new FileReader();
   fr.onload=()=>{const im=new Image();im.onload=()=>{const K=Math.min(1,900/Math.max(im.width,im.height)),w=Math.round(im.width*K),h=Math.round(im.height*K),cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(im,0,0,w,h);if(S.wiz){S.wiz.f.photo=cv.toDataURL('image/jpeg',.72);render();toast('Photo added')}};im.onerror=()=>toast('Could not read that image',1);im.src=fr.result};
@@ -1463,7 +1656,7 @@ const ACT={
  async readall(){try{await api('POST','/api/notifications/read',{all:true});D().notifications.forEach(n=>{n.read=true})}catch(e){toast(e.message,1)}render()},
  async opennote(t){const n=D().notifications.find(x=>x.id===t.dataset.id);if(!n)return;
   if(!n.read){n.read=true;api('POST','/api/notifications/read',{ids:[n.id]}).catch(()=>{})}
-  if(n.type==='ticket'&&n.ticketId&&can('tickets'))go('tickets',{id:n.ticketId});else if(n.type==='awaiting'&&n.sampleId&&can('approve'))go('approve',{sampleId:n.sampleId,tab:'awaiting'});else if(can('schedule'))go('schedule',{tab:n.type==='due'||n.type==='overdue'||n.type==='assign'?'due':'due'});else render()},
+  if(n.type==='ticket'&&n.ticketId&&can('tickets'))go('tickets',{id:n.ticketId});else if(n.type==='awaiting'&&n.sampleId&&can('reviews'))go('reviews',{sampleId:n.sampleId});else if(n.type==='returned'&&can('schedule'))go('schedule',{tab:'due'});else if(n.type==='approved'&&n.sampleId&&can('approve'))go('approve',{sampleId:n.sampleId,tab:'approved'});else if(n.type==='approved'&&can('schedule'))go('schedule',{tab:'done'});else if(n.type==='awaiting'&&n.sampleId&&can('approve'))go('approve',{sampleId:n.sampleId,tab:'awaiting'});else if(can('schedule'))go('schedule',{tab:n.type==='due'||n.type==='overdue'||n.type==='assign'?'due':'due'});else render()},
  tkadd(){S.m.tickets=Object.assign(M('tickets'),{adding:true,nt:{title:'',body:'',category:'other',priority:'normal',related:'',err:''}});render();window.scrollTo(0,0)},
  tkcancel(){M('tickets').adding=false;render()},
  tkback(){const m=M('tickets');m.id=null;m.reply='';render()},
@@ -1505,9 +1698,40 @@ const ACT={
  schtab(t){M('schedule').tab=t.dataset.v;render()},
  openjob(t){const m=M('schedule');m.jobId=t.dataset.id;m.entry=null;render();window.scrollTo(0,0)},
  jobback(){const m=M('schedule');m.jobId=null;m.entry=null;render();window.scrollTo(0,0)},
- addcube(){const r=M('schedule').entry.rows,l=r[r.length-1];r.push({l:l.l,b:l.b,h:l.h,load:''});render()},
+ addcube(){const r=M('schedule').entry.rows,l=r[r.length-1];r.push({l:l.l,b:l.b,h:l.h,load:'',weight:'',photo:''});render()},
  rmcube(){const r=M('schedule').entry.rows;if(r.length>1)r.pop();render()},
  savejob(){saveJob()},
+ schmon(t){const m=M('schedule');m.month=shiftMon(m.month||today().slice(0,7),+t.dataset.v);render()},
+ schday(t){const m=M('schedule');m.day=t.dataset.v;m.month=t.dataset.v.slice(0,7);render()},
+ opensend(t){const m=M('schedule');m.sendId=t.dataset.id;m.send={reviewer:defaultReviewer(),email:false,whatsapp:false,note:'',confirm:false,err:''};render();window.scrollTo(0,0)},
+ sendback(){const m=M('schedule');m.sendId=null;render();window.scrollTo(0,0)},
+ sendtog(t){const f=M('schedule').send,k=t.dataset.k;f[k]=!f[k];f.err='';render()},
+ sentback(){const m=M('schedule');m.sentDone=null;m.tab='due';render();window.scrollTo(0,0)},
+ async sendgo(){if(S.busy)return;const m=M('schedule'),f=m.send;
+  if(!f.reviewer){f.err='Choose a reviewer';render();return}
+  if(!f.confirm){f.err='Tick the box to confirm you checked the report';render();return}
+  S.busy=true;render();const geo=await tryLoc();
+  try{const r=await api('POST','/api/samples/'+m.sendId+'/submit',{reviewer:f.reviewer,email:f.email,whatsapp:f.whatsapp,note:f.note,confirm:true,geo:geo});upsertLocal('samples',r.sample);m.sentDone=m.sendId;m.sendId=null}catch(e){f.err=e.message}
+  S.busy=false;render();window.scrollTo(0,0)},
+ fullrep(t){S.fullRep=t.dataset.id;render();window.scrollTo(0,0)},
+ fullclose(){S.fullRep=null;render()},
+ pdf(t){S.fullRep=t.dataset.id;render();document.body.classList.add('pr');setTimeout(()=>{try{window.print()}catch(e){toast('Printing is not available here',1)}document.body.classList.remove('pr')},250)},
+ /* reviews */
+ revmon(t){const m=M('reviews');m.month=shiftMon(m.month||today().slice(0,7),+t.dataset.v);render()},
+ revday(t){const m=M('reviews');m.day=t.dataset.v;m.month=t.dataset.v.slice(0,7);render()},
+ openrev(t){const m=M('reviews');m.sampleId=t.dataset.id;m.remark='';m.ret=false;m.reason='';m.sign=false;m.err='';render();window.scrollTo(0,0)},
+ revback(){const m=M('reviews');m.sampleId=null;render();window.scrollTo(0,0)},
+ revsign(){const m=M('reviews');m.sign=!m.sign;m.err='';render()},
+ revret(){const m=M('reviews');m.ret=!m.ret;m.err='';render()},
+ async revreturn(){if(S.busy)return;const m=M('reviews');if(!(m.reason||'').trim()){m.err='Say what the tester should correct';render();return}
+  S.busy=true;render();const geo=await tryLoc();
+  try{const r=await api('POST','/api/samples/'+m.sampleId+'/return',{reason:m.reason,geo:geo});upsertLocal('samples',r.sample);m.sampleId=null;m.ret=false;toast('Returned to the tester')}catch(e){m.err=e.message}
+  S.busy=false;render();window.scrollTo(0,0)},
+ async revapprove(){if(S.busy)return;const m=M('reviews');if(!m.sign){m.err='Tick the box to sign the report';render();return}
+  S.busy=true;render();const geo=await tryLoc();
+  try{const r=await api('POST','/api/samples/'+m.sampleId+'/approve',{confirm:true,remark:m.remark,geo:geo});upsertLocal('samples',r.sample);m.done=m.sampleId;m.sampleId=null}catch(e){m.err=e.message}
+  S.busy=false;render();window.scrollTo(0,0)},
+ revdoneback(){const m=M('reviews');m.done=null;render();window.scrollTo(0,0)},
  /* approve */
  aptab(t){M('approve').tab=t.dataset.v;render()},
  openrep(t){M('approve').sampleId=t.dataset.id;render();window.scrollTo(0,0)},

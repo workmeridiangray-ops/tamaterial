@@ -99,7 +99,7 @@ const rid = () => crypto.randomBytes(5).toString('hex');
 function money(v, label) { const n = L.num(v); if (isNaN(n) || n < 0 || n > 1e9) bad(label + ' must be a number, 0 or more'); return n; }
 
 /* ---------------- users, auth ---------------- */
-const ROLES = ['admin', 'store', 'tester', 'accounts'];
+const ROLES = ['admin', 'store', 'tester', 'accounts', 'reviewer'];
 const hashPin = (pin, salt) => crypto.scryptSync(String(pin), salt, 32).toString('hex');
 function newCred(pin) { const salt = crypto.randomBytes(16).toString('hex'); return { salt, hash: hashPin(pin, salt) }; }
 function pinOk(u, pin) {
@@ -162,6 +162,7 @@ function seedIfEmpty() {
   tx(() => {
     if (!metaGet('seeded')) withOrg('demo', () => { seedDb(); audit(null, 'seed', null, null, 'Demo data loaded'); });
     else withOrg('demo', () => { if (!ctr('uid') && metaGet('uid')) { ctrSet('uid', metaGet('uid')); ctrSet('inv', metaGet('inv')); } });   /* upgrade from the single-lab version */
+    withOrg('demo', () => { if (!all('users').some(x => x.role === 'reviewer')) { const c = newCred('6666'); put('users', { id: 'u_priya', login: 'priya', name: 'Priya', role: 'reviewer', active: true, salt: c.salt, hash: c.hash }, null, 'create', 'Demo reviewer added'); } });
     if (!findOrg('demo')) putOrg({ id: 'demo', slug: 'demo', name: 'Demo Lab', plan: 'demo', createdOn: L.today(), ownerEmail: '' });
   });
 }
@@ -171,7 +172,7 @@ if (DATABASE_URL) {
   ready = (async () => { await pg.init(); seedIfEmpty(); await pg.flush(); })();
   ready.catch(e => { console.error('Database start-up failed:', e.message); process.exit(1); });
 } else seedIfEmpty();
-const DEMO_PINS = { admin: '1111', rahul: '2222', suresh: '3333', meera: '4444', imran: '5555' };
+const DEMO_PINS = { admin: '1111', rahul: '2222', suresh: '3333', meera: '4444', imran: '5555', priya: '6666' };
 
 /* ---------------- role-based views ---------------- */
 const MONEY_ROLES = ['admin', 'accounts'];
@@ -183,10 +184,10 @@ function assignedSet(u) {
 function shape(u, coll, r, asg) {
   switch (coll) {
     case 'users': return pubUser(r, u.role === 'admin');
-    case 'tests': if (u.role === 'store' || u.role === 'tester') { const t = Object.assign({}, r); delete t.rate; return t; } return r;
+    case 'tests': if (u.role === 'store' || u.role === 'tester' || u.role === 'reviewer') { const t = Object.assign({}, r); delete t.rate; return t; } return r;
     case 'clients':
       if (u.role === 'tester') return null;
-      if (u.role === 'store') { const c = Object.assign({}, r); delete c.rates; return c; }
+      if (u.role === 'store' || u.role === 'reviewer') { const c = Object.assign({}, r); delete c.rates; return c; }
       return r;
     case 'projects': return u.role === 'tester' ? null : r;
     case 'samples':
@@ -203,8 +204,8 @@ function shape(u, coll, r, asg) {
 }
 function shapeSettings(u, s) {
   if (!s) return {};
-  if (u.role === 'admin' || u.role === 'accounts') return { cert: s.cert, gst: s.gst, creditDays: s.creditDays };
-  return { cert: s.cert };
+  if (u.role === 'admin' || u.role === 'accounts') return { cert: s.cert, gst: s.gst, creditDays: s.creditDays, machines: s.machines || 'CTM-01' };
+  return { cert: s.cert, machines: s.machines || 'CTM-01' };
 }
 function counters(u) { return (u.role === 'admin' || u.role === 'store') ? { uid: ctr('uid'), inv: ctr('inv') } : {}; }
 function snapshot(u) {
@@ -257,7 +258,7 @@ function clean(coll, b, old, actor) {
     const gst = L.num(b.gst), cd = parseInt(b.creditDays, 10);
     if (isNaN(gst) || gst < 0 || gst > 100) bad('GST % must be between 0 and 100');
     if (isNaN(cd) || cd < 0 || cd > 365) bad('Default credit days must be 0–365');
-    return { id: 'main', cert: str(b.cert, 20, { req: 'NABL certificate number is required' }), gst: String(gst), creditDays: String(cd) };
+    return { id: 'main', cert: str(b.cert, 20, { req: 'NABL certificate number is required' }), gst: String(gst), creditDays: String(cd), machines: str(b.machines, 200) || 'CTM-01' };
   }
   if (!isId(id)) bad('Invalid id');
   if (coll === 'tests') {
@@ -464,43 +465,94 @@ function createSample(u, b) {
 }
 const jobLabel = (t, j) => (t.kind === 'cube' ? j.age + '-day cube test' : t.name);
 
+const photoOk = p => { p = String(p || ''); if (p && (!/^data:image\/(jpeg|png);base64,/.test(p) || p.length > 700000)) bad('A cube photo is not valid or too large'); return p; };
 function saveResult(u, jobId, b) {
   const geo = geoOf(b, true);
   const job = get('jobs', jobId); if (!job) bad('Job not found', 404);
   if (u.role !== 'admin' && !(u.role === 'tester' && job.assignee === u.id)) bad('This test is not assigned to you', 403);
-  if (job.status === 'done') bad('This result is already saved', 409);
-  if (job.due > L.today()) bad('Results can be saved only on or after ' + job.due, 409);
   const s = get('samples', job.sampleId), t = get('tests', s.testId);
-  let results;
+  const redo = job.status === 'done' && s.reportStatus === 'returned';
+  if (job.status === 'done' && !redo) bad('This result is already saved', 409);
+  if (job.due > L.today()) bad('Results can be saved only on or after ' + job.due, 409);
+  if (['awaiting', 'approved', 'sent'].includes(s.reportStatus) && job.status === 'done') bad('This report is already with the reviewer', 409);
+  let results, setup = null;
   if (t.kind === 'cube') {
     const rows = Array.isArray(b.rows) ? b.rows.slice(0, 200) : [];
     if (!rows.length) bad('Enter the failing load for at least one cube');
     const out = rows.map((r, i) => {
-      const l = L.num(r.l), bb = L.num(r.b), h = L.num(r.h), load = L.num(r.load);
+      const l = L.num(r.l), bb = L.num(r.b), h = L.num(r.h), load = L.num(r.load), wt = L.num(r.weight);
       if (!(load > 0 && load <= 10000)) bad('Cube ' + (i + 1) + ': enter the failing load in kN');
       if (!s.d.sizes.some(z => z.l === l && z.b === bb && z.h === h)) bad('Cube ' + (i + 1) + ': size does not match the sample');
-      return { l, b: bb, h, load, strength: L.strength(load, l, bb) };
+      if (r.weight !== '' && r.weight != null && !(wt > 0 && wt < 100)) bad('Cube ' + (i + 1) + ': weight must be in kg');
+      return { l, b: bb, h, load, strength: L.strength(load, l, bb), weight: isNaN(wt) ? null : wt, photo: photoOk(r.photo) };
     });
     results = { rows: out, avg: L.r2(out.reduce((a, r) => a + r.strength, 0) / out.length) };
+    const su = b.setup || {}, temp = L.num(su.temp);
+    if (!str(su.machine, 40)) bad('Choose the testing machine');
+    if (!L.isDate(su.calDate) || su.calDate > L.today()) bad('Enter the machine calibration date (not in the future)');
+    if (isNaN(temp) || temp < 0 || temp > 60) bad('Enter the lab temperature in °C');
+    setup = { machine: str(su.machine, 40), calDate: su.calDate, temp };
   } else {
     const v = str(b.value, 40, { req: 'Enter the result value' });
     if (isNaN(L.num(v)) || L.num(v) < 0) bad('Result value must be a number');
     results = { value: v };
   }
   return tx(() => {
-    job.results = results; job.remarks = str(b.remarks, 500); job.status = 'done'; job.doneOn = L.today(); job.geo = geo; job.doneAt = geo.at; job.doneBy = u.id;
-    put('jobs', job, u, 'result', s.uid + ' · ' + jobLabel(t, job) + (results.avg != null ? ' · avg ' + results.avg + ' N/mm²' : ' · ' + results.value) + geoTxt(geo));
-    if (all('jobs').filter(j => j.sampleId === s.id).every(j => j.status === 'done')) { s.reportStatus = 'awaiting'; put('samples', s, u, 'status', s.uid + ' moved to Awaiting approval'); staffOf(['admin', 'accounts']).forEach(a => notify(a.id, 'n_await_' + s.id + '_' + a.id, { type: 'awaiting', title: 'Report awaiting approval', body: s.uid + ' · all tests done', sampleId: s.id })); }
+    job.results = results; if (setup) job.setup = setup; job.remarks = str(b.remarks, 500); job.status = 'done'; job.doneOn = L.today(); job.geo = geo; job.doneAt = geo.at; job.doneBy = u.id;
+    put('jobs', job, u, 'result', s.uid + ' · ' + jobLabel(t, job) + (results.avg != null ? ' · avg ' + results.avg + ' N/mm²' : ' · ' + results.value) + (redo ? ' · corrected' : '') + geoTxt(geo));
+    if (all('jobs').filter(j => j.sampleId === s.id).every(j => j.status === 'done') && s.reportStatus === 'testing') { s.reportStatus = 'draft'; put('samples', s, u, 'status', s.uid + ' report drafted, ready to send for review'); }
     const asg = assignedSet(u);
     return { job, sample: shape(u, 'samples', s, asg) };
+  });
+}
+function submitReview(u, id, b) {
+  const s = get('samples', id); if (!s) bad('Sample not found', 404);
+  const jobs = all('jobs').filter(j => j.sampleId === s.id);
+  if (u.role !== 'admin' && !jobs.some(j => j.assignee === u.id)) bad('This report is not yours to send', 403);
+  if (!['draft', 'returned'].includes(s.reportStatus)) bad('This report cannot be sent for review right now', 409);
+  const rv = get('users', b.reviewer); if (!rv || !rv.active || !['reviewer', 'admin'].includes(rv.role)) bad('Choose a reviewer');
+  if (b.confirm !== true) bad('Confirm that you have checked the report');
+  const geo = geoOf(b, false), t = get('tests', s.testId), checks = L.reviewChecks(s, jobs, t);
+  return tx(() => {
+    const round = ((s.review && s.review.round) || 0) + 1;
+    s.review = { to: rv.id, toName: rv.name, by: u.id, byName: u.name, at: new Date().toISOString(), note: str(b.note, 400), email: !!b.email, whatsapp: !!b.whatsapp, checks, round, geo };
+    delete s.returnReason; s.reportStatus = 'awaiting';
+    put('samples', s, u, 'submit', s.uid + ' sent for review to ' + rv.name + (round > 1 ? ' (again)' : '') + geoTxt(geo));
+    notify(rv.id, 'n_rev_' + s.id + '_' + round, { type: 'awaiting', title: 'Report to review', body: s.uid + ' · from ' + u.name + (s.review.note ? ' · ' + s.review.note.slice(0, 60) : ''), sampleId: s.id });
+    return { sample: s };
+  });
+}
+function returnReport(u, id, b) {
+  const s = get('samples', id); if (!s) bad('Sample not found', 404);
+  if (s.reportStatus !== 'awaiting') bad('Only a report under review can be returned', 409);
+  const reason = str(b.reason, 400, { req: 'Say what the tester should correct' }), geo = geoOf(b, false);
+  return tx(() => {
+    s.reportStatus = 'returned'; s.returnReason = reason; s.returnedBy = u.name; s.returnedAt = new Date().toISOString();
+    put('samples', s, u, 'return', s.uid + ' returned to tester: ' + reason + geoTxt(geo));
+    const n = (s.review && s.review.round) || 1;
+    new Set(all('jobs').filter(j => j.sampleId === s.id).map(j => j.assignee)).forEach(a => notify(a, 'n_ret_' + s.id + '_' + n, { type: 'returned', title: 'Report returned for correction', body: s.uid + ' · ' + reason.slice(0, 80), sampleId: s.id }));
+    return { sample: s };
   });
 }
 function approveReport(u, id, b) {
   const geo = geoOf(b, false);
   const s = get('samples', id); if (!s) bad('Sample not found', 404);
   if (s.reportStatus !== 'awaiting') bad('Only a report that is awaiting approval can be approved', 409);
-  s.reportStatus = 'approved'; s.approvedBy = u.name; s.approvedOn = L.today(); s.approveGeo = geo;
-  return tx(() => put('samples', s, u, 'approve', s.uid + ' report approved' + geoTxt(geo)));
+  if (s.review && s.review.to && u.role === 'reviewer' && s.review.to !== u.id) bad('This report was sent to ' + s.review.toName, 403);
+  if (s.review && b.confirm !== true) bad('Tick the box to sign the report');
+  return tx(() => {
+    const now = new Date().toISOString(), num = parseInt(s.uid.slice(-6), 10);
+    s.reportStatus = 'approved'; s.approvedBy = u.name; s.approvedById = u.id; s.approvedOn = L.today(); s.approvedAt = now; s.approveGeo = geo;
+    s.reportNo = 'TA/CT/' + s.uid.slice(4, 6) + '/' + L.pad(num, 4); s.reviewRemark = str(b.remark, 300); delete s.returnReason;
+    const jobs = all('jobs').filter(j => j.sampleId === s.id), testers = [...new Set(jobs.map(j => j.assignee))].map(x => get('users', x)).filter(Boolean);
+    const cl = get('clients', s.clientId) || {}, pj = get('projects', s.projectId) || {}, notes = [];
+    testers.forEach(tu => { notify(tu.id, 'n_ok_' + s.id + '_' + tu.id, { type: 'approved', title: 'Report approved', body: s.reportNo + ' approved by ' + u.name, sampleId: s.id }); notes.push({ who: 'Tester: ' + tu.name, text: 'Report ' + s.reportNo + ' approved. Test moved to Approved.', how: 'In-app', at: now }); });
+    const acc = staffOf(['accounts', 'admin']).filter(x => x.id !== u.id); acc.forEach(a => notify(a.id, 'n_okacc_' + s.id + '_' + a.id, { type: 'approved', title: 'Report approved, ready to send', body: s.reportNo + ' · ' + (cl.name || '') + (pj.name ? ' · ' + pj.name : ''), sampleId: s.id }));
+    if (acc.length) notes.push({ who: 'Accounts department', text: 'Report ' + s.reportNo + ' is ready to send (' + (cl.name || '') + (pj.name ? ', ' + pj.name : '') + ').', how: 'In-app', at: now });
+    s.approvalNotes = notes;
+    put('samples', s, u, 'approve', s.uid + ' report approved and signed' + geoTxt(geo));
+    return s;
+  });
 }
 function sendReport(u, id, b) {
   const geo = geoOf(b, false);
@@ -674,7 +726,9 @@ route('GET', /^\/api\/bootstrap$/, '*', c => Object.assign({ user: pubUser(c.u, 
 route('GET', /^\/api\/changes$/, '*', c => changes(c.u, parseInt(c.url.searchParams.get('since'), 10) || 0));
 route('POST', /^\/api\/samples$/, ['admin', 'store'], c => createSample(c.u, c.body));
 route('POST', /^\/api\/jobs\/([\w-]+)\/result$/, ['admin', 'tester'], c => saveResult(c.u, c.m[1], c.body));
-route('POST', /^\/api\/samples\/([\w-]+)\/approve$/, ['admin', 'accounts'], c => ({ sample: approveReport(c.u, c.m[1], c.body) }));
+route('POST', /^\/api\/samples\/([\w-]+)\/submit$/, ['admin', 'tester'], c => submitReview(c.u, c.m[1], c.body));
+route('POST', /^\/api\/samples\/([\w-]+)\/return$/, ['admin', 'reviewer', 'accounts'], c => returnReport(c.u, c.m[1], c.body));
+route('POST', /^\/api\/samples\/([\w-]+)\/approve$/, ['admin', 'accounts', 'reviewer'], c => ({ sample: approveReport(c.u, c.m[1], c.body) }));
 route('POST', /^\/api\/samples\/([\w-]+)\/send$/, ['admin', 'accounts'], c => ({ sample: sendReport(c.u, c.m[1], c.body) }));
 route('POST', /^\/api\/invoices\/([\w-]+)\/payments$/, ['admin', 'accounts'], c => recordPayment(c.u, c.m[1], c.body));
 route('POST', /^\/api\/users$/, ['admin'], c => adminUsers(c.u, 'POST', null, c.body));

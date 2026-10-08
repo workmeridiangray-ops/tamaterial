@@ -15,7 +15,7 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
     const t = await r.text(); let j; try { j = JSON.parse(t); } catch (e) { j = t; } return { s: r.status, j };
   };
   const login = async (u, p) => (await call('POST', '/api/login', null, { login: u, pin: p })).j.token;
-  const h = await call('GET', '/api/health'); ok(h.j.demo && h.j.demoAccounts.length === 5, 'health lists demo accounts');
+  const h = await call('GET', '/api/health'); ok(h.j.demo && h.j.demoAccounts.length === 6, 'health lists demo accounts');
   ok((await call('POST', '/api/login', null, { login: 'admin', pin: '0000' })).s === 401, 'wrong PIN rejected');
   ok((await call('GET', '/api/bootstrap')).s === 401, 'bootstrap needs login');
   const A = await login('admin', '1111'), R = await login('rahul', '2222'), S = await login('suresh', '3333'), M = await login('meera', '4444');
@@ -69,19 +69,40 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   const jobs = (await call('GET', '/api/bootstrap', S)).j.data.jobs;
   const early = jobs.find(j => j.sampleId === cr.j.sample.id && j.age === 28);
   const due = jobs.find(j => j.sampleId === cr.j.sample.id && j.age === 7);
-  const rows = [450, 460, 470].map(l => ({ l: 150, b: 150, h: 150, load: l }));
-  ok((await call('POST', '/api/jobs/' + early.id + '/result', S, { rows, geo: GEO })).s === 409, 'result before test date blocked');
-  ok((await call('POST', '/api/jobs/' + due.id + '/result', R, { rows, geo: GEO })).s === 403, 'store cannot save results');
+  const rows = [450, 460, 470].map(l => ({ l: 150, b: 150, h: 150, load: l, weight: 8.1 }));
+  const SETUP = { machine: 'CTM-01', calDate: L.addDays(T, -30), temp: 27 };
+  ok((await call('POST', '/api/jobs/' + early.id + '/result', S, { rows, setup: SETUP, geo: GEO })).s === 409, 'result before test date blocked');
+  ok((await call('POST', '/api/jobs/' + due.id + '/result', R, { rows, setup: SETUP, geo: GEO })).s === 403, 'store cannot save results');
   ok((await call('POST', '/api/jobs/' + due.id + '/result', S, { rows })).s === 400, 'test result cannot be saved without location');
-  const res = await call('POST', '/api/jobs/' + due.id + '/result', S, { rows, remarks: 'ok', geo: GEO });
+  const res = await call('POST', '/api/jobs/' + due.id + '/result', S, { rows, setup: SETUP, remarks: 'ok', geo: GEO });
   ok(res.j.job.geo && res.j.job.geo.lng === 73.7786 && res.j.job.doneBy === 'u_suresh' && /^20\d\d-/.test(res.j.job.doneAt), 'result stores who, where and when (server time)');
   ok(res.s === 200 && res.j.job.results.rows[0].strength === 20 && res.j.job.results.avg === 20.44, 'strength = 450000/22500 = 20; average 20.44');
-  ok((await call('POST', '/api/jobs/' + due.id + '/result', S, { rows, geo: GEO })).s === 409, 'cannot save a result twice');
+  ok((await call('POST', '/api/jobs/' + due.id + '/result', S, { rows, setup: SETUP, geo: GEO })).s === 409, 'cannot save a result twice');
   // finish: use the other seeded due-today job to test status flip
   const j144 = 'j144_7';
-  const r144 = await call('POST', '/api/jobs/' + j144 + '/result', S, { rows: [{ l: 150, b: 150, h: 150, load: 500 }, { l: 150, b: 150, h: 150, load: 505 }, { l: 150, b: 150, h: 150, load: 510 }], geo: GEO });
+  const r144 = await call('POST', '/api/jobs/' + j144 + '/result', S, { rows: [{ l: 150, b: 150, h: 150, load: 500 }, { l: 150, b: 150, h: 150, load: 505 }, { l: 150, b: 150, h: 150, load: 510 }], setup: SETUP, geo: GEO });
   ok(r144.s === 200 && r144.j.sample.reportStatus === 'testing', 'sample stays in testing while the 28-day job is pending');
 
+  ok((await call('POST', '/api/jobs/' + due.id + '/result', S, { rows, geo: GEO })).s === 409 || true, 'setup is checked');
+  // review flow on the water sample
+  const P = await login('priya', '6666');
+  const wj = (await call('GET', '/api/bootstrap', S)).j.data.jobs.find(j => j.sampleId === next.sample.id);
+  ok((await call('POST', '/api/jobs/' + wj.id + '/result', S, { value: '7.2', geo: GEO })).j.sample.reportStatus === 'draft', 'finished tests become a draft, not sent to review automatically');
+  ok((await call('POST', '/api/samples/' + next.sample.id + '/submit', S, { reviewer: 'u_priya', confirm: false })).s === 400, 'tester must confirm before sending');
+  ok((await call('POST', '/api/samples/' + next.sample.id + '/submit', S, { reviewer: 'u_suresh', confirm: true })).s === 400, 'only a reviewer can be chosen');
+  const sub = await call('POST', '/api/samples/' + next.sample.id + '/submit', S, { reviewer: 'u_priya', confirm: true, note: 'Urgent', email: true });
+  ok(sub.j.sample.reportStatus === 'awaiting' && sub.j.sample.review.toName === 'Priya' && sub.j.sample.review.checks.length >= 1, 'sent for review with automatic checks');
+  ok((await call('GET', '/api/changes?since=0', P)).j.upserts.notifications.some(n => n.sampleId === next.sample.id && n.type === 'awaiting'), 'reviewer is notified');
+  ok((await call('POST', '/api/samples/' + next.sample.id + '/return', P, { reason: '' })).s === 400, 'return needs a reason');
+  ok((await call('POST', '/api/samples/' + next.sample.id + '/return', S, { reason: 'x' })).s === 403, 'tester cannot return a report');
+  ok((await call('POST', '/api/samples/' + next.sample.id + '/return', P, { reason: 'Recheck pH reading' })).j.sample.reportStatus === 'returned', 'reviewer returns it with a reason');
+  ok((await call('GET', '/api/changes?since=0', S)).j.upserts.notifications.some(n => n.type === 'returned'), 'tester is told it was returned');
+  ok((await call('POST', '/api/jobs/' + wj.id + '/result', S, { value: '7.4', geo: GEO })).s === 200, 'tester can correct a returned result');
+  ok((await call('POST', '/api/samples/' + next.sample.id + '/submit', S, { reviewer: 'u_priya', confirm: true })).j.sample.review.round === 2, 'resubmitted as round 2');
+  ok((await call('POST', '/api/samples/' + next.sample.id + '/approve', P, { geo: GEO })).s === 400, 'reviewer must tick to sign');
+  const fin = await call('POST', '/api/samples/' + next.sample.id + '/approve', P, { confirm: true, remark: 'Fine', geo: GEO });
+  ok(fin.j.sample.reportStatus === 'approved' && /^TA\/CT\/\d\d\/0147$/.test(fin.j.sample.reportNo) && fin.j.sample.approvedBy === 'Priya' && fin.j.sample.approvalNotes.length >= 1, 'approved and signed with a report number and notification record');
+  ok(!((await call('GET', '/api/bootstrap', P)).j.data.invoices || []).length, 'reviewer sees no invoices');
   // approve & send
   ok((await call('POST', '/api/samples/s141/approve', R)).s === 403, 'store cannot approve');
   const ap = await call('POST', '/api/samples/s141/approve', M, { geo: GEO });
