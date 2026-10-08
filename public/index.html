@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>TechAssures Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FCFCFA;--wash:#F7F7F4;--surface:#FFFFFF;--ink:#121413;--ink2:#1D201E;
+  --g1:#4C4F4D;--g2:#848784;--g3:#B9BBB7;--line:#E4E4DF;
+  --acc:#678B05;--acc-ink:#4A6404;--acc-soft:rgba(103,139,5,.12);
+  --warn:#A8530A;--warn-soft:rgba(168,83,10,.12);--bad:#B3261E;--bad-soft:rgba(179,38,30,.10);
+  --hdr:#121413;--shadow:0 1px 2px rgba(18,20,19,.06),0 4px 14px rgba(18,20,19,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#0E100F;--wash:#141716;--surface:#1A1D1B;--ink:#F3F4F0;--ink2:#E4E6E1;
+    --g1:#B4B7B2;--g2:#8A8D89;--g3:#555855;--line:#2B2F2C;
+    --acc:#8DB81C;--acc-ink:#587A05;--acc-soft:rgba(141,184,28,.16);
+    --warn:#E0883A;--warn-soft:rgba(224,136,58,.16);--bad:#F2766E;--bad-soft:rgba(242,118,110,.14);
+    --hdr:#0A0B0A;--shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font:16px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--paper);color:var(--ink);overflow-x:hidden;min-width:0;-webkit-tap-highlight-color:transparent}
+h1,h2,h3,h4,.hd{font-family:Manrope,Inter,system-ui,sans-serif;letter-spacing:-.01em;color:var(--ink)}
+h1{font-size:24px;font-weight:800;line-height:1.2}
+h2{font-size:19px;font-weight:700}
+h3{font-size:16px;font-weight:700}
+.mono{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:.92em}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:inherit}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.vh{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden;pointer-events:none}
+.mut{color:var(--g1)} .sm{font-size:13px} .xs{font-size:12px}
+.nw{white-space:nowrap}
+.grow{flex:1;min-width:0}
+.ic{flex:none;display:block}
+
+/* header */
+.hdr{position:sticky;top:0;z-index:30;background:var(--hdr);color:#fff;border-bottom:3px solid var(--acc);min-height:60px;display:flex;align-items:center;gap:8px;padding:0 6px 0 16px}
+.brand{font-family:Manrope,sans-serif;font-weight:800;font-size:17px;white-space:nowrap;color:#fff;display:flex;align-items:center;gap:8px}
+.brand i{width:9px;height:9px;border-radius:50%;background:var(--acc);display:inline-block}
+.who{margin-left:auto;font-size:13px;color:#D9DBD7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.hbtn{min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;color:#fff;border-radius:10px}
+.hbtn:active{background:rgba(255,255,255,.1)}
+
+/* layout */
+.side{display:none}
+.main{padding:18px 16px 110px;max-width:720px;margin:0 auto;width:100%}
+.bnav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+.bnav button{flex:1;min-width:0;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:500;color:var(--g1);position:relative;text-align:center}
+.bnav button.on{color:var(--ink);font-weight:600}
+.bnav button.on::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;background:var(--acc);border-radius:0 0 3px 3px}
+.bnav button.on .ic{color:var(--acc)}
+@media (min-width:900px){
+  .bnav{display:none}
+  .side{display:flex;flex-direction:column;position:fixed;top:0;bottom:0;left:0;width:236px;background:#121413;color:#D9DBD7;z-index:40;padding:18px 12px;border-right:3px solid var(--acc)}
+  .side .brand{padding:6px 10px 20px;font-size:19px}
+  .side button.nv{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 12px;border-radius:10px;color:#C8CAC6;font-weight:500;width:100%}
+  .side button.nv:hover{background:rgba(255,255,255,.07)}
+  .side button.nv.on{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 3px 0 0 var(--acc)}
+  .side .sp{flex:1}
+  .col{margin-left:236px}
+  .col .hdr .brand{display:none}
+  .col .hdr{padding-left:24px}
+  .main{padding-bottom:48px}
+}
+
+/* cards & lists */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card.flat{box-shadow:none}
+.sec{margin:22px 0 10px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sec h2{font-size:17px}
+.row{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;text-align:left}
+.row:active{background:var(--wash)}
+.row .t{font-weight:600;overflow-wrap:anywhere}
+.row .s{font-size:13px;color:var(--g1);overflow-wrap:anywhere}
+.empty{padding:26px 14px;text-align:center;color:var(--g1);border:1px dashed var(--g3);border-radius:12px;font-size:14px}
+.pg{display:flex;align-items:center;gap:6px;margin-bottom:14px}
+.pg h1{font-size:22px;flex:1;min-width:0;overflow-wrap:anywhere}
+.ibtn{min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;margin-left:-10px}
+.ibtn:active{background:var(--wash)}
+
+/* buttons */
+.btn{min-height:48px;padding:0 20px;border-radius:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);text-align:center;font-family:Inter,sans-serif}
+.btn:active{filter:brightness(.96)}
+.btn.pri{background:var(--acc-ink);border-color:var(--acc-ink);color:#fff}
+.btn.dng{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.blk{display:flex;width:100%}
+.btn.sm{min-height:48px;padding:0 14px;font-size:14px}
+.btn[disabled],.btn.off{opacity:.45;pointer-events:none}
+.lnk{color:var(--ink);text-decoration:underline;text-underline-offset:3px;font-weight:600;min-height:48px;display:inline-flex;align-items:center;padding:0 6px}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.btns .btn{flex:1;min-width:140px}
+
+/* forms */
+.fld{margin-bottom:16px;min-width:0}
+.lbl{display:block;font-size:13px;font-weight:600;color:var(--g1);margin-bottom:6px}
+.in{width:100%;min-height:48px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;appearance:none;-webkit-appearance:none}
+select.in{background-image:linear-gradient(45deg,transparent 50%,var(--g1) 50%),linear-gradient(135deg,var(--g1) 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px;background-repeat:no-repeat;padding-right:36px}
+.in:focus{border-color:var(--acc)}
+.in.bad{border-color:var(--bad)}
+.in[disabled],.in[readonly]{background:var(--wash);color:var(--g1)}
+textarea.in{min-height:84px;resize:vertical}
+.err{color:var(--bad);font-size:13px;margin-top:5px;font-weight:500}
+.hint{color:var(--g1);font-size:13px;margin-top:5px}
+.note{background:var(--warn-soft);color:var(--ink);border-left:3px solid var(--warn);padding:10px 12px;border-radius:8px;font-size:14px;margin-bottom:14px}
+.note.bad{background:var(--bad-soft);border-color:var(--bad)}
+.note.ok{background:var(--acc-soft);border-color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:48px;padding:6px 16px;border:1.5px solid var(--line);border-radius:999px;background:var(--surface);font-weight:500;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.2}
+.chip small{font-size:11px;color:var(--g1);font-weight:400}
+.chip.on{border-color:var(--acc);background:var(--acc-soft);font-weight:600}
+.chip.lg{border-radius:12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.two>*{min-width:0}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:48px;height:48px;border-radius:12px;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;background:var(--surface)}
+.step b{min-width:40px;text-align:center;font-size:18px;font-family:Manrope,sans-serif}
+.dims{display:flex;align-items:center;gap:6px}
+.dims .in{padding:10px 6px;text-align:center}
+.dims span{color:var(--g1)}
+
+/* tabs */
+.tabs{display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--line)}
+.tabs button{min-height:48px;padding:6px 6px;font-weight:600;font-size:14px;line-height:1.2;color:var(--g1);border-bottom:3px solid transparent;margin-bottom:-1px;flex:1 1 0;min-width:0;text-align:center;overflow-wrap:anywhere}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--acc)}
+
+/* badges */
+.bd{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--wash);color:var(--g1);border:1px solid var(--line);white-space:nowrap}
+.bd.ok{background:var(--acc-soft);color:var(--ink);border-color:transparent}
+.bd.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.bd.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.bd.dark{background:#121413;color:#fff;border-color:transparent}
+
+/* dashboard */
+.greet{margin-bottom:16px}
+.greet p{color:var(--g1);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 6px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 10px;min-height:84px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;min-width:0}
+.stat b{font-family:Manrope,sans-serif;font-size:22px;font-weight:800;line-height:1.1;overflow-wrap:anywhere}
+.stat span{font-size:12px;color:var(--g1);line-height:1.2}
+.stat.hot{border-color:var(--acc);box-shadow:inset 0 3px 0 var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mod{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-height:92px;padding:12px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;font-size:13px;font-weight:600;min-width:0}
+.mod:active{background:var(--wash)}
+.mod .ic{color:var(--ink)}
+
+/* wizard */
+.wz{min-height:100vh;background:var(--paper)}
+.wz .hdr{padding-left:6px}
+.wz .ttl{font-family:Manrope,sans-serif;font-weight:700;font-size:16px}
+.wzin{max-width:720px;margin:0 auto;padding:16px 16px 120px}
+.bar{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin:6px 0 4px}
+.bar i{display:block;height:100%;background:var(--acc);border-radius:4px;transition:width .2s}
+.strip{background:#121413;color:#fff;border-radius:12px;padding:12px 14px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:13px}
+.strip small{display:block;color:#A9ACA8;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.strip .full{grid-column:1/-1}
+.sbar{position:fixed;left:0;right:0;bottom:0;z-index:35;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.sbar>div{max-width:720px;margin:0 auto;display:flex;gap:10px}
+.sbar .btn{flex:1}
+.selblk{display:flex;gap:12px;align-items:flex-start;background:var(--wash);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:16px}
+.selblk .t{font-weight:700}
+.szrow{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--wash)}
+.szrow .top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.photo{width:100%;max-height:220px;object-fit:cover;border-radius:12px;border:1px solid var(--line);margin-top:10px}
+canvas.sig{width:100%;height:150px;border:1.5px dashed var(--g3);border-radius:10px;background:#fff;touch-action:none;display:block}
+.sumhd{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.dl{display:grid;grid-template-columns:minmax(90px,36%) 1fr;gap:6px 12px;font-size:14px}
+.dl dt{color:var(--g1)} .dl dd{overflow-wrap:anywhere;min-width:0}
+
+/* tables */
+table.tb{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}
+table.tb th{text-align:left;font-weight:600;color:var(--g1);padding:6px 4px;border-bottom:1px solid var(--line);font-size:12px}
+table.tb td{padding:9px 4px;border-bottom:1px solid var(--line);overflow-wrap:anywhere;vertical-align:top}
+table.tb .r{text-align:right}
+table.tb tr.tot td{font-weight:700;border-bottom:0}
+
+/* report */
+.rpt{background:var(--surface);border:1px solid var(--g3);border-radius:6px;padding:18px 16px;font-size:14px}
+.rpt .rh{display:flex;justify-content:space-between;gap:10px;border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:12px;flex-wrap:wrap}
+.rpt h3{margin:14px 0 6px;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--g1)}
+.rpt .ft{margin-top:14px;font-size:12px;color:var(--g1);border-top:1px solid var(--line);padding-top:10px}
+
+/* misc */
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:92px;max-width:min(92vw,420px);background:#121413;color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;z-index:90;box-shadow:0 8px 24px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .2s;border-left:3px solid var(--acc)}
+.toast.show{opacity:1}
+.toast.bad{border-left-color:var(--bad)}
+.sheetbg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:80;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
+@media (min-width:900px){.sheetbg{align-items:center}.sheet{border-radius:18px}}
+.login{max-width:420px;margin:0 auto;padding:36px 20px}
+.login .logo{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.login .logo i{width:12px;height:12px;border-radius:50%;background:var(--acc)}
+.pgn{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.pgn:last-child{border-bottom:0}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:14px}
+.kv b{text-align:right;overflow-wrap:anywhere}
+.big{font-family:Manrope,sans-serif;font-weight:800;font-size:20px}
+.done{text-align:center;padding:10px 0 4px}
+.done .tick{width:60px;height:60px;border-radius:50%;background:var(--acc-soft);color:var(--acc);display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.search{position:relative;margin-bottom:12px}
+.search .in{padding-left:42px}
+.search .ic{position:absolute;left:12px;top:13px;color:var(--g2)}
+.chkb{min-width:48px;min-height:48px;margin:-12px 0 -12px -10px;display:flex;align-items:center;justify-content:center;flex:none}
+.chkb::before{content:"";width:26px;height:26px;border-radius:50%;border:2px solid var(--g3);background:var(--surface);position:absolute}
+.chkb{position:relative}
+.chkb .ic{position:relative;z-index:1;color:#fff}
+.chkb.on::before{background:var(--acc-ink);border-color:var(--acc-ink)}
+.hbar{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.hbar i{display:block;height:100%;background:var(--acc);border-radius:4px}
+@media (max-width:380px){.brand span.l{display:none}.stat b{font-size:19px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+'use strict';
+/* ---------- storage (always guarded) ---------- */
+const KEY='techassures_lab_v1',SKEY='techassures_lab_session',mem={};
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return Object.prototype.hasOwnProperty.call(mem,k)?mem[k]:null}}
+function lsSet(k,v){try{localStorage.setItem(k,v);return true}catch(e){mem[k]=v;return false}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){delete mem[k]}}
+
+/* ---------- utils ---------- */
+const pad=(n,l)=>String(n).padStart(l,'0');
+const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1,2)+'-'+pad(d.getDate(),2);
+const today=()=>iso(new Date());
+const addDays=(s,n)=>{const p=s.split('-').map(Number);return iso(new Date(p[0],p[1]-1,p[2]+n))};
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fd=s=>{if(!s)return '—';const p=s.split('-').map(Number);return pad(p[2],2)+' '+MON[p[1]-1]+' '+p[0]};
+const fs=s=>{if(!s)return '—';const p=s.split('-').map(Number);return pad(p[2],2)+' '+MON[p[1]-1]};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r2=n=>Math.round((+n+Number.EPSILON)*100)/100;
+const inr=n=>{n=+n||0;return '₹'+n.toLocaleString('en-IN',{minimumFractionDigits:Math.round(n)===n?0:2,maximumFractionDigits:2})};
+const num=v=>{const n=parseFloat(String(v==null?'':v).replace(/,/g,''));return isNaN(n)?NaN:n};
+const rid=()=>Math.random().toString(36).slice(2,9);
+const yy=()=>today().slice(2,4);
+
+/* ---------- icons ---------- */
+const IC={
+home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+flask:'<path d="M9 3h6"/><path d="M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9V3"/><path d="M7.5 14h9"/>',
+clip:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M9 13l2 2 4-4"/>',
+chart:'<path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16v-4"/><path d="M12 16V8"/><path d="M16 16v-6"/>',
+check:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/>',
+receipt:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6"/><path d="M9 12h6"/>',
+users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3-5.5 6.5-5.5s6 2 6.5 5.5"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6"/><path d="M18 14.8c2 .6 3.3 2.4 3.5 5.2"/>',
+gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+out:'<path d="M9 4H5v16h4"/><path d="M16 8l4 4-4 4"/><path d="M20 12H9"/>',
+back:'<path d="M15 5l-7 7 7 7"/>',
+next:'<path d="M9 5l7 7-7 7"/>',
+plus:'<path d="M12 5v14M5 12h14"/>',
+minus:'<path d="M5 12h14"/>',
+camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+image:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>',
+search:'<circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>',
+trash:'<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>',
+alert:'<path d="M12 3l10 18H2z"/><path d="M12 10v5"/><path d="M12 18v.01"/>',
+x:'<path d="M6 6l12 12M18 6L6 18"/>',
+copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+send:'<path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/>',
+edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+chev:'<path d="M9 5l7 7-7 7"/>',
+chat:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
+};
+const ic=(n,s)=>'<svg class="ic" width="'+(s||22)+'" height="'+(s||22)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+IC[n]+'</svg>';
+
+/* ---------- constants ---------- */
+const ROLE_LABEL={admin:'Admin',store:'Store',tester:'Tester',accounts:'Accounts'};
+const MODS=[
+ {id:'create',label:'Create new test',short:'New test',icon:'flask'},
+ {id:'schedule',label:'Testing schedule',short:'Schedule',icon:'clip'},
+ {id:'reports',label:'Reports & accounts',short:'Reports',icon:'chart'},
+ {id:'approve',label:'Approve & send',short:'Approve',icon:'check'},
+ {id:'bills',label:'Track bill',short:'Bills',icon:'receipt'},
+ {id:'clients',label:'Clients & history',short:'Clients',icon:'users'},
+ {id:'crm',label:'CRM & follow-ups',short:'CRM',icon:'chat'},
+ {id:'admin',label:'Admin',short:'Admin',icon:'gear'}];
+const PERM={admin:['create','schedule','reports','approve','bills','clients','crm','admin'],store:['create','clients'],tester:['schedule'],accounts:['reports','approve','bills','clients','crm']};
+const NAVPICK={admin:['create','schedule','approve','bills'],store:['create','clients'],tester:['schedule'],accounts:['reports','approve','bills','clients']};
+const RSTAT={testing:'In testing',awaiting:'Awaiting approval',approved:'Approved',sent:'Sent'};
+
+/* ---------- seed ---------- */
+function seed(){
+ const T=today(),Y=yy();
+ const tests=[
+  {id:'t_cube',name:'Cube',code:'IS 516 (Part 1/Sec 1):2021',rate:350,nabl:true,kind:'cube',unit:'cube',ru:'N/mm²'},
+  {id:'t_cem',name:'Cement compressive strength',code:'IS 4031 (Part 6):1988',rate:1800,nabl:true,kind:'simple',unit:'sample',ru:'N/mm²'},
+  {id:'t_tmt',name:'Steel TMT tensile',code:'IS 1786:2008',rate:900,nabl:true,kind:'simple',unit:'sample',ru:'N/mm² (UTS)'},
+  {id:'t_agg',name:'Aggregate sieve analysis',code:'IS 2386 (Part 1):1963',rate:1500,nabl:true,kind:'simple',unit:'sample',ru:'% passing 20 mm'},
+  {id:'t_brk',name:'Brick compressive strength',code:'IS 3495 (Part 1):2019',rate:220,nabl:true,kind:'simple',unit:'brick',ru:'N/mm²'},
+  {id:'t_wat',name:'Water pH and chlorides',code:'IS 3025 (Part 11):2022',rate:1200,nabl:false,kind:'simple',unit:'sample',ru:'pH'}];
+ const users=[
+  {id:'u_admin',login:'admin',pin:'1111',name:'Anjali',role:'admin',active:true},
+  {id:'u_rahul',login:'rahul',pin:'2222',name:'Rahul',role:'store',active:true},
+  {id:'u_suresh',login:'suresh',pin:'3333',name:'Suresh',role:'tester',active:true},
+  {id:'u_meera',login:'meera',pin:'4444',name:'Meera',role:'accounts',active:true},
+  {id:'u_imran',login:'imran',pin:'5555',name:'Imran',role:'tester',active:true}];
+ const clients=[
+  {id:'c1',code:'SCP-001',name:'Shree Constructions Pvt Ltd',address:'Plot 12, Baner Road, Pune 411045',gst:'27AABCS4521F1Z5',terms:'Credit',creditDays:'30',contact:'Mr. Vikram Shinde',phone:'9822011101',rates:{t_cube:'330',t_tmt:'850'}},
+  {id:'c2',code:'DID-002',name:'Deccan Infra Developers',address:'Office 304, Kalyani Nagar, Pune 411006',gst:'27AAFCD7788K1Z2',terms:'Advance',creditDays:'0',contact:'Ms. Pooja Kulkarni',phone:'9822011102',rates:{t_cube:'340',t_brk:'200'}},
+  {id:'c3',code:'SMW-003',name:'Sahyadri Metro Works LLP',address:'Survey 45, Hadapsar Industrial Estate, Pune 411013',gst:'27AAJFS3390M1Z8',terms:'Credit',creditDays:'45',contact:'Mr. Anil Deshpande',phone:'9822011103',rates:{t_agg:'1400'}},
+  {id:'c4',code:'KHC-004',name:'Kothrud Homes & Co',address:'12, Paud Road, Kothrud, Pune 411038',gst:'27AABFK1200P1Z9',terms:'Advance',creditDays:'0',contact:'Mrs. Sunita Joshi',phone:'9822011104',rates:{t_brk:'210'}}];
+ const projects=[
+  {id:'p1',clientId:'c1',name:'Sky Heights – Tower B',site:'Gat 88, Baner–Pashan Link Road, Pune'},
+  {id:'p2',clientId:'c1',name:'Baner Riverside Villas',site:'Survey 21, Baner Riverfront, Pune'},
+  {id:'p3',clientId:'c2',name:'Hinjewadi IT Park Phase 3',site:'Plot 9, Rajiv Gandhi Infotech Park, Hinjewadi'},
+  {id:'p4',clientId:'c2',name:'Wakad Mall Foundation',site:'Datta Mandir Road, Wakad, Pune'},
+  {id:'p5',clientId:'c3',name:'Viaduct Pier P-18, Metro Line 3',site:'Shivajinagar–Hinjewadi corridor, Pune'},
+  {id:'p6',clientId:'c3',name:'Depot Shed, Hadapsar',site:'Hadapsar Industrial Estate, Pune'},
+  {id:'p7',clientId:'c4',name:'Kothrud Residency Phase 1',site:'Paud Road, Kothrud, Pune'},
+  {id:'p8',clientId:'c4',name:'Karve Road Annex',site:'Karve Road, Erandwane, Pune'}];
+ const db={users,tests,settings:{cert:'TC0000',gst:'18',creditDays:'30'},clients,projects,samples:[],jobs:[],invoices:[],payments:[],leads:[],interactions:[],tasks:[],counters:{uid:146,inv:39}};
+ function rows(d){const out=[];(d.sizes||[]).forEach(s=>{for(let i=0;i<s.n;i++)out.push({l:s.l,b:s.b,h:s.h})});return out}
+ function mk(o){
+  const c=clients.find(x=>x.id===o.c),t=tests.find(x=>x.id===o.t);
+  const d={};
+  if(t.kind==='cube'){Object.assign(d,{grade:o.grade,source:o.source,supplier:o.supplier||'',casting:addDays(T,-o.cast),ages:o.ages,sizes:[{l:150,b:150,h:150,n:o.n}],total:o.n})}
+  else Object.assign(d,{desc:o.desc,qty:o.qty,due:addDays(T,-o.r+(o.dueIn||2))});
+  const s={id:'s'+o.num,uid:'UID-'+Y+'-'+pad(o.num,6),ulr:t.nabl?db.settings.cert+'-'+Y+'-'+pad(o.num,6)+'-F':'',receipt:addDays(T,-o.r),clientId:c.id,projectId:o.p,sampledBy:o.by||'TechAssures',billing:c.terms,testId:t.id,mark:o.mark,d:d,photo:'',cond:'Acceptable',reason:'',rep:{name:o.rep||'Site Engineer',mobile:'98220'+pad(o.num,5),sig:''},assignee:o.as,createdBy:'u_rahul',reportStatus:o.status};
+  if(o.status==='approved'||o.status==='sent'){s.approvedBy='Meera';s.approvedOn=addDays(T,-(o.apOff||3))}
+  if(o.status==='sent')s.sentOn=addDays(T,-(o.apOff||3)+1);
+  db.samples.push(s);
+  /* jobs */
+  if(t.kind==='cube'){
+   const rw=rows(d);const per=Math.max(1,Math.ceil(d.total/d.ages.length));
+   d.ages.forEach((a,i)=>{
+    const j={id:'j'+o.num+'_'+a,sampleId:s.id,age:a,due:addDays(d.casting,a),assignee:o.as,status:'pending',results:null,remarks:''};
+    const dn=o.doneAges&&o.doneAges.indexOf(a)>=0;
+    if(dn){const base=a===7?o.l7:o.l28;const rr=[];for(let k=0;k<per;k++){const q=rw[k%rw.length];const load=base+(k*7-6);rr.push({l:q.l,b:q.b,h:q.h,load:load,strength:r2(load*1000/(q.l*q.b))})}
+     const avg=r2(rr.reduce((x,y)=>x+y.strength,0)/rr.length);j.status='done';j.results={rows:rr,avg:avg};j.doneOn=j.due}
+    db.jobs.push(j)});
+  }else{
+   const j={id:'j'+o.num,sampleId:s.id,age:null,due:d.due,assignee:o.as,status:o.val!=null?'done':'pending',results:o.val!=null?{value:o.val}:null,remarks:o.rem||'',doneOn:o.val!=null?d.due:null};
+   db.jobs.push(j)}
+  /* invoice */
+  const inv=makeInvoice(db,s,o.invNo);s.billNo=inv.no;
+  if(o.paid){const part=o.paid==='full'?inv.total:r2(inv.total*0.5);
+   db.payments.push({id:'pay'+o.num,invoiceId:inv.id,amount:part,date:addDays(s.receipt,2),mode:'UPI',ref:'UPI'+(480000+o.num)})}
+ }
+ mk({num:138,r:36,cast:38,c:'c1',p:'p1',t:'t_cube',mark:'Slab L5 – batch 12',grade:'M30',source:'RMC',supplier:'Pune Ready Mix',n:6,ages:[7,28],doneAges:[7,28],l7:512,l28:742,status:'sent',apOff:9,as:'u_suresh',paid:'full',invNo:31,rep:'Santosh Pawar'});
+ mk({num:139,r:20,cast:22,c:'c2',p:'p3',t:'t_cube',mark:'Footing F4',grade:'M25',source:'Site mix',n:6,ages:[7,14],doneAges:[7,14],l7:418,l28:560,status:'approved',apOff:5,as:'u_imran',paid:'full',invNo:32,by:'Client',rep:'Pooja Kulkarni'});
+ mk({num:140,r:6,c:'c4',p:'p7',t:'t_brk',mark:'Brick lot B-17',desc:'Red clay bricks, first class',qty:5,val:'8.6',rem:'Average of 5 bricks. Water absorption not in scope.',status:'approved',apOff:1,as:'u_suresh',invNo:33});
+ mk({num:141,r:5,c:'c1',p:'p2',t:'t_tmt',mark:'TMT Fe500D 16 mm',desc:'TMT bar 16 mm, 3 pcs (1 m each)',qty:3,val:'588',rem:'Elongation 16.5%, yield 541 N/mm²',status:'awaiting',as:'u_suresh',paid:'part',invNo:34});
+ mk({num:142,r:4,c:'c3',p:'p6',t:'t_wat',mark:'Curing water – tank 2',desc:'Curing water sample, 1 litre',qty:1,val:'7.4',rem:'Chlorides 182 mg/l',status:'awaiting',as:'u_imran',invNo:35});
+ mk({num:143,r:62,c:'c3',p:'p5',t:'t_agg',mark:'20 mm coarse aggregate',desc:'Coarse aggregate 20 mm, 25 kg',qty:1,val:'96.4',rem:'Within IS 383 grading limits',status:'sent',apOff:50,as:'u_suresh',invNo:36});
+ mk({num:144,r:7,cast:7,c:'c1',p:'p1',t:'t_cube',mark:'Column C12 – lift 3',grade:'M35',source:'RMC',supplier:'Pune Ready Mix',n:6,ages:[7,28],doneAges:[],status:'testing',as:'u_suresh',invNo:37,rep:'Santosh Pawar'});
+ mk({num:145,r:9,cast:9,c:'c2',p:'p4',t:'t_cube',mark:'Raft R2 – pour 1',grade:'M25',source:'RMC',supplier:'Deccan Mix',n:6,ages:[7,28],doneAges:[],status:'testing',as:'u_imran',invNo:38,rep:'Pooja Kulkarni'});
+ /* CRM demo data */
+ const ml=(id,name,contact,phone,source,stage,value,fu,notes,x)=>db.leads.push(Object.assign({id,name,contact,phone,email:'',source,stage,value,nextFollowUp:fu,owner:'u_meera',notes,lostReason:'',clientId:'',createdOn:addDays(T,-20),updatedOn:T},x||{}));
+ ml('l1','Prime Realty Ventures','Mr. Nikhil Bapat','9890011122','Referral','new',85000,addDays(T,1),'Referred by Shree Constructions. Two towers planned at Balewadi.');
+ ml('l2','Mahalaxmi Builders','Mr. Suhas Pawar','9890011133','Website','contacted',140000,addDays(T,-2),'Asked for cube and steel testing rates for a 12-floor project.',{createdOn:addDays(T,-14)});
+ ml('l3','Greenfield Precast Pvt Ltd','Ms. Rekha Nair','9890011144','Site visit','quoted',260000,addDays(T,3),'Quote sent for monthly cube and cement testing. Wants 45 days credit.',{createdOn:addDays(T,-30)});
+ ml('l4','Tulsi Infra','Mr. Ganesh Tulsi','9890011155','Cold call','quoted',95000,addDays(T,-1),'Comparing us with another NABL lab. Price is the main concern.',{createdOn:addDays(T,-25)});
+ ml('l5','Kothrud Homes & Co','Mrs. Sunita Joshi','9822011104','Referral','won',120000,'','Converted. Brick and cube work for Kothrud Residency.',{clientId:'c4',createdOn:addDays(T,-90)});
+ ml('l6','Bhosari MIDC Works','Mr. Dilip Kale','9890011166','Website','lost',70000,'','Went with a lab closer to Bhosari.',{lostReason:'Location',createdOn:addDays(T,-60)});
+ const mi=(id,o)=>db.interactions.push(Object.assign({id,clientId:'',leadId:'',type:'call',summary:'',date:T,by:'u_meera'},o));
+ mi('n1',{clientId:'c2',type:'call',summary:'Reminded about the advance payment for UID-'+Y+'-000145. Promised transfer by tomorrow.',date:addDays(T,-1)});
+ mi('n2',{clientId:'c3',type:'email',summary:'Sent statement. Invoice for aggregate test is past due.',date:addDays(T,-3)});
+ mi('n3',{clientId:'c1',type:'visit',summary:'Site visit at Sky Heights. They plan about 40 cubes a month for the next quarter.',date:addDays(T,-8),by:'u_admin'});
+ mi('n4',{clientId:'c4',type:'whatsapp',summary:'Shared brick test report copy. Asked for advance on the next lot.',date:addDays(T,-5),by:'u_rahul'});
+ mi('n5',{leadId:'l2',type:'call',summary:'Discussed scope. Will share rate card.',date:addDays(T,-6)});
+ mi('n6',{leadId:'l3',type:'email',summary:'Quote sent with 45 day credit request flagged for approval.',date:addDays(T,-4)});
+ mi('n7',{leadId:'l4',type:'call',summary:'They have a competing quote. Asked us to match.',date:addDays(T,-9)});
+ mi('n8',{clientId:'c3',type:'note',summary:'Contact changed: Mr. Anil Deshpande handles all payments now.',date:addDays(T,-15),by:'u_admin'});
+ const mt=(id,o)=>db.tasks.push(Object.assign({id,title:'',due:T,done:false,doneOn:'',assignee:'u_meera',clientId:'',leadId:''},o));
+ mt('k1',{title:'Follow up on overdue aggregate invoice',due:addDays(T,-2),clientId:'c3'});
+ mt('k2',{title:'Chase advance for UID-'+Y+'-000145',due:T,clientId:'c2'});
+ mt('k3',{title:'Send rate card to Mahalaxmi Builders',due:addDays(T,-2),leadId:'l2'});
+ mt('k4',{title:'Call Greenfield about credit terms',due:addDays(T,3),leadId:'l3'});
+ mt('k5',{title:'Quarterly review visit at Sky Heights',due:addDays(T,14),clientId:'c1',assignee:'u_admin'});
+ mt('k6',{title:'Thank-you call after report delivery',due:addDays(T,-5),done:true,doneOn:addDays(T,-5),clientId:'c1'});
+ return db;
+}
+
+/* ---------- billing helpers ---------- */
+function rateFor(db,client,test){const v=client&&client.rates?client.rates[test.id]:'';return(v!==''&&v!=null&&!isNaN(+v))?+v:+test.rate}
+function qtyOf(s,t){return t.kind==='cube'?(s.d.total||0):(+s.d.qty||0)}
+function makeInvoice(db,s,forcedNo){
+ const c=db.clients.find(x=>x.id===s.clientId),t=db.tests.find(x=>x.id===s.testId);
+ const rate=rateFor(db,c,t),qty=qtyOf(s,t),sub=r2(rate*qty),gp=num(db.settings.gst);const gstPct=isNaN(gp)?18:gp;
+ const gst=r2(sub*gstPct/100);
+ const no=forcedNo!=null?forcedNo:db.counters.inv++;
+ const due=s.billing==='Advance'?s.receipt:addDays(s.receipt,parseInt(c.creditDays,10)||parseInt(db.settings.creditDays,10)||30);
+ const inv={id:'i'+s.id.slice(1),no:'INV-'+yy()+'-'+pad(no,4),sampleId:s.id,clientId:c.id,date:s.receipt,due:due,lines:[{desc:t.name+' ('+t.code+')',qty:qty,unit:t.unit,rate:rate,amount:sub}],subtotal:sub,gstPct:gstPct,gst:gst,total:r2(sub+gst)};
+ db.invoices.push(inv);s.invoiceId=inv.id;return inv;
+}
+
+/* ---------- state ---------- */
+function loadDb(){
+ const r=lsGet(KEY);
+ if(r){try{const d=JSON.parse(r);if(d&&d.users&&d.samples){if(!d.leads){const f=seed();d.leads=f.leads;d.interactions=f.interactions;d.tasks=f.tasks}return d}}catch(e){}}
+ const d=seed();lsSet(KEY,JSON.stringify(d));return d;
+}
+const S={db:loadDb(),user:null,route:'home',m:{},wiz:null,confirm:null,login:{login:'',pin:'',err:''},online:false,booting:true,token:'',rev:0,synced:{},demoAccounts:[],busy:false};
+let pt=null;
+function persist(){clearTimeout(pt);pt=setTimeout(persistNow,S.online?700:250)}
+function persistNow(){clearTimeout(pt);if(S.online){pushDirty();return}if(!lsSet(KEY,JSON.stringify(S.db)))toast('Storage is full or blocked — changes may not be kept',1)}
+{const sid=lsGet(SKEY);if(sid){const u=S.db.users.find(x=>x.id===sid&&x.active);if(u)S.user=u}}
+const ALLCOLL=['users','tests','clients','projects','samples','jobs','invoices','payments','leads','interactions','tasks'];
+
+/* lookups */
+const D=()=>S.db;
+const cl=id=>D().clients.find(x=>x.id===id)||{};
+const pr=id=>D().projects.find(x=>x.id===id)||{};
+const ts=id=>D().tests.find(x=>x.id===id)||{};
+const us=id=>D().users.find(x=>x.id===id)||{};
+const sm=id=>D().samples.find(x=>x.id===id)||null;
+const jobsOf=sid=>D().jobs.filter(j=>j.sampleId===sid);
+const invOf=s=>D().invoices.find(i=>i.id===s.invoiceId)||null;
+const paidOf=i=>r2(D().payments.filter(p=>p.invoiceId===i.id).reduce((a,p)=>a+(+p.amount),0));
+const balOf=i=>r2(i.total-paidOf(i));
+function bstat(i){const b=balOf(i);if(b<=0)return'Paid';if(i.due<today())return'Overdue';if(paidOf(i)>0)return'Part paid';return'Unpaid'}
+const bcls=s=>({Paid:'ok',Overdue:'bad','Part paid':'warn',Unpaid:'warn'}[s]||'');
+const rcls=s=>({testing:'',awaiting:'warn',approved:'ok',sent:'dark'}[s]||'');
+const bdg=(t,c)=>'<span class="bd '+(c||'')+'">'+esc(t)+'</span>';
+const can=m=>S.user&&PERM[S.user.role].indexOf(m)>=0;
+const isTester=()=>S.user&&S.user.role==='tester';
+function myJobs(){const all=D().jobs;return S.user.role==='tester'?all.filter(j=>j.assignee===S.user.id):all}
+function jobTab(j){if(j.status==='done')return'done';return j.due<=today()?'due':'upcoming'}
+function expandRows(d){const o=[];(d.sizes||[]).forEach(s=>{for(let i=0;i<(+s.n||0);i++)o.push({l:+s.l,b:+s.b,h:+s.h})});return o.length?o:[{l:150,b:150,h:150}]}
+function jobLabel(j){const t=ts(sm(j.sampleId).testId);return t.kind==='cube'?j.age+'-day cube test':t.name}
+
+/* toast */
+let tt=null;
+function toast(msg,bad){const el=document.getElementById('toast');if(!el)return;el.textContent=msg;el.className='toast show'+(bad?' bad':'');clearTimeout(tt);tt=setTimeout(()=>{el.className='toast'},2800)}
+
+/* path helpers */
+function getPath(o,p){return p.split('.').reduce((a,k)=>a==null?a:a[k],o)}
+function setPath(o,p,v){const ks=p.split('.');let a=o;for(let i=0;i<ks.length-1;i++){if(a[ks[i]]==null||typeof a[ks[i]]!=='object')a[ks[i]]={};a=a[ks[i]]}a[ks[ks.length-1]]=v}
+
+/* ================= BACKEND CONNECTION (optional) =================
+   When the page is served by server.js it talks to /api and keeps every browser in sync.
+   Opened as a plain file (or anywhere /api/health does not answer) it runs as the offline demo. */
+const TKEY='techassures_lab_token';
+const SYNC=['tests','clients','projects','leads','interactions','tasks'];
+function emptyDb(){const d={settings:{},counters:{uid:0,inv:0}};ALLCOLL.forEach(c=>{d[c]=[]});return d}
+async function api(method,path,body){
+ const r=await fetch(path,{method:method,headers:Object.assign({'Content-Type':'application/json'},S.token?{Authorization:'Bearer '+S.token}:{}),body:body!==undefined?JSON.stringify(body):undefined});
+ let j=null;try{j=await r.json()}catch(e){}
+ if(r.status===401&&S.user&&path!=='/api/login'){sessionExpired();const e=new Error('Please log in again');e.status=401;throw e}
+ if(!r.ok){const e=new Error((j&&j.error)||'Request failed ('+r.status+')');e.status=r.status;throw e}
+ return j;
+}
+function sessionExpired(){S.user=null;S.token='';lsDel(TKEY);S.wiz=null;stopPoll();toast('Your session ended. Please log in again.',1);render()}
+function applySnapshot(res){
+ const d=res.data,db=emptyDb();
+ ALLCOLL.forEach(c=>{db[c]=d[c]||[]});
+ db.settings=d.settings||{};db.counters=Object.assign({uid:0,inv:0},d.counters||{});
+ S.db=db;S.rev=res.rev;S.synced={};
+ SYNC.forEach(c=>{S.synced[c]={};db[c].forEach(r=>{S.synced[c][r.id]=JSON.stringify(r)})});
+ S.synced.settings=JSON.stringify(db.settings);
+}
+async function loadAll(){const r=await api('GET','/api/bootstrap');S.user=r.user;applySnapshot(r)}
+function upsertLocal(c,rec,markSynced){
+ const arr=S.db[c],i=arr.findIndex(x=>x.id===rec.id);
+ if(i>=0)arr[i]=rec;else arr.push(rec);
+ if(markSynced&&SYNC.indexOf(c)>=0)S.synced[c][rec.id]=JSON.stringify(rec);
+}
+function applyChanges(ch){
+ let changed=false;const up=ch.upserts||{},dl=ch.deletes||{};
+ Object.keys(up).forEach(c=>{
+  if(c==='settings'){if(S.user.role==='admin'&&S.synced.settings!==JSON.stringify(S.db.settings))return;S.db.settings=up.settings;S.synced.settings=JSON.stringify(up.settings);changed=true;return}
+  if(!S.db[c])return;
+  up[c].forEach(rec=>{
+   const arr=S.db[c],i=arr.findIndex(x=>x.id===rec.id),js=JSON.stringify(rec);
+   if(SYNC.indexOf(c)>=0&&i>=0&&S.synced[c][rec.id]!==JSON.stringify(arr[i]))return;   /* unsaved local edit wins */
+   if(i>=0){if(JSON.stringify(arr[i])!==js){arr[i]=rec;changed=true}}else{arr.push(rec);changed=true}
+   if(SYNC.indexOf(c)>=0)S.synced[c][rec.id]=js;
+  });
+ });
+ Object.keys(dl).forEach(c=>{if(!S.db[c])return;dl[c].forEach(id=>{const i=S.db[c].findIndex(x=>x.id===id);if(i>=0){S.db[c].splice(i,1);changed=true}})});
+ if(ch.counters&&ch.counters.uid)S.db.counters=Object.assign(S.db.counters,ch.counters);
+ S.rev=ch.rev;return changed;
+}
+/* push edits made through the bound fields (clients, projects, tests, CRM, settings) */
+let pushing=false,pushAgain=false;const lastErr={};
+async function pushDirty(){
+ if(!S.online||!S.user)return;
+ if(pushing){pushAgain=true;return}
+ pushing=true;
+ try{
+  for(const c of SYNC){
+   for(const rec of (S.db[c]||[]).slice()){
+    const js=JSON.stringify(rec);
+    if(S.synced[c][rec.id]===js)continue;
+    try{await api('PUT','/api/'+c+'/'+rec.id,rec);S.synced[c][rec.id]=js;delete lastErr[c+rec.id]}
+    catch(e){if(e.status===401)return;if(lastErr[c+rec.id]!==e.message){lastErr[c+rec.id]=e.message;toast('Not saved: '+e.message,1)}}
+   }
+  }
+  if(S.user.role==='admin'){
+   const js=JSON.stringify(S.db.settings);
+   if(S.synced.settings!==js){try{await api('PUT','/api/settings/main',Object.assign({id:'main'},S.db.settings));S.synced.settings=js}catch(e){if(e.status!==401&&lastErr.settings!==e.message){lastErr.settings=e.message;toast('Not saved: '+e.message,1)}}}
+  }
+ }finally{pushing=false;if(pushAgain){pushAgain=false;pushDirty()}}
+}
+async function removeRec(c,id){
+ if(S.online){try{await api('DELETE','/api/'+c+'/'+id)}catch(e){toast(e.message,1);return false}delete (S.synced[c]||{})[id]}
+ const i=S.db[c].findIndex(x=>x.id===id);if(i>=0)S.db[c].splice(i,1);
+ if(!S.online)persistNow();
+ return true;
+}
+/* polling for changes made on other devices */
+let pollT=null;
+const typing=()=>{const a=document.activeElement;return !!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))};
+function stopPoll(){if(pollT){clearInterval(pollT);pollT=null}}
+function startPoll(){stopPoll();pollT=setInterval(pollOnce,8000)}
+let pollBusy=false;
+async function pollOnce(){
+ if(!S.online||!S.user||pollBusy||S.busy||pushing)return;
+ pollBusy=true;
+ try{
+  const ch=await api('GET','/api/changes?since='+S.rev);
+  if(ch.reload){await loadAll();render();return}
+  if(applyChanges(ch)&&!typing()&&!S.wiz)render();
+ }catch(e){}finally{pollBusy=false}
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.online&&S.user)pollOnce()});
+async function downloadCsv(c){
+ try{
+  const r=await fetch('/api/export/'+c+'.csv',{headers:{Authorization:'Bearer '+S.token}});
+  if(!r.ok){let j={};try{j=await r.json()}catch(e){}throw new Error(j.error||'Export failed')}
+  const blob=await r.blob(),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=c+'-'+today()+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('Exported '+c);
+ }catch(e){toast(e.message,1)}
+}
+async function loadAudit(){
+ try{const r=await api('GET','/api/audit?limit=150');M('admin').audit=r.entries}catch(e){M('admin').audit=[];toast(e.message,1)}
+ render();
+}
+async function onlineLogin(){
+ const L=S.login;L.err='';S.busy=true;render();
+ try{
+  const r=await api('POST','/api/login',{login:L.login,pin:L.pin});
+  S.token=r.token;lsSet(TKEY,S.token);await loadAll();
+  S.login={login:'',pin:'',err:''};S.route='home';S.m={};startPoll();
+ }catch(e){L.err=e.message}
+ S.busy=false;render();window.scrollTo(0,0);
+}
+async function onlineLogout(){
+ try{await api('POST','/api/logout',{})}catch(e){}
+ S.token='';lsDel(TKEY);stopPoll();S.db=emptyDb();S.user=null;S.m={};S.wiz=null;S.route='home';S.login={login:'',pin:'',err:''};render();
+}
+async function boot(){
+ try{
+  const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),2500);
+  const r=await fetch('/api/health',{cache:'no-store',signal:ctl.signal});clearTimeout(t);
+  const j=r.ok?await r.json():null;
+  if(j&&j.ok){S.online=true;S.demoAccounts=j.demoAccounts||[]}
+ }catch(e){}
+ if(S.online){
+  S.db=emptyDb();S.user=null;S.token=lsGet(TKEY)||'';
+  if(S.token){try{await loadAll();startPoll()}catch(e){S.token='';S.user=null;lsDel(TKEY)}}
+ }
+ S.booting=false;render();
+}
+
+/* ---------- form helpers ---------- */
+function inp(path,val,o){o=o||{};return '<input class="in'+(o.err?' bad':'')+'" type="'+(o.type||'text')+'" data-m="'+path+'" value="'+esc(val)+'"'+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+(o.mode?' inputmode="'+o.mode+'"':'')+(o.h?' data-h="'+o.h+'"':'')+(o.dis?' disabled':'')+(o.ro?' readonly':'')+(o.enter?' data-enter="'+o.enter+'"':'')+(o.max?' maxlength="'+o.max+'"':'')+(o.min!=null?' min="'+o.min+'"':'')+(o.maxd?' max="'+o.maxd+'"':'')+' autocomplete="off" autocapitalize="off" spellcheck="false">'}
+function ta(path,val,o){o=o||{};return '<textarea class="in'+(o.err?' bad':'')+'" data-m="'+path+'"'+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+(o.dis?' readonly':'')+'>'+esc(val)+'</textarea>'}
+function sel(path,val,opts,o){o=o||{};return '<select class="in'+(o.err?' bad':'')+'" data-m="'+path+'"'+(o.h?' data-h="'+o.h+'"':'')+(o.dis?' disabled':'')+'>'+(o.ph!=null?'<option value="">'+esc(o.ph)+'</option>':'')+opts.map(x=>'<option value="'+esc(x[0])+'"'+(String(x[0])===String(val)?' selected':'')+'>'+esc(x[1])+'</option>').join('')+'</select>'}
+function fld(label,inner,err,hint){return '<div class="fld"><label class="lbl">'+label+'</label>'+inner+(hint?'<div class="hint">'+hint+'</div>':'')+(err?'<div class="err">'+esc(err)+'</div>':'')+'</div>'}
+function chipRow(sp,cur,opts){return '<div class="chips">'+opts.map(x=>'<button type="button" class="chip'+(String(cur)===String(x[0])?' on':'')+'" data-act="set" data-sp="'+sp+'" data-v="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div>'}
+const goA=(r,set)=>'data-go="'+r+'"'+(set?' data-set="'+esc(JSON.stringify(set))+'"':'');
+const M=r=>S.m[r]||(S.m[r]=defs(r));
+function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{f:'All',q:'',invId:null,pay:null},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null},admin:{tab:'users',nu:{name:'',login:'',pin:'',role:'tester',err:{}},audit:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null}})[r]||{}}
+function go(r,set){S.route=r;S.m[r]=Object.assign(defs(r),set||{});window.scrollTo(0,0);render()}
+const pgHead=(title,backAct,sub)=>'<div class="pg">'+(backAct?'<button class="ibtn" data-act="'+backAct+'" aria-label="Back">'+ic('back')+'</button>':'')+'<div class="grow"><h1>'+title+'</h1>'+(sub?'<div class="mut sm">'+sub+'</div>':'')+'</div></div>';
+const empty=t=>'<div class="empty">'+t+'</div>';
+const tabsBar=(act,cur,list)=>'<div class="tabs" role="tablist">'+list.map(x=>'<button role="tab" class="'+(cur===x[0]?'on':'')+'" data-act="'+act+'" data-v="'+x[0]+'">'+esc(x[1])+'</button>').join('')+'</div>';
+const searchBox=(path,val,ph)=>'<div class="search">'+ic('search',20)+'<input class="in" type="text" data-m="'+path+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'" autocomplete="off"></div>';
+
+/* ---------- shell ---------- */
+function header(){return '<div class="hdr"><div class="brand"><i></i>TechAssures<span class="l"> Lab</span></div><div class="who">'+esc(ROLE_LABEL[S.user.role])+': '+esc(S.user.name)+'</div><button class="hbtn" data-act="logout" aria-label="Log out">'+ic('out')+'</button></div>'}
+function shell(body){
+ const navMods=NAVPICK[S.user.role].filter(can);
+ const items=[{id:'home',short:'Home',icon:'home'}].concat(navMods.map(id=>MODS.find(m=>m.id===id)));
+ const bn=items.map(m=>'<button class="'+(S.route===m.id?'on':'')+'" '+goA(m.id)+'>'+ic(m.icon)+'<span>'+m.short+'</span></button>').join('');
+ const side=[{id:'home',label:'Home',icon:'home'}].concat(MODS.filter(m=>can(m.id))).map(m=>'<button class="nv'+(S.route===m.id?' on':'')+'" '+goA(m.id)+'>'+ic(m.icon)+'<span>'+m.label+'</span></button>').join('');
+ return '<aside class="side"><div class="brand"><i></i>TechAssures Lab</div>'+side+'<div class="sp"></div><button class="nv" data-act="logout">'+ic('out')+'<span>Log out</span></button></aside>'+
+ '<div class="col">'+header()+'<main class="main">'+body+'</main></div><nav class="bnav" aria-label="Main">'+bn+'</nav>';
+}
+function blocked(){return '<div class="card" style="text-align:center;padding:30px 18px"><div style="color:var(--g1);display:flex;justify-content:center;margin-bottom:10px">'+ic('lock',36)+'</div><h2>Access blocked</h2><p class="mut" style="margin:8px 0 18px">Your role ('+esc(ROLE_LABEL[S.user.role])+') cannot open this screen.</p><button class="btn pri" '+goA('home')+'>Back to Home</button></div>'}
+
+/* ---------- login ---------- */
+function loginView(){
+ const L=S.login;
+ const accts=S.online?S.demoAccounts:S.db.users.filter(u=>u.active);
+ const chips=accts.map(u=>'<button type="button" class="chip" data-act="fill" data-v="'+esc(u.login)+'">'+esc(u.login)+' · '+esc(ROLE_LABEL[u.role])+'</button>').join('');
+ return '<div class="login"><div class="logo"><i></i><h1>TechAssures Lab</h1></div><p class="mut" style="margin-bottom:6px">NABL-accredited construction material testing · Pune</p>'+
+ '<p style="margin-bottom:18px">'+(S.online?bdg('Connected to server','ok'):bdg('Offline demo · data stays in this browser'))+'</p>'+
+ '<div class="card">'+fld('Login name',inp('login.login',L.login,{enter:'login',ph:'e.g. rahul'}))+
+ fld('PIN',inp('login.pin',L.pin,{type:'password',mode:'numeric',enter:'login',ph:'PIN',max:8}),L.err)+
+ '<button class="btn pri blk'+(S.busy?' off':'')+'" data-act="login">'+(S.busy?'Logging in…':'Log in')+'</button></div>'+
+ (chips?'<div class="sec" style="margin-top:20px"><h2>Demo accounts</h2></div><p class="hint" style="margin:0 0 10px">Tap an account to fill the login and PIN.</p><div class="chips">'+chips+'</div>':'')+'</div>';
+}
+
+/* ---------- home ---------- */
+function homeView(){
+ const u=S.user,h=new Date().getHours(),g=h<12?'Good morning':h<17?'Good afternoon':'Good evening',T=today(),role=u.role;
+ const jobs=myJobs(),dueJ=jobs.filter(j=>jobTab(j)==='due'),upJ=jobs.filter(j=>jobTab(j)==='upcoming'),doneJ=jobs.filter(j=>jobTab(j)==='done');
+ const D0=D(),aw=D0.samples.filter(s=>s.reportStatus==='awaiting');
+ const open=D0.invoices.filter(i=>balOf(i)>0),pend=r2(open.reduce((a,i)=>a+balOf(i),0)),overdue=open.filter(i=>i.due<T);
+ const month=T.slice(0,7),mCount=D0.samples.filter(s=>s.receipt.slice(0,7)===month).length,inTest=D0.samples.filter(s=>s.reportStatus==='testing').length;
+ let prim,tiles;
+ if(role==='tester'){prim='<button class="btn pri blk" '+goA('schedule',{tab:'due'})+'>'+ic('clip')+' Open testing schedule</button>';tiles=[['Due / overdue',dueJ.length,'schedule',{tab:'due'},dueJ.length>0],['Upcoming',upJ.length,'schedule',{tab:'upcoming'}],['Done',doneJ.length,'schedule',{tab:'done'}]]}
+ else if(role==='accounts'){prim='<button class="btn pri blk" '+goA('approve',{tab:'awaiting'})+'>'+ic('check')+' Approve reports</button>';tiles=[['Awaiting approval',aw.length,'approve',{tab:'awaiting'},aw.length>0],['Unpaid bills',open.length,'bills',{f:'Unpaid'}],['Pending money',inr(pend),'bills',{f:'All'}]]}
+ else if(role==='store'){prim='<button class="btn pri blk" data-act="newsample">'+ic('plus')+' New sample</button>';tiles=[['Samples this month',mCount,'create',{}],['In testing',inTest,'create',{}],['Clients',D0.clients.length,'clients',{}]]}
+ else{prim='<button class="btn pri blk" data-act="newsample">'+ic('plus')+' New sample</button>';tiles=[['Due / overdue tests',dueJ.length,'schedule',{tab:'due'},dueJ.length>0],['Awaiting approval',aw.length,'approve',{tab:'awaiting'},aw.length>0],['Pending money',inr(pend),'bills',{f:'All'}]]}
+ const att=[];
+ if(can('schedule'))dueJ.slice().sort((a,b)=>a.due<b.due?-1:1).slice(0,4).forEach(j=>{const s=sm(j.sampleId);att.push({t:s.uid+' · '+jobLabel(j),s:j.due<T?'Overdue since '+fd(j.due):'Due today',go:['schedule',{tab:'due',jobId:j.id}],bad:j.due<T})});
+ if(can('approve')){aw.slice(0,3).forEach(s=>att.push({t:s.uid+' · report awaiting approval',s:cl(s.clientId).name,go:['approve',{tab:'awaiting',sampleId:s.id}]}));
+  D0.samples.filter(s=>s.reportStatus==='approved').forEach(s=>{const i=invOf(s);if(s.billing==='Advance'&&i&&balOf(i)>0)att.push({t:s.uid+' · send blocked',s:'Advance bill '+i.no+' unpaid',go:['bills',{invId:i.id}],bad:true})})}
+ if(can('bills'))overdue.slice(0,3).forEach(i=>att.push({t:i.no+' overdue · '+inr(balOf(i)),s:cl(i.clientId).name+' · due '+fd(i.due),go:['bills',{invId:i.id}],bad:true}));
+ if(role==='store')D0.samples.filter(s=>s.reportStatus!=='sent').slice(-4).reverse().forEach(s=>att.push({t:s.uid+' · '+RSTAT[s.reportStatus],s:cl(s.clientId).name,go:['create',{}]}));
+ const attH=att.slice(0,7).map(a=>'<button class="row" '+goA(a.go[0],a.go[1])+'><div class="grow"><div class="t">'+esc(a.t)+'</div><div class="s">'+esc(a.s)+'</div></div>'+(a.bad?bdg('Overdue','bad'):'')+'<span class="mut">'+ic('chev',18)+'</span></button>').join('');
+ const grid=MODS.filter(m=>can(m.id)).map(m=>'<button class="mod" '+goA(m.id)+'>'+ic(m.icon,26)+'<span>'+m.label+'</span></button>').join('');
+ return '<div class="greet"><h1>'+g+', '+esc(u.name)+'</h1><p>'+fd(T)+' · '+esc(ROLE_LABEL[role])+'</p></div>'+prim+
+ '<div class="stats">'+tiles.map(t=>'<button class="stat'+(t[4]?' hot':'')+'" '+goA(t[2],t[3])+'><b>'+esc(t[1])+'</b><span>'+esc(t[0])+'</span></button>').join('')+'</div>'+
+ '<div class="sec"><h2>Needs attention</h2></div>'+(attH||empty('Nothing needs attention right now.'))+
+ '<div class="sec"><h2>All modules</h2></div><div class="grid">'+grid+'</div>';
+}
+
+/* ---------- clients ---------- */
+const canMoney=()=>S.user.role==='admin'||S.user.role==='accounts';
+function clientsView(){
+ const m=M('clients');
+ if(m.adding)return addClientView(m);
+ if(m.clientId)return clientDetail(m);
+ const q=(m.q||'').toLowerCase().trim();
+ const list=D().clients.filter(c=>!q||(c.name+' '+c.code+' '+c.gst).toLowerCase().indexOf(q)>=0);
+ return pgHead('Clients')+(canMoney()?'<button class="btn pri blk" data-act="addclient" style="margin-bottom:14px">'+ic('plus')+' Add client</button>':'')+
+ searchBox('m.clients.q',m.q,'Search name, code or GST')+
+ (list.length?list.map(c=>'<button class="row" data-act="opencl" data-id="'+c.id+'"><div class="grow"><div class="t">'+esc(c.name)+'</div><div class="s"><span class="mono">'+esc(c.code)+'</span> · '+esc(c.terms)+(c.terms==='Credit'?' ('+esc(c.creditDays)+' days)':'')+' · '+D().projects.filter(p=>p.clientId===c.id).length+' projects</div></div><span class="mut">'+ic('chev',18)+'</span></button>').join(''):empty('No clients match your search.'));
+}
+function clientDetail(m){
+ const idx=D().clients.findIndex(c=>c.id===m.clientId);if(idx<0){m.clientId=null;return clientsView()}
+ const c=D().clients[idx],P='db.clients.'+idx+'.',ed=canMoney();
+ const tabs=[['overview','Overview'],['projects','Projects & tests']].concat(canMoney()?[['payments','Payments'],['rates','Rates'],['crm','CRM']]:[]);
+ let body='';
+ if(m.tab==='overview'){
+  body='<div class="card">'+fld('Client code',inp(P+'code',c.code,{ro:!ed,dis:!ed}))+fld('Client name',inp(P+'name',c.name,{ro:!ed,dis:!ed}))+fld('Address',ta(P+'address',c.address,{dis:!ed}))+fld('GST number',inp(P+'gst',c.gst,{ro:!ed,dis:!ed}))+
+  fld('Billing terms',ed?chipRow(P+'terms',c.terms,[['Advance','Advance'],['Credit','Credit']]):inp('x',c.terms,{ro:true,dis:true}))+
+  (c.terms==='Credit'?fld('Credit days',inp(P+'creditDays',c.creditDays,{mode:'numeric',ro:!ed,dis:!ed})):'')+
+  fld('Contact person',inp(P+'contact',c.contact,{ro:!ed,dis:!ed}))+fld('Phone',inp(P+'phone',c.phone,{mode:'tel',ro:!ed,dis:!ed}))+
+  (ed?'<p class="hint">Changes are saved automatically.</p>':'<p class="hint">View only for your role.</p>')+'</div>';
+ }else if(m.tab==='projects'){
+  const pj=D().projects.filter(p=>p.clientId===c.id);
+  body=pj.map(p=>{const ss=D().samples.filter(s=>s.projectId===p.id),op=m.openProj===p.id;
+   return '<div class="card flat" style="padding:0;overflow:hidden"><button class="row" style="border:0;border-radius:0;margin:0" data-act="openproj" data-id="'+p.id+'"><div class="grow"><div class="t">'+esc(p.name)+'</div><div class="s">'+esc(p.site)+' · '+ss.length+' sample'+(ss.length===1?'':'s')+'</div></div><span class="mut" style="transform:rotate('+(op?90:0)+'deg)">'+ic('chev',18)+'</span></button>'+
+   (op?'<div style="padding:4px 14px 12px">'+(ss.length?ss.map(s=>'<div class="pgn"><div class="grow"><div class="mono">'+esc(s.uid)+'</div><div class="sm mut">'+esc(ts(s.testId).name)+' · '+fd(s.receipt)+'</div></div>'+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus))+'</div>').join(''):'<p class="mut sm" style="padding:8px 0">No tests yet for this project.</p>')+'</div>':'')+'</div>'}).join('')||empty('No projects yet.');
+  const np=m.np||{name:'',site:''};
+  body+='<div class="card"><h3 style="margin-bottom:12px">Add project</h3>'+fld('Project name',inp('m.clients.np.name',np.name,{err:np.err&&np.err.name}),np.err&&np.err.name)+fld('Site address',ta('m.clients.np.site',np.site,{}),np.err&&np.err.site)+'<button class="btn pri blk" data-act="addproj">Add project</button></div>';
+ }else if(m.tab==='payments'){
+  const inv=D().invoices.filter(i=>i.clientId===c.id),billed=r2(inv.reduce((a,i)=>a+i.total,0)),paid=r2(inv.reduce((a,i)=>a+paidOf(i),0));
+  body='<div class="stats"><div class="stat"><b>'+inr(billed)+'</b><span>Billed</span></div><div class="stat"><b>'+inr(paid)+'</b><span>Paid</span></div><div class="stat"><b>'+inr(billed-paid)+'</b><span>Pending</span></div></div><div class="sec"><h2>Invoices</h2></div>'+
+  (inv.length?inv.map(i=>'<button class="row" '+goA('bills',{invId:i.id})+'><div class="grow"><div class="t mono">'+esc(i.no)+'</div><div class="s">'+fd(i.date)+' · '+inr(i.total)+' · balance '+inr(balOf(i))+'</div></div>'+bdg(bstat(i),bcls(bstat(i)))+'</button>').join(''):empty('No invoices yet.'));
+ }else if(m.tab==='crm'&&canMoney()){
+  body=clientCrmTab(c,m);
+ }else if(m.tab==='rates'){
+  body='<div class="card"><p class="hint" style="margin:0 0 14px">Price per test for this client. Leave blank to use the standard rate.</p>'+D().tests.map(t=>fld(esc(t.name)+' <span class="mut xs">(per '+esc(t.unit)+')</span>',inp(P+'rates.'+t.id,(c.rates&&c.rates[t.id])||'',{mode:'decimal',ph:'Standard '+inr(t.rate)}))).join('')+'<p class="hint">Saved automatically.</p></div>';
+ }
+ return pgHead(esc(c.name),'clback','<span class="mono">'+esc(c.code)+'</span> · '+esc(c.terms))+tabsBar('cltab',m.tab,tabs)+body;
+}
+function addClientView(m){
+ const n=m.nc,e=n.err||{};
+ return pgHead('Add client','cladd0')+'<div class="card">'+fld('Client name',inp('m.clients.nc.name',n.name,{err:e.name}),e.name)+fld('Client code',inp('m.clients.nc.code',n.code,{err:e.code}),e.code)+
+ fld('Address',ta('m.clients.nc.address',n.address,{err:e.address}),e.address)+fld('GST number',inp('m.clients.nc.gst',n.gst,{err:e.gst,max:15}),e.gst)+
+ fld('Billing terms',chipRow('m.clients.nc.terms',n.terms,[['Advance','Advance'],['Credit','Credit']]))+
+ (n.terms==='Credit'?fld('Credit days',inp('m.clients.nc.creditDays',n.creditDays,{mode:'numeric',err:e.creditDays}),e.creditDays):'')+
+ fld('Contact person',inp('m.clients.nc.contact',n.contact,{}))+fld('Phone',inp('m.clients.nc.phone',n.phone,{mode:'tel',err:e.phone,max:10}),e.phone)+
+ '<div class="btns"><button class="btn" data-act="cladd0">Cancel</button><button class="btn pri" data-act="savecl">Save client</button></div></div>';
+}
+
+/* ---------- admin ---------- */
+function adminView(){
+ const m=M('admin');let body='';
+ if(m.tab==='users'){
+  const nu=m.nu,e=nu.err||{};
+  body=D().users.map(u=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(u.name)+(u.id===S.user.id?' <span class="mut sm">(you)</span>':'')+'</div><div class="s"><span class="mono">'+esc(u.login)+'</span> · '+esc(ROLE_LABEL[u.role])+'</div></div>'+bdg(u.active?'Active':'Disabled',u.active?'ok':'bad')+'<button class="btn sm" data-act="touser" data-id="'+u.id+'">'+(u.active?'Disable':'Enable')+'</button></div>').join('')+
+  '<div class="card" style="margin-top:14px"><h3 style="margin-bottom:12px">Add user</h3>'+fld('Full name',inp('m.admin.nu.name',nu.name,{err:e.name}),e.name)+fld('Login name',inp('m.admin.nu.login',nu.login,{err:e.login}),e.login)+
+  fld('Role',sel('m.admin.nu.role',nu.role,[['store','Store'],['tester','Tester'],['accounts','Accounts'],['admin','Admin']]))+fld('PIN (4 digits)',inp('m.admin.nu.pin',nu.pin,{mode:'numeric',max:4,err:e.pin}),e.pin)+
+  '<button class="btn pri blk" data-act="adduser">Add user</button></div>';
+ }else if(m.tab==='tests'){
+  body=D().tests.map((t,i)=>'<div class="card">'+fld('Test name',inp('db.tests.'+i+'.name',t.name))+fld('IS code reference',inp('db.tests.'+i+'.code',t.code))+
+   '<div class="two">'+fld('Standard rate (₹ per '+esc(t.unit)+')',inp('db.tests.'+i+'.rate',t.rate,{mode:'decimal'}))+fld('NABL scope','<div class="chips"><button class="chip'+(t.nabl?' on':'')+'" data-act="nabl" data-id="'+t.id+'">'+(t.nabl?'In scope':'Outside scope')+'</button></div>')+'</div></div>').join('')+
+  '<button class="btn blk" data-act="addtest">'+ic('plus')+' Add test</button><p class="hint" style="margin-top:10px">Changes are saved automatically.</p>';
+ }else if(m.tab==='activity'){
+  body=activityBody(m);
+ }else{
+  const s=D().settings;
+  body='<div class="card">'+fld('NABL certificate number',inp('db.settings.cert',s.cert),'','Used as the prefix of every ULR, e.g. <span class="mono">'+esc(s.cert)+'-'+yy()+'-000146-F</span>')+
+  fld('GST %',inp('db.settings.gst',s.gst,{mode:'decimal'}))+fld('Default credit days',inp('db.settings.creditDays',s.creditDays,{mode:'numeric'}))+'<p class="hint">Saved automatically.</p></div>';
+ }
+ return pgHead('Admin',null,S.online?'Connected to server':'Offline demo · data stays in this browser')+tabsBar('admtab',m.tab,[['users','Users'],['tests','Tests & rates'],['settings','Settings'],['activity','Activity']])+body+
+ '<div class="card" style="margin-top:22px"><h3>Demo data</h3><p class="mut sm" style="margin:6px 0 12px">Restore the original sample clients, samples and bills. Everything you added will be removed.</p><button class="btn dng blk" data-act="reset">Reset demo data</button></div>';
+}
+
+/* confirm sheet */
+function confirmView(){
+ const c=S.confirm;if(!c)return '';
+ return '<div class="sheetbg" data-act="cno"><div class="sheet" data-stop="1" role="dialog" aria-modal="true"><h2>'+esc(c.title)+'</h2><p class="mut" style="margin:8px 0 18px">'+esc(c.msg)+'</p><div class="btns"><button class="btn" data-act="cno">Cancel</button><button class="btn dng" data-act="cyes">'+esc(c.label)+'</button></div></div></div>';
+}
+
+function activityBody(m){
+ if(!S.online)return '<div class="note">The activity log is kept by the server. Run the app through <span class="mono">server.js</span> to see who added or changed what.</div>';
+ if(!m.audit)return empty('Loading activity…');
+ if(!m.audit.length)return empty('No activity yet.');
+ return '<div class="card flat" style="padding:4px 14px">'+m.audit.map(a=>{const t=new Date(a.ts);const when=pad(t.getDate(),2)+' '+MON[t.getMonth()]+', '+pad(t.getHours(),2)+':'+pad(t.getMinutes(),2);
+  return '<div class="pgn" style="flex-direction:column;gap:2px"><div class="xs mut">'+esc(when)+' · '+esc(a.user_name||'system')+' · '+bdg(a.action)+(a.coll?' '+esc(a.coll):'')+'</div><div style="overflow-wrap:anywhere">'+esc(a.summary||'')+'</div></div>'}).join('')+'</div>';
+}
+
+/* ================= CRM ================= */
+const STAGES=[['new','New'],['contacted','Contacted'],['quoted','Quoted'],['won','Won'],['lost','Lost']];
+const stageLbl=s=>(STAGES.find(x=>x[0]===s)||[0,s])[1];
+const stageCls=s=>({won:'ok',lost:'bad',quoted:'warn'}[s]||'');
+const isOpenStage=s=>s==='new'||s==='contacted'||s==='quoted';
+const INTL={call:'Call',visit:'Visit',email:'Email',whatsapp:'WhatsApp',note:'Note'};
+const SOURCES=['Referral','Website','Cold call','Site visit','Walk-in','Other'];
+const userName=id=>us(id).name||'';
+const linkName=t=>t.clientId?cl(t.clientId).name:(t.leadId?((D().leads.find(l=>l.id===t.leadId)||{}).name||''):'');
+
+async function createRec(c,rec){
+ if(S.online){try{const saved=await api('PUT','/api/'+c+'/'+rec.id,rec);upsertLocal(c,saved,true);return saved}catch(e){toast(e.message,1);return null}}
+ S.db[c].push(rec);persistNow();return rec;
+}
+
+function crmView(){
+ const m=M('crm');
+ if(m.leadId)return leadDetail(m);
+ if(m.adding)return addLeadView(m);
+ const body=m.tab==='followups'?followupsBody(m):m.tab==='insights'?insightsBody(m):pipelineBody(m);
+ return pgHead('CRM & follow-ups')+tabsBar('crmtab',m.tab,[['pipeline','Pipeline'],['followups','Follow-ups'],['insights','Insights']])+body;
+}
+function pipelineBody(m){
+ const T=today(),leads=D().leads,cnt=s=>leads.filter(l=>l.stage===s).length;
+ const openVal=leads.filter(l=>isOpenStage(l.stage)).reduce((a,l)=>a+(+l.value||0),0);
+ const list=leads.filter(l=>m.stage==='all'||l.stage===m.stage).sort((a,b)=>(a.nextFollowUp||'9999')<(b.nextFollowUp||'9999')?-1:1);
+ return '<div class="stats"><div class="stat"><b>'+leads.filter(l=>isOpenStage(l.stage)).length+'</b><span>Open leads</span></div><div class="stat"><b>'+inr(openVal)+'</b><span>Open pipeline</span></div><div class="stat"><b>'+cnt('won')+'</b><span>Won</span></div></div>'+
+ '<button class="btn pri blk" style="margin:12px 0" data-act="addlead">'+ic('plus')+' Add lead</button>'+
+ '<div class="chips" style="margin-bottom:12px"><button class="chip'+(m.stage==='all'?' on':'')+'" data-act="set" data-sp="m.crm.stage" data-v="all">All ('+leads.length+')</button>'+STAGES.map(s=>'<button class="chip'+(m.stage===s[0]?' on':'')+'" data-act="set" data-sp="m.crm.stage" data-v="'+s[0]+'">'+s[1]+' ('+cnt(s[0])+')</button>').join('')+'</div>'+
+ (list.map(l=>{const od=isOpenStage(l.stage)&&l.nextFollowUp&&l.nextFollowUp<T;
+  return '<button class="row" data-act="openlead" data-id="'+l.id+'"><div class="grow"><div class="t">'+esc(l.name)+'</div><div class="s">'+esc(l.contact||'—')+(l.source?' · '+esc(l.source):'')+'</div><div class="s">'+(l.value?inr(l.value)+' est. · ':'')+(l.nextFollowUp?'Follow up '+(l.nextFollowUp===T?'today':fd(l.nextFollowUp)):'No follow-up set')+'</div></div><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">'+bdg(stageLbl(l.stage),stageCls(l.stage))+(od?bdg('Overdue','bad'):'')+'</div></button>'}).join('')||empty('No leads in this stage.'));
+}
+function addLeadView(m){
+ const n=m.nl,e=n.err||{};
+ return pgHead('Add lead','leadcancel')+'<div class="card">'+fld('Company or person',inp('m.crm.nl.name',n.name,{err:e.name}),e.name)+fld('Contact person',inp('m.crm.nl.contact',n.contact,{}))+
+ fld('Phone',inp('m.crm.nl.phone',n.phone,{mode:'tel',max:10,err:e.phone}),e.phone)+fld('Source',sel('m.crm.nl.source',n.source,SOURCES.map(x=>[x,x])))+
+ fld('Estimated yearly business (₹)',inp('m.crm.nl.value',n.value,{mode:'numeric',err:e.value,ph:'e.g. 100000'}),e.value)+fld('Next follow-up',inp('m.crm.nl.nextFollowUp',n.nextFollowUp,{type:'date',min:today()}))+
+ fld('Notes',ta('m.crm.nl.notes',n.notes,{ph:'What do they need?'}))+'<div class="btns"><button class="btn" data-act="leadcancel">Cancel</button><button class="btn pri" data-act="savelead">Save lead</button></div></div>';
+}
+function intForm(mk){
+ const m=M(mk),n=m.ni||(m.ni={type:'call',summary:'',date:today(),err:''});
+ return '<div class="card"><h3 style="margin-bottom:12px">Log activity</h3>'+fld('Type',chipRow('m.'+mk+'.ni.type',n.type,Object.keys(INTL).map(k=>[k,INTL[k]])))+
+ fld('What happened',ta('m.'+mk+'.ni.summary',n.summary,{err:n.err,ph:'Short note of the call, visit or message'}),n.err)+fld('Date',inp('m.'+mk+'.ni.date',n.date,{type:'date',maxd:today()}))+
+ '<button class="btn pri blk" data-act="addint" data-mk="'+mk+'">Save activity</button></div>';
+}
+function intList(items){
+ if(!items.length)return empty('No activity logged yet.');
+ return '<div class="card flat" style="padding:4px 14px">'+items.slice().sort((a,b)=>a.date<b.date?1:-1).map(i=>'<div class="pgn" style="align-items:flex-start;gap:10px"><div class="grow"><div class="xs mut">'+bdg(INTL[i.type]||i.type)+' '+fd(i.date)+' · '+esc(userName(i.by))+'</div><div style="margin-top:4px;overflow-wrap:anywhere">'+esc(i.summary)+'</div></div><button class="ibtn" style="margin:0" data-act="delrec" data-c="interactions" data-id="'+i.id+'" aria-label="Delete activity">'+ic('trash',18)+'</button></div>').join('')+'</div>';
+}
+function taskForm(mk){
+ const m=M(mk),n=m.nt||(m.nt={title:'',due:addDays(today(),2),err:''});
+ return '<div class="card"><h3 style="margin-bottom:12px">Add follow-up</h3>'+fld('Task',inp('m.'+mk+'.nt.title',n.title,{err:n.err,ph:'e.g. Call about the pending bill'}),n.err)+fld('Due',inp('m.'+mk+'.nt.due',n.due,{type:'date'}))+
+ '<button class="btn pri blk" data-act="addtask" data-mk="'+mk+'">Add follow-up</button></div>';
+}
+function taskRow(t,showLink){
+ const T=today(),od=!t.done&&t.due<T;
+ return '<div class="row" style="cursor:default"><button class="chkb'+(t.done?' on':'')+'" data-act="tasktoggle" data-id="'+t.id+'" aria-label="'+(t.done?'Mark not done':'Mark done')+'">'+(t.done?ic('check',18):'')+'</button><div class="grow"><div class="t"'+(t.done?' style="text-decoration:line-through;color:var(--g1)"':'')+'>'+esc(t.title)+'</div><div class="s">'+(showLink&&linkName(t)?esc(linkName(t))+' · ':'')+(t.done?'Done '+fd(t.doneOn):'Due '+(t.due===T?'today':fd(t.due)))+(t.assignee?' · '+esc(userName(t.assignee)):'')+'</div></div>'+(od?bdg('Overdue','bad'):'')+'<button class="ibtn" style="margin:0" data-act="delrec" data-c="tasks" data-id="'+t.id+'" aria-label="Delete follow-up">'+ic('trash',18)+'</button></div>';
+}
+function leadDetail(m){
+ const idx=D().leads.findIndex(l=>l.id===m.leadId);if(idx<0){m.leadId=null;return crmView()}
+ const l=D().leads[idx],P='db.leads.'+idx+'.';
+ const owners=D().users.filter(u=>u.active&&(u.role==='admin'||u.role==='accounts'||u.role==='store')).map(u=>[u.id,u.name]);
+ const acts=D().interactions.filter(i=>i.leadId===l.id),tasks=D().tasks.filter(t=>t.leadId===l.id).sort((a,b)=>a.done-b.done||(a.due<b.due?-1:1));
+ return pgHead(esc(l.name),'leadback',bdg(stageLbl(l.stage),stageCls(l.stage))+(l.value?' · '+inr(l.value)+' est.':''))+
+ '<div class="card"><label class="lbl">Stage</label><div class="chips">'+STAGES.map(s=>'<button type="button" class="chip'+(l.stage===s[0]?' on':'')+'" data-act="stage" data-v="'+s[0]+'">'+s[1]+'</button>').join('')+'</div>'+
+ (l.stage==='lost'?'<div style="margin-top:14px">'+fld('Why was it lost?',inp(P+'lostReason',l.lostReason,{ph:'e.g. Price, location, chose another lab'}))+'</div>':'')+
+ (l.stage==='won'?'<div style="margin-top:14px">'+(l.clientId?'<button class="btn blk" data-act="opencrmclient" data-id="'+l.clientId+'">Open client record</button>':'<button class="btn pri blk" data-act="convert">Convert to client</button><p class="hint">Creates a client record you can then add projects and rates to.</p>')+'</div>':'')+'</div>'+
+ '<div class="card">'+fld('Company or person',inp(P+'name',l.name))+fld('Contact person',inp(P+'contact',l.contact))+'<div class="two">'+fld('Phone',inp(P+'phone',l.phone,{mode:'tel',max:10}))+fld('Email',inp(P+'email',l.email,{mode:'email'}))+'</div>'+
+ '<div class="two">'+fld('Source',sel(P+'source',l.source,SOURCES.map(x=>[x,x])))+fld('Yearly value (₹)',inp(P+'value',l.value,{mode:'numeric'}))+'</div>'+
+ (isOpenStage(l.stage)?fld('Next follow-up',inp(P+'nextFollowUp',l.nextFollowUp,{type:'date'})):'')+fld('Owner',sel(P+'owner',l.owner,owners,{ph:'Unassigned'}))+fld('Notes',ta(P+'notes',l.notes))+'<p class="hint">Changes are saved automatically.</p></div>'+
+ '<div class="sec"><h2>Follow-ups</h2></div>'+(tasks.map(t=>taskRow(t,false)).join('')||empty('No follow-ups for this lead.'))+taskForm('crm')+
+ '<div class="sec"><h2>Activity</h2></div>'+intList(acts)+intForm('crm')+
+ '<button class="btn blk" style="margin-top:6px" data-act="delrec" data-c="leads" data-id="'+l.id+'">'+ic('trash',18)+' Delete lead</button>';
+}
+function followupsBody(m){
+ const T=today(),open=D().tasks.filter(t=>!t.done).sort((a,b)=>a.due<b.due?-1:1);
+ const od=open.filter(t=>t.due<T),td=open.filter(t=>t.due===T),up=open.filter(t=>t.due>T);
+ const done=D().tasks.filter(t=>t.done).sort((a,b)=>a.doneOn<b.doneOn?1:-1).slice(0,6);
+ const leadDue=D().leads.filter(l=>isOpenStage(l.stage)&&l.nextFollowUp&&l.nextFollowUp<=T).sort((a,b)=>a.nextFollowUp<b.nextFollowUp?-1:1);
+ const n=m.nt||(m.nt={title:'',due:addDays(T,2),err:'',link:''});
+ const grp=(t,list)=>list.length?'<div class="sec"><h2>'+t+' ('+list.length+')</h2></div>'+list.map(x=>taskRow(x,true)).join(''):'';
+ const links=[['','No link']].concat(D().clients.map(c=>['c:'+c.id,'Client · '+c.name]),D().leads.filter(l=>isOpenStage(l.stage)).map(l=>['l:'+l.id,'Lead · '+l.name]));
+ return '<div class="card"><h3 style="margin-bottom:12px">Add follow-up</h3>'+fld('Task',inp('m.crm.nt.title',n.title,{err:n.err,ph:'e.g. Call about the pending bill'}),n.err)+'<div class="two">'+fld('Due',inp('m.crm.nt.due',n.due,{type:'date'}))+fld('Link to',sel('m.crm.nt.link',n.link||'',links))+'</div><button class="btn pri blk" data-act="addtask" data-mk="crm" data-global="1">Add follow-up</button></div>'+
+ (leadDue.length?'<div class="sec"><h2>Leads to contact ('+leadDue.length+')</h2></div>'+leadDue.map(l=>'<button class="row" data-act="openlead" data-id="'+l.id+'"><div class="grow"><div class="t">'+esc(l.name)+'</div><div class="s">'+esc(l.contact||'')+' · follow up '+(l.nextFollowUp===T?'today':fd(l.nextFollowUp))+'</div></div>'+(l.nextFollowUp<T?bdg('Overdue','bad'):bdg('Today','warn'))+'</button>').join(''):'')+
+ grp('Overdue',od)+grp('Today',td)+grp('Upcoming',up)+(!open.length&&!leadDue.length?empty('Nothing to follow up right now.'):'')+grp('Recently done',done);
+}
+function insightsBody(m){
+ const T=today(),leads=D().leads,max=Math.max(1,...STAGES.map(s=>leads.filter(l=>l.stage===s[0]).reduce((a,l)=>a+(+l.value||0),0)));
+ const won=leads.filter(l=>l.stage==='won').length,lost=leads.filter(l=>l.stage==='lost').length,wr=won+lost?Math.round(won/(won+lost)*100):null;
+ const per=D().clients.map(c=>{const ii=D().invoices.filter(i=>i.clientId===c.id),pend=r2(ii.reduce((a,i)=>a+balOf(i),0)),od=r2(ii.filter(i=>i.due<T).reduce((a,i)=>a+Math.max(0,balOf(i)),0));
+  const ss=D().samples.filter(s=>s.clientId===c.id).map(s=>s.receipt).sort(),last=ss.length?ss[ss.length-1]:'';
+  const b90=r2(ii.filter(i=>i.date>=addDays(T,-90)).reduce((a,i)=>a+i.total,0));return{c:c,pend:pend,od:od,last:last,b90:b90}});
+ const owe=per.filter(x=>x.pend>0).sort((a,b)=>b.pend-a.pend),dorm=per.filter(x=>!x.last||x.last<addDays(T,-60)),top=per.filter(x=>x.b90>0).sort((a,b)=>b.b90-a.b90);
+ const crow=(x,sub,right)=>'<button class="row" data-act="opencrmclient" data-id="'+x.c.id+'"><div class="grow"><div class="t">'+esc(x.c.name)+'</div><div class="s">'+sub+'</div></div>'+right+'</button>';
+ return '<div class="sec" style="margin-top:6px"><h2>Pipeline by stage</h2>'+(wr!=null?bdg('Win rate '+wr+'%','ok'):'')+'</div><div class="card">'+STAGES.map(s=>{const v=leads.filter(l=>l.stage===s[0]).reduce((a,l)=>a+(+l.value||0),0),n=leads.filter(l=>l.stage===s[0]).length;
+  return '<div style="margin-bottom:12px"><div class="kv" style="padding:0 0 4px"><span>'+s[1]+' · '+n+'</span><b>'+inr(v)+'</b></div><div class="hbar"><i style="width:'+Math.round(v/max*100)+'%"></i></div></div>'}).join('')+'</div>'+
+ '<div class="sec"><h2>Money to collect</h2></div>'+(owe.map(x=>crow(x,x.od>0?inr(x.od)+' past due':'Not yet due',bdg(inr(x.pend),x.od>0?'bad':'warn'))).join('')||empty('No pending money.'))+
+ '<div class="sec"><h2>Gone quiet (60+ days)</h2></div>'+(dorm.map(x=>crow(x,x.last?'Last sample '+fd(x.last):'No samples yet','<span class="mut">'+ic('chev',18)+'</span>')).join('')||empty('Every client sent work in the last 60 days.'))+
+ '<div class="sec"><h2>Top clients, last 90 days</h2></div>'+(top.map(x=>crow(x,x.c.terms+' client','<b>'+inr(x.b90)+'</b>')).join('')||empty('No billing in the last 90 days.'));
+}
+function clientCrmTab(c,m){
+ const T=today(),ss=D().samples.filter(s=>s.clientId===c.id),yr=ss.filter(s=>s.receipt>=addDays(T,-365)).length,last=ss.map(s=>s.receipt).sort().pop();
+ const inv=D().invoices.filter(i=>i.clientId===c.id),pend=r2(inv.reduce((a,i)=>a+balOf(i),0));
+ const tasks=D().tasks.filter(t=>t.clientId===c.id).sort((a,b)=>a.done-b.done||(a.due<b.due?-1:1)),acts=D().interactions.filter(i=>i.clientId===c.id);
+ return '<div class="stats"><div class="stat"><b>'+yr+'</b><span>Samples, 12 months</span></div><div class="stat"><b>'+(last?fs(last):'—')+'</b><span>Last sample</span></div><div class="stat'+(pend>0?' hot':'')+'"><b>'+inr(pend)+'</b><span>Pending</span></div></div>'+
+ '<div class="card" style="margin-top:12px"><dl class="dl"><dt>Contact</dt><dd>'+esc(c.contact||'—')+'</dd><dt>Phone</dt><dd>'+esc(c.phone||'—')+'</dd></dl></div>'+
+ '<div class="sec"><h2>Follow-ups</h2></div>'+(tasks.map(t=>taskRow(t,false)).join('')||empty('No follow-ups for this client.'))+taskForm('clients')+
+ '<div class="sec"><h2>Activity</h2></div>'+intList(acts)+intForm('clients');
+}
+
+/* ================= CREATE NEW TEST ================= */
+function newWiz(){const T=today();return{step:1,err:{},f:{receipt:T,clientId:'',projectId:'',sampledBy:'TechAssures',billing:'',testId:'',mark:'',grade:'M25',source:'RMC',supplier:'',casting:T,ages:[7,28],sizes:[{l:'150',b:'150',h:'150',n:3}],desc:'',qty:'1',due:addDays(T,7),photo:'',cond:'Acceptable',reason:'',repName:'',repMobile:'',sig:'',assignee:''}}}
+function nextUid(){return 'UID-'+yy()+'-'+pad(D().counters.uid,6)}
+function nextUlr(t){return t&&t.id&&t.nabl?D().settings.cert+'-'+yy()+'-'+pad(D().counters.uid,6)+'-F':''}
+const dayDate=(c,a)=>c?fs(addDays(c,a)):'—';
+function createView(){
+ const m=M('create');
+ if(m.mode==='done')return doneView(m);
+ const list=D().samples.slice().sort((a,b)=>a.receipt===b.receipt?(a.uid<b.uid?1:-1):(a.receipt<b.receipt?1:-1)).slice(0,14);
+ return pgHead('Create new test')+'<button class="btn pri blk" data-act="newsample" style="margin-bottom:6px">'+ic('plus')+' New sample</button>'+
+ '<div class="sec"><h2>Recent samples</h2></div>'+
+ (list.map(s=>'<div class="row" style="cursor:default"><div class="grow"><div class="t mono">'+esc(s.uid)+'</div><div class="s">'+esc(ts(s.testId).name)+' · '+esc(cl(s.clientId).name)+'</div><div class="s">Received '+fd(s.receipt)+'</div></div>'+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus))+'</div>').join('')||empty('No samples yet.'));
+}
+function doneView(m){
+ const s=sm(m.doneId);if(!s)return createView();
+ const jb=jobsOf(s.id),inv=invOf(s);
+ return '<div class="card done"><div class="tick">'+ic('check',30)+'</div><h1>Sample saved</h1><p class="mut" style="margin-top:4px">Tests are now on the testing schedule.</p></div>'+
+ '<div class="card"><dl class="dl"><dt>UID</dt><dd class="mono">'+esc(s.uid)+'</dd><dt>ULR</dt><dd class="mono">'+(s.ulr?esc(s.ulr):'Not in NABL scope — no ULR')+'</dd><dt>Client</dt><dd>'+esc(cl(s.clientId).name)+'</dd><dt>Bill</dt><dd><span class="mono">'+esc(inv?inv.no:(s.billNo||'—'))+'</span>'+(inv?' · '+inr(inv.total)+' · due '+fd(inv.due):'')+'</dd></dl></div>'+
+ '<div class="sec"><h2>Scheduled tests</h2></div>'+jb.map(j=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(jobLabel(j))+'</div><div class="s">Due '+fd(j.due)+' · '+esc(us(j.assignee).name||'')+'</div></div></div>').join('')+
+ '<div class="btns" style="margin-top:14px"><button class="btn" data-act="cdone">Back to list</button><button class="btn pri" data-act="newsample">New sample</button></div>';
+}
+function wzValidate(step){
+ const f=S.wiz.f,e={},t=ts(f.testId);
+ if(step===1){if(!f.receipt)e.receipt='Enter the date of receipt';if(!f.clientId)e.clientId='Choose a client';if(!f.projectId)e.projectId=f.clientId?'Choose a project':'Choose a client first';if(!f.billing)e.billing='Choose a billing type';if(!f.testId)e.testId='Choose a type of test'}
+ if(step===2){
+  if(!f.mark.trim())e.mark='Enter an identification mark';
+  if(t.kind==='cube'){
+   if(f.source==='RMC'&&!f.supplier.trim())e.supplier='Enter the RMC supplier';
+   if(!f.casting)e.casting='Enter the date of casting';else if(f.casting>today())e.casting='Casting date cannot be in the future';
+   if(!f.ages.length)e.ages='Select at least one test age';
+   f.sizes.forEach((s,i)=>{if(!(num(s.l)>0&&num(s.b)>0&&num(s.h)>0))e['size'+i]='Enter L, B and H greater than 0'});
+  }else{
+   if(!f.desc.trim())e.desc='Describe the sample';
+   if(!(num(f.qty)>0))e.qty='Enter a quantity greater than 0';
+   if(!f.due)e.due='Choose a due date';
+  }
+  if(f.cond==='Not acceptable'&&!f.reason.trim())e.reason='Give a reason for rejecting the sample';
+ }
+ if(step===3){
+  if(!f.repName.trim())e.repName='Enter the representative name';
+  if(!/^\d{10}$/.test(f.repMobile))e.repMobile='Enter a 10-digit mobile number';
+  if(!f.sig)e.sig='A signature is required';
+  if(!f.assignee)e.assignee='Choose a tester';
+ }
+ return e;
+}
+function wizView(){
+ const w=S.wiz,f=w.f,e=w.err,t=ts(f.testId),step=w.step;
+ const c=f.clientId?cl(f.clientId):null;
+ let body='';
+ const strip=step>1?'<div class="strip"><div><small>Date of receipt</small>'+fd(f.receipt)+'</div><div><small>UID</small><span class="mono">'+nextUid()+'</span></div><div class="full"><small>ULR</small><span class="mono">'+(t.id?(t.nabl?nextUlr(t):'Not in NABL scope — no ULR'):'—')+'</span></div></div>':'';
+ if(step===1){
+  const projs=f.clientId?D().projects.filter(p=>p.clientId===f.clientId):[];
+  body='<h2 style="margin-bottom:14px">Job details</h2>'+
+  fld('Date of receipt',inp('wiz.f.receipt',f.receipt,{type:'date',err:e.receipt}),e.receipt)+
+  '<div class="two">'+fld('UID (auto)',inp('x1',nextUid(),{ro:1,dis:1}))+fld('ULR (auto)',inp('x2',t.id?(t.nabl?nextUlr(t):'No ULR — outside NABL scope'):'Set after choosing test',{ro:1,dis:1}))+'</div>'+
+  fld('Client',sel('wiz.f.clientId',f.clientId,D().clients.map(x=>[x.id,x.name]),{ph:'Select client…',h:'wzclient',err:e.clientId}),e.clientId)+
+  (c?'<div class="two">'+fld('Client code',inp('x3',c.code,{ro:1,dis:1}))+fld('GST number',inp('x4',c.gst,{ro:1,dis:1}))+'</div>'+fld('Client address',inp('x5',c.address,{ro:1,dis:1})):'')+
+  fld('Project',sel('wiz.f.projectId',f.projectId,projs.map(x=>[x.id,x.name]),{ph:f.clientId?'Select project…':'Choose a client first',dis:!f.clientId,err:e.projectId}),e.projectId)+
+  (f.projectId?fld('Site address',inp('x6',pr(f.projectId).site,{ro:1,dis:1})):'')+
+  fld('Sampled by',chipRow('wiz.f.sampledBy',f.sampledBy,[['TechAssures','TechAssures'],['Client','Client']]),'',f.sampledBy==='Client'?'Results apply only to the sample as received.':'')+
+  fld('Billing type',chipRow('wiz.f.billing',f.billing,[['Advance','Advance'],['Credit','Credit']]),e.billing,c?'Set from the client\'s terms ('+esc(c.terms)+'); you can change it.':'')+
+  fld('Type of test',sel('wiz.f.testId',f.testId,D().tests.map(x=>[x.id,x.name]),{ph:'Select test…',err:e.testId}),e.testId)+
+  (t.id?fld('IS code reference',inp('x7',t.code,{ro:1,dis:1}),'',t.nabl?'':'This test is outside NABL scope, so no ULR is issued.'):'');
+ }else if(step===2){
+  body=strip+'<h2 style="margin-bottom:12px">Test details</h2><div class="selblk"><div class="grow"><div class="sm mut">Test selected</div><div class="t">'+esc(t.name)+'</div><div class="mono sm mut">'+esc(t.code)+'</div></div>'+(t.nabl?bdg('NABL accredited','ok'):bdg('Outside NABL scope','warn'))+'</div>'+
+  fld('Identification mark',inp('wiz.f.mark',f.mark,{err:e.mark,ph:'e.g. Slab L5 – batch 12'}),e.mark);
+  if(t.kind==='cube'){
+   body+='<div class="two">'+fld('Grade',sel('wiz.f.grade',f.grade,[10,15,20,25,30,35,40,45,50].map(g=>['M'+g,'M'+g])))+fld('Date of casting',inp('wiz.f.casting',f.casting,{type:'date',err:e.casting,maxd:today()}),e.casting)+'</div>'+
+   fld('Concrete source',chipRow('wiz.f.source',f.source,[['RMC','RMC'],['Site mix','Site mix']]))+
+   (f.source==='RMC'?fld('RMC supplier',inp('wiz.f.supplier',f.supplier,{err:e.supplier,ph:'Supplier name'}),e.supplier):'')+
+   fld('Test at (select one or more)','<div class="chips">'+[7,14,28].map(a=>'<button type="button" class="chip lg'+(f.ages.indexOf(a)>=0?' on':'')+'" data-act="age" data-v="'+a+'">'+a+' days<small>'+dayDate(f.casting,a)+'</small></button>').join('')+'</div>',e.ages)+
+   '<label class="lbl">Cube size L × B × H (mm) and number of cubes</label>'+f.sizes.map((s,i)=>'<div class="szrow"><div class="dims">'+inp('wiz.f.sizes.'+i+'.l',s.l,{mode:'numeric',err:e['size'+i]})+'<span>×</span>'+inp('wiz.f.sizes.'+i+'.b',s.b,{mode:'numeric',err:e['size'+i]})+'<span>×</span>'+inp('wiz.f.sizes.'+i+'.h',s.h,{mode:'numeric',err:e['size'+i]})+'</div>'+
+    '<div class="top"><div class="step"><button type="button" data-act="szn" data-i="'+i+'" data-d="-1" aria-label="Fewer cubes">'+ic('minus')+'</button><b>'+s.n+'</b><button type="button" data-act="szn" data-i="'+i+'" data-d="1" aria-label="More cubes">'+ic('plus')+'</button><span class="mut sm">cubes</span></div>'+(f.sizes.length>1?'<button type="button" class="btn sm" data-act="szdel" data-i="'+i+'">'+ic('trash',18)+' Remove</button>':'')+'</div>'+(e['size'+i]?'<div class="err">'+esc(e['size'+i])+'</div>':'')+'</div>').join('')+
+   '<button type="button" class="btn blk" data-act="szadd" style="margin-bottom:10px">'+ic('plus')+' Add another cube size</button><div class="note ok"><b>Total cubes received: '+f.sizes.reduce((a,s)=>a+(+s.n||0),0)+'</b></div>';
+  }else{
+   body+=fld('Description',ta('wiz.f.desc',f.desc,{err:e.desc,ph:'What was received?'}),e.desc)+'<div class="two">'+fld('Quantity ('+esc(t.unit)+'s)',inp('wiz.f.qty',f.qty,{mode:'decimal',err:e.qty}),e.qty)+fld('Due date',inp('wiz.f.due',f.due,{type:'date',err:e.due}),e.due)+'</div>';
+  }
+  body+='<div class="fld"><label class="lbl">Sample photo (optional)</label><div class="btns"><label class="btn" for="fcam">'+ic('camera')+' Take photo</label><label class="btn" for="fgal">'+ic('image')+' Gallery</label></div>'+
+   '<input class="vh" id="fcam" type="file" accept="image/*" capture="environment" data-photo="1"><input class="vh" id="fgal" type="file" accept="image/*" data-photo="1">'+
+   (f.photo?'<img class="photo" src="'+f.photo+'" alt="Sample photo"><button type="button" class="lnk" data-act="rmphoto">Remove photo</button>':'')+'</div>'+
+   fld('Sample condition',chipRow('wiz.f.cond',f.cond,[['Acceptable','Acceptable'],['Not acceptable','Not acceptable']]))+
+   (f.cond==='Not acceptable'?fld('Reason',ta('wiz.f.reason',f.reason,{err:e.reason,ph:'Why is the sample not acceptable?'}),e.reason):'');
+ }else{
+  const dt=[['Date of receipt',fd(f.receipt)],['Client',c.name],['Project',pr(f.projectId).name],['Sampled by',f.sampledBy],['Billing',f.billing],['Test',t.name+' · '+t.code]];
+  let tdl=[['Identification mark',f.mark]];
+  if(t.kind==='cube'){tdl=tdl.concat([['Grade / source',f.grade+' · '+f.source+(f.source==='RMC'&&f.supplier?' ('+f.supplier+')':'')],['Casting date',fd(f.casting)],['Test at',f.ages.slice().sort((a,b)=>a-b).map(a=>a+'d ('+fs(addDays(f.casting,a))+')').join(', ')],['Cubes',f.sizes.map(s=>s.n+' × '+s.l+'×'+s.b+'×'+s.h).join(', ')+' — total '+f.sizes.reduce((a,s)=>a+(+s.n||0),0)]])}
+  else tdl=tdl.concat([['Description',f.desc],['Quantity',f.qty],['Due',fd(f.due)]]);
+  tdl.push(['Condition',f.cond+(f.cond==='Not acceptable'?' — '+f.reason:'')]);
+  const dl=a=>'<dl class="dl">'+a.map(x=>'<dt>'+esc(x[0])+'</dt><dd>'+esc(x[1])+'</dd>').join('')+'</dl>';
+  const testers=D().users.filter(u=>u.role==='tester'&&u.active).map(u=>[u.id,u.name]);
+  body=strip+'<h2 style="margin-bottom:12px">Review and assign</h2>'+(e.form?'<div class="note bad"><b>Could not save.</b> '+esc(e.form)+'</div>':'')+
+  '<div class="card flat"><div class="sumhd"><h3>Details</h3><button class="lnk" data-act="wzgo" data-v="1">Edit</button></div>'+dl(dt)+'</div>'+
+  '<div class="card flat"><div class="sumhd"><h3>Test details</h3><button class="lnk" data-act="wzgo" data-v="2">Edit</button></div>'+dl(tdl)+(f.photo?'<img class="photo" src="'+f.photo+'" alt="Sample photo">':'')+'</div>'+
+  fld('Client representative name',inp('wiz.f.repName',f.repName,{err:e.repName}),e.repName)+
+  fld('Representative mobile',inp('wiz.f.repMobile',f.repMobile,{mode:'numeric',max:10,err:e.repMobile,ph:'10-digit mobile'}),e.repMobile)+
+  '<div class="fld"><div class="sumhd"><label class="lbl" style="margin:0">Signature</label><button type="button" class="lnk" data-act="sigclear">Clear</button></div><canvas class="sig" id="sig" width="640" height="300"></canvas>'+(e.sig?'<div class="err">'+esc(e.sig)+'</div>':'<div class="hint">Sign with your finger or mouse.</div>')+'</div>'+
+  fld('Test assigned to',sel('wiz.f.assignee',f.assignee,testers,{ph:'Select tester…',err:e.assignee}),e.assignee);
+ }
+ return '<div class="wz"><div class="hdr"><button class="hbtn" data-act="wzexit" aria-label="Close">'+ic('x')+'</button><div class="ttl">New sample</div><div class="who">'+esc(ROLE_LABEL[S.user.role])+': '+esc(S.user.name)+'</div></div>'+
+ '<div class="wzin"><div class="sm mut" style="font-weight:600">Page '+step+' of 3</div><div class="bar"><i style="width:'+(step/3*100)+'%"></i></div><div style="height:12px"></div>'+body+'</div>'+
+ '<div class="sbar"><div><button class="btn" data-act="wzback">'+ic('back',18)+' '+(step===1?'Cancel':'Back')+'</button><button class="btn pri'+(S.busy?' off':'')+'" data-act="wznext">'+(step===3?(S.busy?'Saving…':'Save sample'):'Next ')+(step<3?ic('next',18):'')+'</button></div></div></div>';
+}
+async function saveSample(){
+ if(!S.online){saveSampleLocal();return}
+ if(S.busy)return;
+ const w=S.wiz,f=w.f,t=ts(f.testId);let d;
+ if(t.kind==='cube'){const sizes=f.sizes.map(s=>({l:num(s.l),b:num(s.b),h:num(s.h),n:+s.n}));d={grade:f.grade,source:f.source,supplier:f.source==='RMC'?f.supplier.trim():'',casting:f.casting,ages:f.ages.slice().sort((a,b)=>a-b),sizes:sizes}}
+ else d={desc:f.desc.trim(),qty:num(f.qty),due:f.due};
+ const payload={receipt:f.receipt,clientId:f.clientId,projectId:f.projectId,sampledBy:f.sampledBy,billing:f.billing,testId:f.testId,mark:f.mark.trim(),cond:f.cond,reason:f.cond==='Acceptable'?'':f.reason.trim(),photo:f.photo,assignee:f.assignee,rep:{name:f.repName.trim(),mobile:f.repMobile,sig:f.sig},d:d};
+ S.busy=true;w.err={};render();
+ try{
+  const r=await api('POST','/api/samples',payload);
+  upsertLocal('samples',r.sample);r.jobs.forEach(j=>upsertLocal('jobs',j));if(r.invoice)upsertLocal('invoices',r.invoice);
+  S.db.counters.uid=(parseInt(r.sample.uid.slice(-6),10)||0)+1;
+  S.wiz=null;S.busy=false;go('create',{mode:'done',doneId:r.sample.id});
+ }catch(e){S.busy=false;if(S.wiz)S.wiz.err={form:e.message};render();window.scrollTo(0,document.body.scrollHeight)}
+}
+function saveSampleLocal(){
+ const w=S.wiz,f=w.f,db=D(),t=ts(f.testId),c=cl(f.clientId);
+ const n=db.counters.uid++,d={};
+ if(t.kind==='cube'){const sizes=f.sizes.map(s=>({l:num(s.l),b:num(s.b),h:num(s.h),n:+s.n}));d.grade=f.grade;d.source=f.source;d.supplier=f.source==='RMC'?f.supplier.trim():'';d.casting=f.casting;d.ages=f.ages.slice().sort((a,b)=>a-b);d.sizes=sizes;d.total=sizes.reduce((a,s)=>a+s.n,0)}
+ else{d.desc=f.desc.trim();d.qty=num(f.qty);d.due=f.due}
+ const s={id:'s'+n,uid:'UID-'+yy()+'-'+pad(n,6),ulr:t.nabl?db.settings.cert+'-'+yy()+'-'+pad(n,6)+'-F':'',receipt:f.receipt,clientId:c.id,projectId:f.projectId,sampledBy:f.sampledBy,billing:f.billing,testId:t.id,mark:f.mark.trim(),d:d,photo:f.photo,cond:f.cond,reason:f.cond==='Acceptable'?'':f.reason.trim(),rep:{name:f.repName.trim(),mobile:f.repMobile,sig:f.sig},assignee:f.assignee,createdBy:S.user.id,reportStatus:'testing'};
+ db.samples.push(s);
+ if(t.kind==='cube')d.ages.forEach(a=>db.jobs.push({id:'j'+n+'_'+a,sampleId:s.id,age:a,due:addDays(d.casting,a),assignee:s.assignee,status:'pending',results:null,remarks:''}));
+ else db.jobs.push({id:'j'+n,sampleId:s.id,age:null,due:d.due,assignee:s.assignee,status:'pending',results:null,remarks:''});
+ const inv=makeInvoice(db,s);s.billNo=inv.no;
+ persistNow();S.wiz=null;go('create',{mode:'done',doneId:s.id});
+}
+
+/* ================= TESTING SCHEDULE ================= */
+function scheduleView(){
+ const m=M('schedule');
+ if(m.jobId)return jobDetail(m);
+ const jobs=myJobs(),T=today();
+ const cnt=k=>jobs.filter(j=>jobTab(j)===k).length;
+ let list=jobs.filter(j=>jobTab(j)===m.tab).sort((a,b)=>m.tab==='done'?(a.due<b.due?1:-1):(a.due<b.due?-1:1));
+ return pgHead('Testing schedule',null,isTester()?'Your assigned tests':'All tests')+
+ tabsBar('schtab',m.tab,[['due','Due & overdue ('+cnt('due')+')'],['upcoming','Upcoming ('+cnt('upcoming')+')'],['done','Done ('+cnt('done')+')']])+
+ (list.map(j=>{const s=sm(j.sampleId);const od=j.status!=='done'&&j.due<T;
+  return '<button class="row" data-act="openjob" data-id="'+j.id+'"><div class="grow"><div class="t"><span class="mono">'+esc(s.uid)+'</span></div><div class="s">'+esc(jobLabel(j))+' · '+esc(s.mark)+'</div><div class="s">'+(j.status==='done'?'Tested '+fd(j.doneOn||j.due):(od?'Overdue since ':'Due ')+(j.due===T?'today':fd(j.due)))+(isTester()?'':' · '+esc(us(j.assignee).name||''))+'</div></div>'+(od?bdg('Overdue','bad'):j.due===T&&j.status!=='done'?bdg('Today','warn'):'')+'<span class="mut">'+ic('chev',18)+'</span></button>'}).join('')||empty(m.tab==='done'?'No completed tests yet.':'Nothing here right now.'));
+}
+function initEntry(m,j){
+ const s=sm(j.sampleId),t=ts(s.testId);
+ if(t.kind==='cube'){
+  if(j.status==='done'&&j.results&&j.results.rows)m.entry={rows:j.results.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:String(r.load)})),remarks:j.remarks||'',err:{}};
+  else{const ex=expandRows(s.d),cnt=Math.max(1,Math.ceil((s.d.total||ex.length)/(s.d.ages.length||1)));const rows=[];for(let i=0;i<cnt;i++){const q=ex[i%ex.length];rows.push({l:q.l,b:q.b,h:q.h,load:''})}m.entry={rows:rows,remarks:'',err:{}}}
+ }else m.entry={value:j.results&&j.results.value!=null?String(j.results.value):'',remarks:j.remarks||'',err:{}};
+}
+const strengthOf=r=>{const l=num(r.load);return l>0?r2(l*1000/(r.l*r.b)):null};
+function jobDetail(m){
+ const j=D().jobs.find(x=>x.id===m.jobId);if(!j){m.jobId=null;return scheduleView()}
+ const s=sm(j.sampleId),t=ts(s.testId),T=today(),done=j.status==='done';
+ if(!m.entry)initEntry(m,j);
+ const en=m.entry,er=en.err||{};
+ const facts=[['UID',s.uid],['Test',t.name],['Method',t.code],['Identification mark',s.mark]];
+ if(t.kind==='cube'){facts.push(['Grade / source',s.d.grade+' · '+s.d.source+(s.d.supplier?' ('+s.d.supplier+')':'')],['Date of casting',fd(s.d.casting)],['Test age',j.age+' days'],['Cube size',s.d.sizes.map(z=>z.n+' × '+z.l+'×'+z.b+'×'+z.h+' mm').join(', ')],['Cubes received',String(s.d.total)])}
+ else facts.push(['Description',s.d.desc],['Quantity',s.d.qty+' '+t.unit+(s.d.qty>1?'s':'')]);
+ facts.push(['Date received',fd(s.receipt)],['Test date',fd(j.due)],['Sample condition',s.cond+(s.reason?' — '+s.reason:'')]);
+ let form='';
+ if(t.kind==='cube'){
+  const sts=en.rows.map(strengthOf).filter(x=>x!=null),avg=sts.length?r2(sts.reduce((a,b)=>a+b,0)/sts.length):null;
+  form=en.rows.map((r,i)=>{const st=strengthOf(r);return fld('Cube '+(i+1)+' · '+r.l+'×'+r.b+'×'+r.h+' mm · failing load (kN)','<div class="two">'+inp('m.schedule.entry.rows.'+i+'.load',r.load,{mode:'decimal',ph:'kN',err:er['r'+i],dis:done})+'<div class="in" style="display:flex;align-items:center;background:var(--wash);font-weight:600">'+(st!=null?st.toFixed(2)+' N/mm²':'— N/mm²')+'</div></div>',er['r'+i])}).join('')+
+  (done?'':'<div class="btns" style="margin-bottom:14px"><button class="btn" data-act="addcube">'+ic('plus',18)+' Add cube</button>'+(en.rows.length>1?'<button class="btn" data-act="rmcube">'+ic('minus',18)+' Remove last</button>':'')+'</div>')+
+  '<div class="note ok"><b>Average strength: '+(avg!=null?avg.toFixed(2)+' N/mm²':'—')+'</b><div class="xs mut">N/mm² = load × 1000 ÷ (L × B)</div></div>';
+ }else form=fld('Result value ('+esc(t.ru||'value')+')',inp('m.schedule.entry.value',en.value,{mode:'decimal',err:er.value,dis:done}),er.value);
+ form+=fld('Remarks (optional)',ta('m.schedule.entry.remarks',en.remarks,{dis:done}));
+ const early=!done&&j.due>T;
+ return pgHead(jobLabel(j),'jobback','<span class="mono">'+esc(s.uid)+'</span>')+
+ '<div class="card"><dl class="dl">'+facts.map(x=>'<dt>'+esc(x[0])+'</dt><dd>'+esc(x[1])+'</dd>').join('')+'</dl>'+(s.photo?'<img class="photo" src="'+s.photo+'" alt="Sample photo">':'')+'</div>'+
+ '<div class="sec"><h2>'+(done?'Result':'Enter result')+'</h2>'+(done?bdg('Done','ok'):'')+'</div>'+
+ (early?'<div class="note">The test date is '+fd(j.due)+'. Results can be saved only on or after that date.</div>':'')+
+ '<div class="card">'+form+(done?'':'<button class="btn pri blk'+(early?' off':'')+'" data-act="savejob">Save result</button>')+'</div>';
+}
+async function saveJob(){
+ if(S.busy)return;
+ const m=M('schedule'),j=D().jobs.find(x=>x.id===m.jobId),s=sm(j.sampleId),t=ts(s.testId),en=m.entry,err={};
+ if(j.due>today()){toast('Results can be saved only on or after '+fd(j.due),1);return}
+ let results,payload;
+ if(t.kind==='cube'){
+  en.rows.forEach((r,i)=>{if(!(num(r.load)>0))err['r'+i]='Enter the failing load in kN'});
+  if(Object.keys(err).length){en.err=err;render();toast('Check the highlighted cubes',1);return}
+  const rows=en.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:num(r.load),strength:strengthOf(r)}));
+  results={rows:rows,avg:r2(rows.reduce((a,r)=>a+r.strength,0)/rows.length)};
+  payload={rows:en.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:num(r.load)})),remarks:(en.remarks||'').trim()};
+ }else{
+  if(!(num(en.value)>=0)||String(en.value).trim()===''){en.err={value:'Enter the result value'};render();return}
+  results={value:String(en.value).trim()};payload={value:results.value,remarks:(en.remarks||'').trim()};
+ }
+ let msg='Result saved';
+ if(S.online){
+  S.busy=true;render();
+  try{
+   const r=await api('POST','/api/jobs/'+j.id+'/result',payload);
+   upsertLocal('jobs',r.job);if(r.sample)upsertLocal('samples',r.sample);
+   if(r.sample&&r.sample.reportStatus==='awaiting')msg='Result saved — report is awaiting approval';
+  }catch(e){S.busy=false;toast(e.message,1);render();return}
+  S.busy=false;
+ }else{
+  j.results=results;j.remarks=payload.remarks;j.status='done';j.doneOn=today();
+  if(jobsOf(s.id).every(x=>x.status==='done')){s.reportStatus='awaiting';msg='Result saved — report is awaiting approval'}
+  persistNow();
+ }
+ toast(msg);m.jobId=null;m.entry=null;m.tab='done';render();window.scrollTo(0,0);
+}
+
+/* ================= REPORTS ================= */
+function reportsView(){
+ const T=today(),inv=D().invoices,billed=r2(inv.reduce((a,i)=>a+i.total,0)),rec=r2(inv.reduce((a,i)=>a+paidOf(i),0));
+ const per=D().clients.map(c=>{const ii=inv.filter(i=>i.clientId===c.id),b=r2(ii.reduce((a,i)=>a+i.total,0)),p=r2(ii.reduce((a,i)=>a+paidOf(i),0));return{c:c,b:b,p:p}});
+ const list=D().samples.slice().sort((a,b)=>a.receipt<b.receipt?1:(a.receipt>b.receipt?-1:(a.uid<b.uid?1:-1)));
+ return pgHead('Reports & accounts')+
+ '<div class="stats"><div class="stat"><b>'+inr(billed)+'</b><span>Billed</span></div><div class="stat"><b>'+inr(rec)+'</b><span>Received</span></div><div class="stat hot"><b>'+inr(billed-rec)+'</b><span>Pending</span></div></div>'+
+ '<div class="sec"><h2>Client statement</h2></div><div class="card" style="padding:8px 12px"><table class="tb"><thead><tr><th style="width:34%">Client</th><th class="r">Billed</th><th class="r">Received</th><th class="r">Pending</th></tr></thead><tbody>'+
+ per.map(x=>'<tr><td>'+esc(x.c.name)+'<div class="xs mut">'+esc(x.c.terms)+'</div></td><td class="r">'+inr(x.b)+'</td><td class="r">'+inr(x.p)+'</td><td class="r"><b>'+inr(x.b-x.p)+'</b></td></tr>').join('')+
+ '<tr class="tot"><td>Total</td><td class="r">'+inr(billed)+'</td><td class="r">'+inr(rec)+'</td><td class="r">'+inr(billed-rec)+'</td></tr></tbody></table></div>'+
+ (S.online?'<div class="sec"><h2>Export to spreadsheet</h2></div><div class="chips" style="margin-bottom:6px">'+['clients','invoices','payments','leads','interactions'].concat(S.user.role==='admin'?['samples']:[]).map(x=>'<button class="chip" data-act="csv" data-v="'+x+'">'+x+' (.csv)</button>').join('')+'</div>':'')+
+ '<div class="sec"><h2>All reports</h2></div>'+
+ list.map(s=>{const i=invOf(s),bs=i?bstat(i):'';const tab=s.reportStatus==='sent'?'sent':s.reportStatus==='approved'?'approved':'awaiting';
+  return '<button class="row" '+goA('approve',{tab:tab,sampleId:s.id})+'><div class="grow"><div class="t mono">'+esc(s.uid)+'</div><div class="s">'+esc(cl(s.clientId).name)+'</div><div class="s">'+esc(ts(s.testId).name)+'</div><div class="chips" style="margin-top:6px;gap:6px">'+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus))+(i?bdg('Bill: '+bs,bcls(bs)):'')+'</div></div><span class="mut">'+ic('chev',18)+'</span></button>'}).join('');
+}
+
+/* ================= APPROVE & SEND ================= */
+function reportHtml(s){
+ const t=ts(s.testId),c=cl(s.clientId),p=pr(s.projectId),jb=jobsOf(s.id).slice().sort((a,b)=>(a.age||0)-(b.age||0));
+ let res='';
+ jb.forEach(j=>{
+  if(t.kind==='cube'){
+   res+='<h3>'+j.age+'-day test'+(j.status==='done'?' · tested '+fd(j.doneOn||j.due):'')+'</h3>';
+   if(j.status!=='done')res+='<p class="mut">Result pending — test due '+fd(j.due)+'.</p>';
+   else res+='<table class="tb"><thead><tr><th>Cube</th><th>Size (mm)</th><th class="r">Load (kN)</th><th class="r">N/mm²</th></tr></thead><tbody>'+j.results.rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+r.l+'×'+r.b+'×'+r.h+'</td><td class="r">'+r.load+'</td><td class="r">'+(+r.strength).toFixed(2)+'</td></tr>').join('')+'<tr class="tot"><td colspan="3">Average compressive strength</td><td class="r">'+(+j.results.avg).toFixed(2)+'</td></tr></tbody></table>';
+  }else{
+   res+='<h3>Result</h3>'+(j.status!=='done'?'<p class="mut">Result pending — test due '+fd(j.due)+'.</p>':'<table class="tb"><tbody><tr><td>'+esc(t.name)+'</td><td class="r"><b>'+esc(j.results.value)+'</b> '+esc(t.ru||'')+'</td></tr>'+(j.remarks?'<tr><td colspan="2" class="mut">'+esc(j.remarks)+'</td></tr>':'')+'</tbody></table>');
+  }
+ });
+ const samp=t.kind==='cube'?[['Grade',s.d.grade],['Source',s.d.source+(s.d.supplier?' — '+s.d.supplier:'')],['Date of casting',fd(s.d.casting)],['Cubes received',s.d.total]]:[['Description',s.d.desc],['Quantity',s.d.qty+' '+t.unit]];
+ return '<div class="rpt"><div class="rh"><div><div class="hd" style="font-weight:800;font-size:16px">TechAssures Lab</div><div class="xs mut">Test Report · Pune</div><div class="xs mut">'+(t.nabl?'NABL accredited · Cert. '+esc(D().settings.cert):'Test outside NABL scope')+'</div></div><div style="text-align:right"><div class="xs mut">ULR</div><div class="mono">'+(s.ulr?esc(s.ulr):'—')+'</div><div class="xs mut" style="margin-top:4px">UID</div><div class="mono">'+esc(s.uid)+'</div></div></div>'+
+ '<dl class="dl"><dt>Client</dt><dd>'+esc(c.name)+'</dd><dt>Address</dt><dd>'+esc(c.address)+'</dd><dt>Project</dt><dd>'+esc(p.name)+'</dd><dt>Site</dt><dd>'+esc(p.site)+'</dd><dt>Date of receipt</dt><dd>'+fd(s.receipt)+'</dd><dt>Sampled by</dt><dd>'+esc(s.sampledBy)+'</dd><dt>Identification</dt><dd>'+esc(s.mark)+'</dd><dt>Method</dt><dd>'+esc(t.name)+' — <span class="mono">'+esc(t.code)+'</span></dd>'+samp.map(x=>'<dt>'+x[0]+'</dt><dd>'+esc(x[1])+'</dd>').join('')+'</dl>'+res+
+ '<div class="ft">'+(s.sampledBy==='Client'?'<p><b>Results apply only to the sample as received.</b></p>':'')+(s.approvedOn?'<p>Approved by '+esc(s.approvedBy)+' on '+fd(s.approvedOn)+'.</p>':'<p>Not yet approved.</p>')+'<p>This report relates only to the sample(s) tested. It shall not be reproduced except in full.</p></div></div>';
+}
+function reportText(s){
+ const t=ts(s.testId),c=cl(s.clientId),p=pr(s.projectId),L=[];
+ L.push('TechAssures Lab — Test Report','ULR: '+(s.ulr||'n/a (outside NABL scope)'),'UID: '+s.uid,'Client: '+c.name,'Project: '+p.name+' ('+p.site+')','Date of receipt: '+fd(s.receipt),'Sampled by: '+s.sampledBy,'Identification: '+s.mark,'Method: '+t.name+' — '+t.code);
+ if(t.kind==='cube')L.push('Grade: '+s.d.grade+', '+s.d.source+', cast '+fd(s.d.casting)+', cubes received '+s.d.total);
+ jobsOf(s.id).slice().sort((a,b)=>(a.age||0)-(b.age||0)).forEach(j=>{
+  if(j.status!=='done'){L.push((t.kind==='cube'?j.age+'-day: ':'')+'pending (due '+fd(j.due)+')');return}
+  if(t.kind==='cube')L.push(j.age+'-day: '+j.results.rows.map(r=>(+r.strength).toFixed(2)).join(', ')+' N/mm² · average '+(+j.results.avg).toFixed(2)+' N/mm²');
+  else L.push('Result: '+j.results.value+' '+(t.ru||'')+(j.remarks?' ('+j.remarks+')':''));
+ });
+ if(s.sampledBy==='Client')L.push('Results apply only to the sample as received.');
+ return L.join('\n');
+}
+function approveView(){
+ const m=M('approve');
+ if(m.sampleId)return approveDetail(m);
+ const ss=D().samples,by={awaiting:ss.filter(s=>s.reportStatus==='awaiting'),approved:ss.filter(s=>s.reportStatus==='approved'),sent:ss.filter(s=>s.reportStatus==='sent')};
+ const list=by[m.tab]||[];
+ return pgHead('Approve & send reports')+tabsBar('aptab',m.tab,[['awaiting','Awaiting approval ('+by.awaiting.length+')'],['approved','Approved – to send ('+by.approved.length+')'],['sent','Sent ('+by.sent.length+')']])+
+ (list.map(s=>{const i=invOf(s),blk=s.billing==='Advance'&&i&&balOf(i)>0;
+  return '<button class="row" data-act="openrep" data-id="'+s.id+'"><div class="grow"><div class="t mono">'+esc(s.uid)+'</div><div class="s">'+esc(cl(s.clientId).name)+' · '+esc(ts(s.testId).name)+'</div><div class="s">'+(m.tab==='sent'?'Sent '+fd(s.sentOn):'Received '+fd(s.receipt))+'</div></div>'+(m.tab==='approved'&&blk?bdg('Bill unpaid','bad'):'')+'<span class="mut">'+ic('chev',18)+'</span></button>'}).join('')||empty('No reports in this tab.'));
+}
+function approveDetail(m){
+ const s=sm(m.sampleId);if(!s){m.sampleId=null;return approveView()}
+ const i=invOf(s),blk=s.billing==='Advance'&&i&&balOf(i)>0;let act='';
+ if(s.reportStatus==='testing')act='<div class="note">Testing is still in progress. This is a preview of the report so far.</div>';
+ if(s.reportStatus==='awaiting')act='<button class="btn pri blk" data-act="approve" data-id="'+s.id+'">'+ic('check',20)+' Approve report</button>';
+ if(s.reportStatus==='approved')act=(blk?'<div class="note bad"><b>Sending is blocked.</b> This is an Advance client and bill <span class="mono">'+esc(i.no)+'</span> has '+inr(balOf(i))+' unpaid. <button class="lnk" '+goA('bills',{invId:i.id})+'>Open the bill</button></div>':'')+'<button class="btn pri blk'+(blk?' off':'')+'" data-act="sendrep" data-id="'+s.id+'" '+(blk?'disabled':'')+'>'+ic('send',20)+' Send to client</button>';
+ if(s.reportStatus==='sent')act='<div class="note ok">Marked as sent on '+fd(s.sentOn)+'.</div>';
+ return pgHead('Report','aprback','<span class="mono">'+esc(s.uid)+'</span> · '+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus)))+reportHtml(s)+
+ '<div style="height:14px"></div>'+act+'<button class="btn blk" style="margin-top:10px" data-act="copyrep" data-id="'+s.id+'">'+ic('copy',20)+' Copy summary</button>';
+}
+
+/* ================= BILLS ================= */
+function billsView(){
+ const m=M('bills');
+ if(m.invId)return invDetail(m);
+ const T=today(),q=(m.q||'').toLowerCase().trim();
+ const f={All:()=>true,Unpaid:i=>paidOf(i)===0&&balOf(i)>0,'Part paid':i=>paidOf(i)>0&&balOf(i)>0,Overdue:i=>balOf(i)>0&&i.due<T,Paid:i=>balOf(i)<=0};
+ const list=D().invoices.filter(i=>f[m.f]?f[m.f](i):true).filter(i=>!q||(i.no+' '+cl(i.clientId).name+' '+(sm(i.sampleId)||{}).uid).toLowerCase().indexOf(q)>=0).sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:(a.no<b.no?1:-1)));
+ return pgHead('Track bill')+'<div class="chips" style="margin-bottom:12px">'+['All','Unpaid','Part paid','Overdue','Paid'].map(x=>'<button class="chip'+(m.f===x?' on':'')+'" data-act="set" data-sp="m.bills.f" data-v="'+x+'">'+x+'</button>').join('')+'</div>'+searchBox('m.bills.q',m.q,'Search bill no., client or UID')+
+ (list.map(i=>{const st=bstat(i);return '<button class="row" data-act="openinv" data-id="'+i.id+'"><div class="grow"><div class="t mono">'+esc(i.no)+'</div><div class="s">'+esc(cl(i.clientId).name)+'</div><div class="s">'+inr(i.total)+' · balance '+inr(balOf(i))+' · due '+fd(i.due)+'</div></div>'+bdg(st,bcls(st))+'</button>'}).join('')||empty('No bills match.'));
+}
+function invDetail(m){
+ const i=D().invoices.find(x=>x.id===m.invId);if(!i){m.invId=null;return billsView()}
+ const s=sm(i.sampleId)||{},pays=D().payments.filter(p=>p.invoiceId===i.id).sort((a,b)=>a.date<b.date?-1:1),bal=balOf(i),st=bstat(i);
+ if(!m.pay)m.pay={amount:'',date:today(),mode:'UPI',ref:'',err:{}};
+ const pf=m.pay,e=pf.err||{};
+ return pgHead(esc(i.no),'invback',esc(cl(i.clientId).name)+' · '+bdg(st,bcls(st)))+
+ '<div class="card"><dl class="dl"><dt>Sample</dt><dd class="mono">'+esc(s.uid||'—')+'</dd><dt>Billing</dt><dd>'+esc(s.billing||'')+'</dd><dt>Invoice date</dt><dd>'+fd(i.date)+'</dd><dt>Due date</dt><dd>'+fd(i.due)+'</dd></dl></div>'+
+ '<div class="card"><table class="tb"><thead><tr><th style="width:42%">Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead><tbody>'+i.lines.map(l=>'<tr><td>'+esc(l.desc)+'</td><td class="r">'+l.qty+'</td><td class="r">'+inr(l.rate)+'</td><td class="r">'+inr(l.amount)+'</td></tr>').join('')+'</tbody></table>'+
+ '<div style="margin-top:8px"><div class="kv"><span>Subtotal</span><b>'+inr(i.subtotal)+'</b></div><div class="kv"><span>GST ('+i.gstPct+'%)</span><b>'+inr(i.gst)+'</b></div><div class="kv"><span>Total</span><b>'+inr(i.total)+'</b></div><div class="kv"><span>Received</span><b>'+inr(paidOf(i))+'</b></div><div class="kv" style="border-top:1px solid var(--line);padding-top:10px"><span class="big">Balance</span><b class="big">'+inr(bal)+'</b></div></div></div>'+
+ (s.id?'<button class="btn blk" style="margin-bottom:6px" '+goA('approve',{tab:s.reportStatus==='sent'?'sent':s.reportStatus==='approved'?'approved':'awaiting',sampleId:s.id})+'>View report</button>':'')+
+ '<div class="sec"><h2>Payments</h2></div>'+(pays.length?'<div class="card flat" style="padding:4px 14px">'+pays.map(p=>'<div class="pgn"><div><div><b>'+inr(p.amount)+'</b> · '+esc(p.mode)+'</div><div class="xs mut">'+fd(p.date)+(p.ref?' · '+esc(p.ref):'')+'</div></div></div>').join('')+'</div>':empty('No payments recorded yet.'))+
+ (bal>0?'<div class="card" style="margin-top:14px"><h3 style="margin-bottom:12px">Record payment</h3>'+fld('Amount (₹)',inp('m.bills.pay.amount',pf.amount,{mode:'decimal',err:e.amount,ph:'Balance '+inr(bal)}),e.amount)+'<button class="lnk" style="margin:-8px 0 8px" data-act="payfill">Fill full balance</button>'+
+  fld('Date',inp('m.bills.pay.date',pf.date,{type:'date',err:e.date,maxd:today()}),e.date)+fld('Mode',chipRow('m.bills.pay.mode',pf.mode,[['Cash','Cash'],['UPI','UPI'],['Bank transfer','Bank transfer'],['Cheque','Cheque']]))+fld('Reference',inp('m.bills.pay.ref',pf.ref,{ph:'UTR / cheque no. (optional)'}))+'<button class="btn pri blk" data-act="recpay">Record payment</button></div>':'<div class="note ok" style="margin-top:14px">This bill is fully paid.</div>');
+}
+async function recordPay(){
+ if(S.busy)return;
+ const m=M('bills'),i=D().invoices.find(x=>x.id===m.invId),pf=m.pay,e={},bal=balOf(i),a=num(pf.amount);
+ if(!(a>0))e.amount='Enter an amount greater than 0';else if(r2(a)>bal)e.amount='Amount is more than the balance of '+inr(bal);
+ if(!pf.date)e.date='Choose the payment date';
+ if(Object.keys(e).length){pf.err=e;render();return}
+ const body={amount:r2(a),date:pf.date,mode:pf.mode,ref:(pf.ref||'').trim()};
+ if(S.online){
+  S.busy=true;render();
+  try{const r=await api('POST','/api/invoices/'+i.id+'/payments',body);upsertLocal('payments',r.payment)}
+  catch(er){S.busy=false;pf.err={amount:er.message};render();return}
+  S.busy=false;
+ }else{D().payments.push(Object.assign({id:'pay'+rid(),invoiceId:i.id},body));persistNow()}
+ m.pay=null;toast('Payment of '+inr(r2(a))+' recorded');render();
+}
+
+/* ================= RENDER & EVENTS ================= */
+function modBody(){
+ return({create:createView,schedule:scheduleView,reports:reportsView,approve:approveView,bills:billsView,clients:clientsView,crm:crmView,admin:adminView})[S.route]();
+}
+function view(){
+ if(S.booting)return '<div class="login"><div class="logo"><i></i><h1>TechAssures Lab</h1></div><p class="mut">Connecting…</p></div>';
+ if(!S.user)return loginView();
+ if(S.wiz)return wizView()+confirmView();
+ return shell(S.route==='home'?homeView():(can(S.route)?modBody():blocked()))+confirmView();
+}
+const appEl=document.getElementById('app');
+const sigCache={url:'',img:null};
+function drawSig(){
+ const c=document.getElementById('sig');if(!c||!S.wiz||!S.wiz.f.sig)return;
+ const ctx=c.getContext('2d');
+ if(sigCache.url===S.wiz.f.sig&&sigCache.img&&sigCache.img.complete){ctx.drawImage(sigCache.img,0,0,c.width,c.height);return}
+ const im=new Image();im.onload=()=>{sigCache.url=S.wiz&&S.wiz.f.sig;sigCache.img=im;const cc=document.getElementById('sig');if(cc)cc.getContext('2d').drawImage(im,0,0,cc.width,cc.height)};im.src=S.wiz.f.sig;
+}
+function render(){
+ const ae=document.activeElement;let fk=null,ss=null,se=null;
+ if(ae&&ae.dataset&&ae.dataset.m){fk=ae.dataset.m;try{ss=ae.selectionStart;se=ae.selectionEnd}catch(x){}}
+ const y=window.scrollY;
+ appEl.innerHTML=view();
+ drawSig();
+ if(fk){const n=appEl.querySelector('[data-m="'+fk+'"]');if(n&&!n.disabled){try{n.focus({preventScroll:true})}catch(x){}try{if(ss!=null)n.setSelectionRange(ss,se)}catch(x){}}}
+ window.scrollTo(0,y);
+}
+
+/* hooks */
+const HOOK={wzclient(){const f=S.wiz.f,c=cl(f.clientId);f.projectId='';f.billing=c.terms||''}};
+
+/* generic input handling */
+function onField(e){
+ const el=e.target,p=el.dataset&&el.dataset.m;if(!p)return;
+ const wantsChange=el.tagName==='SELECT'||el.type==='date'||el.type==='checkbox';
+ if(wantsChange!==(e.type==='change'))return;
+ setPath(S,p,el.type==='checkbox'?el.checked:el.value);
+ if(el.dataset.h&&HOOK[el.dataset.h])HOOK[el.dataset.h]();
+ if(p.indexOf('db.')===0)persist();
+ render();
+}
+document.addEventListener('input',onField);
+document.addEventListener('change',e=>{
+ const el=e.target;
+ if(el.dataset&&el.dataset.photo&&el.files&&el.files[0]){
+  const fr=new FileReader();
+  fr.onload=()=>{const im=new Image();im.onload=()=>{const K=Math.min(1,900/Math.max(im.width,im.height)),w=Math.round(im.width*K),h=Math.round(im.height*K),cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(im,0,0,w,h);if(S.wiz){S.wiz.f.photo=cv.toDataURL('image/jpeg',.72);render();toast('Photo added')}};im.onerror=()=>toast('Could not read that image',1);im.src=fr.result};
+  fr.readAsDataURL(el.files[0]);return;
+ }
+ onField(e);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset&&e.target.dataset.enter==='login'){e.preventDefault();ACT.login()}});
+
+/* signature canvas */
+let drawing=null,last=null;
+function cpt(e,c){const r=c.getBoundingClientRect();return{x:(e.clientX-r.left)*c.width/r.width,y:(e.clientY-r.top)*c.height/r.height}}
+document.addEventListener('pointerdown',e=>{
+ const c=e.target.closest&&e.target.closest('canvas.sig');if(!c)return;
+ e.preventDefault();drawing=c;last=cpt(e,c);try{c.setPointerCapture(e.pointerId)}catch(x){}
+ const x=c.getContext('2d');x.fillStyle='#121413';x.beginPath();x.arc(last.x,last.y,2.2,0,6.3);x.fill();
+});
+document.addEventListener('pointermove',e=>{
+ if(!drawing)return;const c=drawing,p=cpt(e,c),x=c.getContext('2d');
+ x.strokeStyle='#121413';x.lineWidth=3.6;x.lineCap='round';x.lineJoin='round';x.beginPath();x.moveTo(last.x,last.y);x.lineTo(p.x,p.y);x.stroke();last=p;
+});
+function endDraw(){
+ if(!drawing)return;const c=drawing;drawing=null;
+ if(S.wiz){S.wiz.f.sig=c.toDataURL('image/png');if(S.wiz.err)delete S.wiz.err.sig;const er=appEl.querySelector('canvas.sig+.err');if(er)er.remove()}
+}
+document.addEventListener('pointerup',endDraw);
+document.addEventListener('pointercancel',endDraw);
+
+/* confirmations */
+const CONF={
+ discard(){S.wiz=null},
+ async delrecdo(){const p=S.pendingDel;if(!p)return;const ok=await removeRec(p.c,p.id);if(ok){if(p.c==='leads'&&M('crm').leadId===p.id)M('crm').leadId=null;toast('Deleted')}S.pendingDel=null;render()},
+ async resetdo(){
+  if(S.online){try{await api('POST','/api/admin/reset',{confirm:'RESET'});await loadAll();S.m={};S.route='admin';toast('Demo data restored')}catch(er){toast(er.message,1)}render();return}
+  S.db=seed();lsSet(KEY,JSON.stringify(S.db));const u=S.db.users.find(x=>x.id===S.user.id);S.user=u||S.db.users[0];S.m={};S.route='admin';toast('Demo data restored')}
+};
+
+/* actions */
+const ACT={
+ login(){if(S.online){if(!S.busy)onlineLogin();return}const L=S.login,u=D().users.find(x=>x.login===String(L.login).trim().toLowerCase());
+  if(!u||u.pin!==String(L.pin).trim()){L.err='Wrong login name or PIN';render();return}
+  if(!u.active){L.err='This account is disabled. Ask the admin.';render();return}
+  S.user=u;lsSet(SKEY,u.id);S.login={login:'',pin:'',err:''};S.route='home';S.m={};render();window.scrollTo(0,0)},
+ logout(){if(S.online){onlineLogout();return}S.user=null;lsDel(SKEY);S.login={login:'',pin:'',err:''};S.m={};S.wiz=null;S.route='home';render()},
+ fill(t){const u=(S.online?S.demoAccounts:D().users).find(x=>x.login===t.dataset.v);if(u){S.login.login=u.login;S.login.pin=u.pin;S.login.err='';render()}},
+ set(t){const sp=t.dataset.sp,v=t.dataset.v;setPath(S,sp,v);
+  if(/\.terms$/.test(sp)&&v==='Credit'){const base=sp.slice(0,-5);const cd=getPath(S,base+'creditDays');if(!(num(cd)>0))setPath(S,base+'creditDays',String(D().settings.creditDays||30))}
+  if(sp.indexOf('db.')===0)persist();render()},
+ /* wizard */
+ newsample(){if(!can('create'))return;S.wiz=newWiz();S.route='create';render();window.scrollTo(0,0)},
+ wzexit(){S.confirm={title:'Discard this sample?',msg:'Nothing has been saved yet. The details you entered will be lost.',label:'Discard',act:'discard'};render()},
+ wzback(){const w=S.wiz;if(w.step>1){w.step--;w.err={};render();window.scrollTo(0,0)}else ACT.wzexit()},
+ wznext(){if(S.busy)return;const w=S.wiz,e=wzValidate(w.step);
+  if(Object.keys(e).length){w.err=e;render();toast('Please fix the highlighted fields',1);const el=appEl.querySelector('.err');if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'});return}
+  w.err={};if(w.step<3){w.step++;render();window.scrollTo(0,0)}else saveSample()},
+ wzgo(t){S.wiz.step=+t.dataset.v;S.wiz.err={};render();window.scrollTo(0,0)},
+ age(t){const f=S.wiz.f,a=+t.dataset.v,i=f.ages.indexOf(a);if(i>=0)f.ages.splice(i,1);else f.ages.push(a);f.ages.sort((x,y)=>x-y);render()},
+ szn(t){const s=S.wiz.f.sizes[+t.dataset.i];s.n=Math.max(1,(+s.n||1)+(+t.dataset.d));render()},
+ szdel(t){S.wiz.f.sizes.splice(+t.dataset.i,1);render()},
+ szadd(){S.wiz.f.sizes.push({l:'150',b:'150',h:'150',n:1});render()},
+ rmphoto(){S.wiz.f.photo='';render()},
+ sigclear(){S.wiz.f.sig='';sigCache.url='';sigCache.img=null;render()},
+ cdone(){M('create').mode='list';render();window.scrollTo(0,0)},
+ /* schedule */
+ schtab(t){M('schedule').tab=t.dataset.v;render()},
+ openjob(t){const m=M('schedule');m.jobId=t.dataset.id;m.entry=null;render();window.scrollTo(0,0)},
+ jobback(){const m=M('schedule');m.jobId=null;m.entry=null;render();window.scrollTo(0,0)},
+ addcube(){const r=M('schedule').entry.rows,l=r[r.length-1];r.push({l:l.l,b:l.b,h:l.h,load:''});render()},
+ rmcube(){const r=M('schedule').entry.rows;if(r.length>1)r.pop();render()},
+ savejob(){saveJob()},
+ /* approve */
+ aptab(t){M('approve').tab=t.dataset.v;render()},
+ openrep(t){M('approve').sampleId=t.dataset.id;render();window.scrollTo(0,0)},
+ aprback(){M('approve').sampleId=null;render();window.scrollTo(0,0)},
+ async approve(t){
+  if(S.busy)return;
+  if(S.online){S.busy=true;try{const r=await api('POST','/api/samples/'+t.dataset.id+'/approve');upsertLocal('samples',r.sample)}catch(er){S.busy=false;toast(er.message,1);return}S.busy=false}
+  else{const s=sm(t.dataset.id);s.reportStatus='approved';s.approvedBy=S.user.name;s.approvedOn=today();persistNow()}
+  const m=M('approve');m.sampleId=null;m.tab='approved';toast('Report approved — ready to send');render();window.scrollTo(0,0)},
+ async sendrep(t){
+  if(S.busy)return;
+  const s=sm(t.dataset.id),i=invOf(s);
+  if(s.billing==='Advance'&&i&&balOf(i)>0){toast('Blocked: the advance bill is unpaid',1);return}
+  if(S.online){S.busy=true;try{const r=await api('POST','/api/samples/'+s.id+'/send');upsertLocal('samples',r.sample)}catch(er){S.busy=false;toast(er.message,1);return}S.busy=false}
+  else{s.reportStatus='sent';s.sentOn=today();persistNow()}
+  const m=M('approve');m.sampleId=null;m.tab='sent';toast('Marked as sent (no email is sent in this demo)');render();window.scrollTo(0,0)},
+ copyrep(t){const txt=reportText(sm(t.dataset.id));
+  const ok=()=>toast('Summary copied');
+  const fb=()=>{try{const ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const r=document.execCommand('copy');ta.remove();r?ok():toast('Copy is not available here',1)}catch(x){toast('Copy is not available here',1)}};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(ok,fb);else fb()},
+ /* bills */
+ openinv(t){const m=M('bills');m.invId=t.dataset.id;m.pay=null;render();window.scrollTo(0,0)},
+ invback(){const m=M('bills');m.invId=null;m.pay=null;render();window.scrollTo(0,0)},
+ payfill(){const m=M('bills'),i=D().invoices.find(x=>x.id===m.invId);if(m.pay){m.pay.amount=String(balOf(i));render()}},
+ recpay(){recordPay()},
+ /* clients */
+ opencl(t){const m=M('clients');m.clientId=t.dataset.id;m.tab='overview';m.openProj=null;render();window.scrollTo(0,0)},
+ clback(){const m=M('clients');m.clientId=null;render();window.scrollTo(0,0)},
+ cltab(t){M('clients').tab=t.dataset.v;render()},
+ openproj(t){const m=M('clients');m.openProj=m.openProj===t.dataset.id?null:t.dataset.id;render()},
+ async addproj(){const m=M('clients'),np=m.np,c=cl(m.clientId);
+  if(!np.name.trim()){np.err={name:'Enter a project name'};render();return}
+  const p={id:'p'+rid(),clientId:c.id,name:np.name.trim(),site:(np.site||'').trim()||c.address||''};
+  if(!(await createRec('projects',p)))return;
+  m.np={name:'',site:''};toast('Project added');render()},
+ addclient(){const m=M('clients'),n=D().clients.length+1;m.adding=true;m.nc={name:'',code:'CL-'+pad(n,3),address:'',gst:'',terms:'Credit',creditDays:String(D().settings.creditDays||30),contact:'',phone:'',err:{}};render();window.scrollTo(0,0)},
+ cladd0(){M('clients').adding=false;render();window.scrollTo(0,0)},
+ async savecl(){const m=M('clients'),n=m.nc,e={};
+  if(!n.name.trim())e.name='Enter the client name';
+  if(!n.code.trim())e.code='Enter a client code';else if(D().clients.some(c=>c.code.toLowerCase()===n.code.trim().toLowerCase()))e.code='This code is already used';
+  if(!n.address.trim())e.address='Enter the address';
+  if(n.gst.trim()&&n.gst.trim().length!==15)e.gst='GST number should be 15 characters';
+  if(n.terms==='Credit'&&!(num(n.creditDays)>0))e.creditDays='Enter credit days';
+  if(n.phone.trim()&&!/^\d{10}$/.test(n.phone.trim()))e.phone='Enter a 10-digit phone number';
+  if(Object.keys(e).length){n.err=e;render();toast('Please fix the highlighted fields',1);return}
+  const c={id:'c'+rid(),code:n.code.trim(),name:n.name.trim(),address:n.address.trim(),gst:n.gst.trim().toUpperCase(),terms:n.terms,creditDays:n.terms==='Credit'?String(n.creditDays):'0',contact:n.contact.trim(),phone:n.phone.trim(),rates:{}};
+  if(!(await createRec('clients',c)))return;
+  m.adding=false;m.clientId=c.id;m.tab='overview';toast('Client added');render();window.scrollTo(0,0)},
+ /* admin */
+ admtab(t){const m=M('admin');m.tab=t.dataset.v;if(m.tab==='activity'&&S.online){m.audit=null;render();loadAudit();return}render()},
+ async touser(t){const id=t.dataset.id,u=us(id);if(id===S.user.id){toast('You cannot disable your own account',1);return}
+  if(S.online){try{upsertLocal('users',await api('PUT','/api/users/'+id,{active:!u.active}))}catch(x){toast(x.message,1);return}}
+  else{u.active=!u.active;persistNow()}
+  toast(us(id).name+(us(id).active?' enabled':' disabled'));render()},
+ async adduser(){const m=M('admin'),n=m.nu,er={};
+  if(!n.name.trim())er.name='Enter the full name';
+  if(!n.login.trim())er.login='Enter a login name';else if(!S.online&&D().users.some(u=>u.login===n.login.trim().toLowerCase()))er.login='This login name is taken';
+  if(!/^\d{4}$/.test(n.pin))er.pin='PIN must be 4 digits';
+  if(Object.keys(er).length){n.err=er;render();return}
+  const body={name:n.name.trim(),login:n.login.trim().toLowerCase(),pin:n.pin,role:n.role};
+  if(S.online){try{upsertLocal('users',await api('POST','/api/users',body))}catch(x){n.err={login:x.message};render();return}}
+  else{D().users.push({id:'u_'+rid(),login:body.login,pin:body.pin,name:body.name,role:body.role,active:true});persistNow()}
+  m.nu={name:'',login:'',pin:'',role:'tester',err:{}};toast('User added');render()},
+ nabl(t){const x=ts(t.dataset.id);x.nabl=!x.nabl;persist();render()},
+ addtest(){D().tests.push({id:'t_'+rid(),name:'New test',code:'',rate:'0',nabl:false,kind:'simple',unit:'sample',ru:'value'});persistNow();render();toast('Test added — fill in the details')},
+ reset(){S.confirm={title:'Reset demo data?',msg:'This restores the original clients, samples, bills and users. Anything you added or changed will be lost.',label:'Reset everything',act:'resetdo'};render()},
+ csv(t){downloadCsv(t.dataset.v)},
+ /* CRM */
+ crmtab(t){M('crm').tab=t.dataset.v;render()},
+ openlead(t){const m=M('crm');m.leadId=t.dataset.id;m.ni=null;m.nt=null;render();window.scrollTo(0,0)},
+ leadback(){M('crm').leadId=null;render();window.scrollTo(0,0)},
+ addlead(){const m=M('crm');m.adding=true;m.nl={name:'',contact:'',phone:'',source:'Referral',value:'',nextFollowUp:addDays(today(),2),notes:'',err:{}};render();window.scrollTo(0,0)},
+ leadcancel(){M('crm').adding=false;render();window.scrollTo(0,0)},
+ async savelead(){const m=M('crm'),n=m.nl,er={};
+  if(!n.name.trim())er.name='Enter the company or person';
+  if(n.phone.trim()&&!/^\d{10}$/.test(n.phone.trim()))er.phone='Phone should be 10 digits';
+  if(String(n.value).trim()!==''&&!(num(n.value)>=0))er.value='Enter a number';
+  if(Object.keys(er).length){n.err=er;render();toast('Please fix the highlighted fields',1);return}
+  const T=today(),l={id:'l_'+rid(),name:n.name.trim(),contact:n.contact.trim(),phone:n.phone.trim(),email:'',source:n.source,stage:'new',value:num(n.value)||0,nextFollowUp:n.nextFollowUp||'',owner:S.user.id,notes:n.notes.trim(),lostReason:'',clientId:'',createdOn:T,updatedOn:T};
+  const saved=await createRec('leads',l);if(!saved)return;
+  m.adding=false;m.leadId=saved.id;m.ni=null;m.nt=null;toast('Lead added');render();window.scrollTo(0,0)},
+ stage(t){const l=D().leads.find(x=>x.id===M('crm').leadId);if(!l)return;const v=t.dataset.v;l.stage=v;l.updatedOn=today();if(v!=='lost')l.lostReason='';if(v==='won'||v==='lost')l.nextFollowUp='';persist();render()},
+ async convert(){const m=M('crm'),l=D().leads.find(x=>x.id===m.leadId);if(!l||l.clientId)return;
+  let n=D().clients.length+1,code;const base=(l.name.replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()||'CL');
+  do{code=base+'-'+pad(n++,3)}while(D().clients.some(c=>c.code===code));
+  const c={id:'c'+rid(),code:code,name:l.name,address:'',gst:'',terms:'Credit',creditDays:String(D().settings.creditDays||30),contact:l.contact,phone:l.phone,rates:{}};
+  if(!(await createRec('clients',c)))return;
+  l.clientId=c.id;l.stage='won';l.updatedOn=today();persist();toast('Client created — add the address and projects');go('clients',{clientId:c.id,tab:'overview'})},
+ async addint(t){const mk=t.dataset.mk,m=M(mk),n=m.ni;
+  if(!n.summary.trim()){n.err='Write a short note';render();return}
+  const rec={id:'n_'+rid(),clientId:mk==='clients'?m.clientId:'',leadId:mk==='crm'?m.leadId:'',type:n.type,summary:n.summary.trim(),date:n.date||today(),by:S.user.id};
+  if(!(await createRec('interactions',rec)))return;
+  m.ni=null;toast('Activity saved');render()},
+ async addtask(t){const mk=t.dataset.mk,m=M(mk),n=m.nt;
+  if(!n.title.trim()){n.err='Enter the task';render();return}
+  let clientId='',leadId='';
+  if(t.dataset.global){const lk=n.link||'';if(lk.indexOf('c:')===0)clientId=lk.slice(2);else if(lk.indexOf('l:')===0)leadId=lk.slice(2)}
+  else{clientId=mk==='clients'?m.clientId:'';leadId=mk==='crm'?m.leadId:''}
+  const rec={id:'k_'+rid(),title:n.title.trim(),due:n.due||today(),done:false,doneOn:'',assignee:S.user.id,clientId:clientId,leadId:leadId};
+  if(!(await createRec('tasks',rec)))return;
+  m.nt=null;toast('Follow-up added');render()},
+ tasktoggle(t){const k=D().tasks.find(x=>x.id===t.dataset.id);if(!k)return;k.done=!k.done;k.doneOn=k.done?today():'';persist();render()},
+ opencrmclient(t){go('clients',{clientId:t.dataset.id,tab:canMoney()?'crm':'overview'})},
+ delrec(t){const lbl={leads:'lead',interactions:'activity note',tasks:'follow-up'}[t.dataset.c]||'record';S.pendingDel={c:t.dataset.c,id:t.dataset.id};S.confirm={title:'Delete this '+lbl+'?',msg:'This cannot be undone.',label:'Delete',act:'delrecdo'};render()},
+ cno(){S.confirm=null;render()},
+ cyes(){const a=S.confirm&&S.confirm.act;S.confirm=null;if(a&&CONF[a])CONF[a]();render();window.scrollTo(0,0)}
+};
+document.addEventListener('click',e=>{
+ const t=e.target.closest('[data-act],[data-go]');if(!t)return;
+ if(t.classList.contains('sheetbg')&&e.target!==t)return;
+ if(t.dataset.go){let set=null;try{set=t.dataset.set?JSON.parse(t.dataset.set):null}catch(x){}go(t.dataset.go,set);return}
+ const f=ACT[t.dataset.act];if(f)f(t,e);
+});
+window.addEventListener('beforeunload',()=>{if(S.db&&!S.booting)persistNow()});
+render();
+boot();
+})();
+</script>
+</body>
+</html>

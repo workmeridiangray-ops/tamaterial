@@ -1,0 +1,10 @@
+{
+  "name": "techassures-lab",
+  "version": "1.0.0",
+  "description": "Lab management app with backend and CRM for an NABL-accredited construction material testing lab",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node test/api.test.js" },
+  "engines": { "node": ">=22.5.0" },
+  "license": "UNLICENSED",
+  "private": true
+}

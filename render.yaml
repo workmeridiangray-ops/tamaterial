@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: techassures-lab
+    runtime: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: DEMO_MODE
+        value: "1"
+      - key: DB_PATH
+        value: /data/lab.db
+      - key: TZ
+        value: Asia/Kolkata
+    disk:
+      name: labdata
+      mountPath: /data
+      sizeGB: 1
