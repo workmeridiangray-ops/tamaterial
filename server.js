@@ -858,6 +858,34 @@ route('GET', /^\/api\/audit$/, ['admin'], c => {
     return { entries: st("SELECT id,ts,user_id,user_name,action,coll,rec_id,summary FROM audit WHERE org=? AND action IN ('login','login_failed','signup') ORDER BY id DESC LIMIT ?").all(ORG, lim) };
   return { entries: st('SELECT id,ts,user_name,action,coll,rec_id,summary FROM audit WHERE org=? ORDER BY id DESC LIMIT ?').all(ORG, lim) };
 });
+/* Data browser for the lab's own admin: look through everything stored for this lab, no database login needed */
+const dataClean = (r, full) => {
+  const walk = v => {
+    if (typeof v === 'string') return (!full && v.length > 240) ? (v.startsWith('data:') ? '[file ' + Math.round(v.length / 1024) + ' KB]' : v.slice(0, 240) + '…') : v;
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) { if (k === 'hash' || k === 'salt') continue; o[k] = walk(v[k]); } return o; }
+    return v;
+  };
+  return walk(r);
+};
+route('GET', /^\/api\/data$/, ['admin'], c => ({ colls: COLLS.filter(n => n !== 'notifications' || true).map(n => ({ name: n, count: all(n).length })) }));
+route('GET', /^\/api\/data\/(\w+)$/, ['admin'], c => {
+  const n = c.m[1]; if (!COLLS.includes(n)) bad('Unknown collection', 404);
+  const q = String(c.url.searchParams.get('q') || '').toLowerCase().trim(), lim = Math.min(200, parseInt(c.url.searchParams.get('limit'), 10) || 50), off = parseInt(c.url.searchParams.get('offset'), 10) || 0;
+  let rows = all(n).map(r => dataClean(r, false));
+  if (q) rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+  return { total: rows.length, rows: rows.slice(off, off + lim) };
+});
+route('GET', /^\/api\/data\/(\w+)\/([\w-]+)$/, ['admin'], c => {
+  const n = c.m[1]; if (!COLLS.includes(n)) bad('Unknown collection', 404);
+  const r = get(n, c.m[2]); if (!r) bad('Not found', 404);
+  return { rec: dataClean(r, true) };
+});
+route('GET', /^\/api\/backup$/, ['admin'], c => {
+  const out = { lab: ORG, exportedAt: new Date().toISOString(), data: {} };
+  COLLS.forEach(n => { out.data[n] = all(n).map(r => dataClean(r, true)); });
+  return { __json: JSON.stringify(out), name: 'backup-' + ORG + '-' + L.today() + '.json' };
+});
 route('GET', /^\/api\/export\/(\w+)\.csv$/, ['admin', 'accounts'], c => {
   const coll = c.m[1]; if (!(CSV_ROLES[c.u.role] || []).includes(coll)) bad('You cannot export ' + coll, 403);
   return { __csv: toCsv(coll), name: coll + '-' + L.today() + '.csv' };
@@ -951,6 +979,10 @@ const server = http.createServer(async (req, res) => {
     const body = (req.method === 'GET' || req.method === 'DELETE') ? {} : await readBody(req);
     if (u) ORG = u.org;
     const out = await hit.fn({ req, res, u, m, url, body, ip, verify: module.exports.__verify });
+    if (out && out.__json != null) {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': 'attachment; filename="' + out.name + '"', 'Cache-Control': 'no-store' });
+      return res.end(out.__json);
+    }
     if (out && out.__csv != null) {
       res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="' + out.name + '"', 'Cache-Control': 'no-store' });
       return res.end(out.__csv);

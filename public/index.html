@@ -603,6 +603,55 @@ async function downloadCsv(c){
   const blob=await r.blob(),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=c+'-'+today()+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('Exported '+c);
  }catch(e){toast(e.message,1)}
 }
+async function loadData(){
+ const m=M('admin');
+ try{
+  if(!m.dcounts){const r=await api('GET','/api/data');m.dcounts=r.colls}
+  if(m.dcoll){const r=await api('GET','/api/data/'+m.dcoll+'?limit=100&q='+encodeURIComponent(m.dq||''));m.dlist=r}
+ }catch(e){toast(e.message,1)}
+ render();
+}
+async function loadDataRec(c,id){
+ try{const r=await api('GET','/api/data/'+c+'/'+id);M('admin').drec={c,id,rec:r.rec};render();window.scrollTo(0,0)}catch(e){toast(e.message,1)}
+}
+async function downloadBackup(){
+ try{
+  const r=await fetch('/api/backup',{headers:{Authorization:'Bearer '+S.token}});
+  if(!r.ok)throw new Error('Backup failed');
+  const blob=await r.blob(),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='backup-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('Backup downloaded');
+ }catch(e){toast(e.message,1)}
+}
+const dGet=(o,p)=>p.split('.').reduce((a,k)=>a==null?a:a[k],o);
+function openDataUrl(u,name){
+ try{const [h,b]=u.split(',');const mime=(h.match(/data:([^;]+)/)||[])[1]||'application/octet-stream';const bin=atob(b),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([arr],{type:mime}));a.download=name.replace(/\W+/g,'-')+'.'+(mime.split('/')[1]||'bin');document.body.appendChild(a);a.click();a.remove()}catch(e){toast('Cannot open file',1)}
+}
+function dataBody(m){
+ if(!S.online)return '<div class="note">Stored data is kept by the server.</div>';
+ if(!m.dcounts)return empty('Loading…');
+ if(m.drec){
+  const r=m.drec.rec,imgs=[],files=[];
+  const walk=(v,path)=>{
+   if(typeof v==='string'){if(/^data:image\//.test(v))imgs.push([path,v]);else if(/^data:/.test(v))files.push(path);return}
+   if(Array.isArray(v))v.forEach((x,i)=>walk(x,path+'.'+i));else if(v&&typeof v==='object')Object.keys(v).forEach(k=>walk(v[k],path?path+'.'+k:k));
+  };
+  walk(r,'');
+  const flat=JSON.stringify(r,(k,v)=>typeof v==='string'&&v.startsWith('data:')?'[file]':v,2);
+  return '<button class="btn" data-act="dback">← Back to '+esc(m.drec.c)+'</button><div class="card" style="margin-top:12px"><h3>'+esc(m.drec.c)+' · <span class="mono">'+esc(m.drec.id)+'</span></h3>'+
+   (imgs.length?'<div class="sec"><h2>Photos and signatures</h2></div>'+imgs.map(x=>'<div style="margin:8px 0"><div class="xs mut mono">'+esc(x[0])+'</div><img src="'+x[1]+'" alt="" style="max-width:100%;border-radius:8px;background:#fff"></div>').join(''):'')+
+   (files.length?'<div class="sec"><h2>Attached files</h2></div>'+files.map(p=>'<button class="chip" data-act="dfile" data-p="'+esc(p)+'">Download '+esc(p)+'</button>').join(''):'')+
+   '<div class="sec"><h2>All fields</h2></div><pre class="mono sm" style="white-space:pre-wrap;word-break:break-word;margin:0">'+esc(flat)+'</pre></div>';
+ }
+ const chips='<div class="chips" style="margin-bottom:10px">'+m.dcounts.map(c=>'<button class="chip'+(m.dcoll===c.name?' on':'')+'" data-act="dcoll" data-v="'+c.name+'">'+esc(c.name)+' · '+c.count+'</button>').join('')+'</div>';
+ let list='';
+ if(m.dcoll){
+  list='<div style="display:flex;gap:8px;margin:8px 0"><input id="dq" class="in" placeholder="Search in '+esc(m.dcoll)+'" value="'+esc(m.dq||'')+'" style="flex:1"><button class="btn" data-act="dsearch">Search</button></div>';
+  if(!m.dlist)list+=empty('Loading…');
+  else list+=(m.dlist.rows.length?'<div class="card flat" style="padding:4px 14px">'+m.dlist.rows.map(r=>{const t=r.name||r.no||r.uid||r.title||r.id;const sub=[r.status,r.reportStatus,r.clientId,r.d,r.date,r.total&&('₹'+r.total)].filter(Boolean).join(' · ');return '<div class="pgn" style="flex-direction:column;gap:2px;cursor:pointer" data-act="drec" data-c="'+m.dcoll+'" data-id="'+esc(r.id)+'"><div class="t">'+esc(String(t))+'</div><div class="xs mut">'+esc(String(sub).slice(0,120))+'</div></div>'}).join('')+'</div><p class="hint">Showing '+m.dlist.rows.length+' of '+m.dlist.total+'. Tap a row to see everything, including photos.</p>':empty('Nothing found.'));
+ }
+ return '<div class="note" style="margin-bottom:12px">Everything stored for your lab. Only admins can see this page.</div>'+chips+list+
+  '<div class="sec" style="margin-top:18px"><h2>Backup</h2></div><p class="mut sm" style="margin:6px 0 10px">Download a complete copy of your lab\'s data (all records, photos and signatures) as one file.</p><button class="btn" data-act="dbackup">Download full backup (.json)</button>';
+}
 async function loadAudit(){
  const si=M('admin').tab==='signins';
  try{const r=await api('GET','/api/audit?limit='+(si?300:150)+(si?'&kind=signins':''));M('admin').audit=r.entries}catch(e){M('admin').audit=[];toast(e.message,1)}
@@ -852,12 +901,14 @@ function adminView(){
   body=signinsBody(m);
  }else if(m.tab==='activity'){
   body=activityBody(m);
+ }else if(m.tab==='data'){
+  body=dataBody(m);
  }else{
   const s=D().settings;
   body='<div class="card">'+fld('NABL certificate number',inp('db.settings.cert',s.cert),'','Used as the prefix of every ULR, e.g. <span class="mono">'+esc(s.cert)+'-'+yy()+'-000146-F</span>')+
   fld('GST %',inp('db.settings.gst',s.gst,{mode:'decimal'}))+fld('Default credit days',inp('db.settings.creditDays',s.creditDays,{mode:'numeric'}))+fld('Testing machines',inp('db.settings.machines',s.machines||'',{ph:'CTM-01, CTM-02'}),'','Comma separated. Testers pick one when they enter readings.')+'<p class="hint">Saved automatically.</p></div>';
  }
- return pgHead('Admin',null,S.online?'Connected to server':'Offline demo · data stays in this browser')+tabsBar('admtab',m.tab,[['users','Users'],['tests','Tests & rates'],['settings','Settings'],['signins','Sign-ins'],['activity','Activity']])+body+
+ return pgHead('Admin',null,S.online?'Connected to server':'Offline demo · data stays in this browser')+tabsBar('admtab',m.tab,[['users','Users'],['tests','Tests & rates'],['settings','Settings'],['signins','Sign-ins'],['activity','Activity'],['data','Data']])+body+
  ((S.online&&S.org&&!S.org.demo)?'':'<div class="card" style="margin-top:22px"><h3>Demo data</h3><p class="mut sm" style="margin:6px 0 12px">Restore the original sample clients, samples and bills. Everything you added will be removed.</p><button class="btn dng blk" data-act="reset">Reset demo data</button></div>');
 }
 
@@ -2020,7 +2071,13 @@ const ACT={
   if(!(await createRec('clients',c)))return;
   m.adding=false;m.clientId=c.id;m.tab='overview';toast('Client added');render();window.scrollTo(0,0)},
  /* admin */
- admtab(t){const m=M('admin');m.tab=t.dataset.v;if((m.tab==='activity'||m.tab==='signins')&&S.online){m.audit=null;render();loadAudit();return}render()},
+ admtab(t){const m=M('admin');m.tab=t.dataset.v;if((m.tab==='activity'||m.tab==='signins')&&S.online){m.audit=null;render();loadAudit();return}if(m.tab==='data'&&S.online){m.dcounts=null;m.dcoll=null;m.drec=null;render();loadData();return}render()},
+ dcoll(t){const m=M('admin');m.dcoll=t.dataset.v;m.drec=null;m.dq='';m.dlist=null;render();loadData()},
+ drec(t){loadDataRec(t.dataset.c,t.dataset.id)},
+ dback(){M('admin').drec=null;render()},
+ dsearch(){const m=M('admin');m.dq=(document.getElementById('dq')||{}).value||'';m.dlist=null;render();loadData()},
+ dbackup(){downloadBackup()},
+ dfile(t){const m=M('admin');const v=dGet(m.drec.rec,t.dataset.p);if(v)openDataUrl(v,t.dataset.p)},
  async touser(t){const id=t.dataset.id,u=us(id);if(id===S.user.id){toast('You cannot disable your own account',1);return}
   if(S.online){try{upsertLocal('users',await api('PUT','/api/users/'+id,{active:!u.active}))}catch(x){toast(x.message,1);return}}
   else{u.active=!u.active;persistNow()}

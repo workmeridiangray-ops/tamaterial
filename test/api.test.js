@@ -215,6 +215,11 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   ok((await call('POST', '/api/push/subscribe', S, { sub: { endpoint: 'http://x', keys: {} } })).s === 400, 'bad subscription rejected');
   ok((await call('POST', '/api/push/subscribe', S, { sub: subj })).j.ok, 'subscription saved');
   ok((await call('POST', '/api/push/subscribe', S, { sub: { fcm: 'tok123' } })).j.ok, 'device token saved');
+  const dl = await call('GET', '/api/data', A); ok(dl.j.colls.some(x => x.name === 'samples' && x.count > 0), 'data browser lists collections');
+  const dr = await call('GET', '/api/data/samples?limit=2', A); ok(dr.j.rows.length > 0 && !JSON.stringify(dr.j).includes('data:image'), 'data list hides big files');
+  const dd = await call('GET', '/api/data/samples/' + dr.j.rows[0].id, A); ok(dd.j.rec && dd.j.rec.id === dr.j.rows[0].id, 'data record opens');
+  const dbk = await fetch(base + '/api/backup', { headers: { Authorization: 'Bearer ' + A } }); const bj = await dbk.json(); ok(bj.data && bj.data.samples.length > 0 && !JSON.stringify(bj).includes('"hash"'), 'backup has data and no password hashes');
+
   ok((await call('POST', '/api/push/unsubscribe', S, { endpoint: subj.endpoint })).j.ok, 'subscription removed');
   ok(!N.mailOn(), 'email stays off until a key and sender are set');
   const vsid = next.sample.id, vp = await fetch(base + '/v/demo/' + vsid), vt = await vp.text();
