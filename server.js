@@ -281,16 +281,22 @@ function clean(coll, b, old, actor) {
     const tests = all('tests'), rates = {};
     Object.keys(b.rates || {}).forEach(k => { if (!tests.some(t => t.id === k)) return; const v = b.rates[k]; if (v === '' || v == null) rates[k] = ''; else rates[k] = String(money(v, 'Rate')); });
     const cd = parseInt(b.creditDays, 10);
-    return { id, code, name: str(b.name, 120, { req: 'Client name is required' }), address: str(b.address, 300), gst: gst.toUpperCase(), terms, creditDays: String(isNaN(cd) ? 0 : cd), contact: str(b.contact, 80), phone, rates };
+    const cl = parseInt(b.creditLimit, 10);
+    const tdsP = L.num(b.tds);
+    return { id, code, name: str(b.name, 120, { req: 'Client name is required' }), address: str(b.address, 300), gst: gst.toUpperCase(), terms, creditDays: String(isNaN(cd) ? 0 : cd), contact: str(b.contact, 80), phone, rates,
+      gstRegistered: b.gstRegistered !== false, clientType: str(b.clientType, 40), pan: str(b.pan, 10).toUpperCase(), state: str(b.state, 40), billingAddress: str(b.billingAddress, 300),
+      accEmail: str(b.accEmail, 120), accMobile: str(b.accMobile, 10), invEmail: str(b.invEmail, 120), invWhatsapp: str(b.invWhatsapp, 10), repEmail: str(b.repEmail, 120), repWhatsapp: str(b.repWhatsapp, 10),
+      creditLimit: isNaN(cl) ? '' : String(cl), billingMode: str(b.billingMode, 40) || 'Per part, as each report is approved', tds: isNaN(tdsP) ? '0' : String(tdsP), poRequired: !!b.poRequired };
   }
   if (coll === 'workorders') {
     if (!get('clients', b.clientId)) bad('Choose the client');
     if (!L.isDate(b.date)) bad('Enter the work order date');
+    if (b.projectId) { const pr = get('projects', b.projectId); if (!pr || pr.clientId !== b.clientId) bad('Choose a project of this client'); }
     const tests = all('tests'), rates = {};
     Object.keys(b.rates || {}).forEach(k => { if (!tests.some(t => t.id === k)) return; const v = b.rates[k]; rates[k] = (v === '' || v == null) ? '' : String(money(v, 'Rate')); });
     const no = str(b.no, 60, { req: 'Enter the work order number' });
-    return { id, clientId: b.clientId, no, date: b.date, validTill: optDate(b.validTill, 'Valid till'), rates, notes: str(b.notes, 500), status: b.status === 'closed' ? 'closed' : 'active',
-      value: b.value === '' || b.value == null ? '' : String(money(b.value, 'Work order value')), file: old ? old.file : undefined, fileName: old ? old.fileName : '', hasFile: !!(old && old.file) };
+    return { id, clientId: b.clientId, projectId: b.projectId ? b.projectId : '', no, date: b.date, validTill: optDate(b.validTill, 'Valid till'), rates, notes: str(b.notes, 500), status: b.status === 'closed' ? 'closed' : 'active',
+      value: b.value === '' || b.value == null ? '' : String(money(b.value, 'Work order value')), alertThreshold: b.alertThreshold === false ? false : true, file: old ? old.file : undefined, fileName: old ? old.fileName : '', hasFile: !!(old && old.file) };
   }
   if (coll === 'vendorbills') {
     const cats = ['calibration', 'subcontract', 'consumables', 'transport', 'equipment', 'rent', 'other'];
@@ -671,6 +677,35 @@ function recordPayment(u, invId, b) {
   const p = { id: 'pay' + rid(), invoiceId: inv.id, amount, date: b.date, mode: b.mode, ref: str(b.ref, 60), geo, at: new Date().toISOString() };
   return tx(() => { put('payments', p, u, 'payment', inv.no + ' · ₹' + amount + ' via ' + p.mode + geoTxt(geo)); return { payment: p }; });
 }
+/* One payment can be split across several of a client's bills: applied oldest-first, TDS counted as settled without being cash received. */
+function applyClientPayment(u, clientId, b) {
+  const client = get('clients', clientId); if (!client) bad('Client not found', 404);
+  const ids = Array.isArray(b.invoiceIds) ? b.invoiceIds : [];
+  if (!ids.length) bad('Choose at least one invoice');
+  const invs = ids.map(x => { const i = get('invoices', x); if (!i || i.clientId !== clientId) bad('Invoice not found'); return i; });
+  const cash = L.r2(L.num(b.amount)), tds = L.r2(L.num(b.tds) || 0);
+  if (!(cash > 0)) bad('Enter an amount greater than 0');
+  if (!L.isDate(b.date) || b.date > L.today()) bad('Choose a valid payment date (not in the future)');
+  if (!['Cash', 'UPI', 'Bank transfer', 'Cheque', 'NEFT'].includes(b.mode)) bad('Choose a payment mode');
+  const totalBal = L.r2(invs.reduce((a, i) => a + balanceOf(i), 0));
+  let remaining = L.r2(cash + tds);
+  if (remaining > totalBal + 0.004) bad('Amount is more than the total balance of the selected invoices (₹' + totalBal + ')');
+  const geo = geoOf(b, false), groupId = 'pg' + rid(), at = new Date().toISOString(), created = [];
+  return tx(() => {
+    let tdsLeft = tds;
+    invs.forEach(inv => {
+      if (remaining <= 0.004) return;
+      const bal = balanceOf(inv), applied = Math.min(bal, remaining);
+      const tdsHere = Math.min(tdsLeft, applied); tdsLeft = L.r2(tdsLeft - tdsHere);
+      const cashHere = L.r2(applied - tdsHere);
+      const p = { id: 'pay' + rid(), invoiceId: inv.id, amount: applied, cash: cashHere, tds: tdsHere, date: b.date, mode: b.mode, ref: str(b.ref, 60), depositTo: str(b.depositTo, 80), remarks: str(b.remarks, 300), groupId, geo, at };
+      put('payments', p, u, 'payment', inv.no + ' · ₹' + applied + ' via ' + p.mode + (tdsHere ? ' (incl. ₹' + tdsHere + ' TDS)' : '') + geoTxt(geo));
+      created.push(p);
+      remaining = L.r2(remaining - applied);
+    });
+    return { payments: created };
+  });
+}
 function adminUsers(u, method, id, b) {
   if (method === 'POST') {
     const email = str(b.email, 120).toLowerCase();
@@ -852,6 +887,7 @@ route('POST', /^\/api\/workorders\/([\w-]+)\/file$/, ['admin', 'accounts'], c =>
 route('GET', /^\/api\/workorders\/([\w-]+)\/file$/, ['admin', 'accounts'], c => { const w = get('workorders', c.m[1]); if (!w || !w.file) bad('No file uploaded', 404); return { name: w.fileName, data: w.file }; });
 route('POST', /^\/api\/samples\/([\w-]+)\/send$/, ['admin', 'accounts'], c => ({ sample: sendReport(c.u, c.m[1], c.body) }));
 route('POST', /^\/api\/invoices\/([\w-]+)\/payments$/, ['admin', 'accounts'], c => recordPayment(c.u, c.m[1], c.body));
+route('POST', /^\/api\/clients\/([\w-]+)\/apply-payment$/, ['admin', 'accounts'], c => applyClientPayment(c.u, c.m[1], c.body));
 route('POST', /^\/api\/users$/, ['admin'], c => adminUsers(c.u, 'POST', null, c.body));
 route('PUT', /^\/api\/users\/([\w-]+)$/, ['admin'], c => adminUsers(c.u, 'PUT', c.m[1], c.body));
 route('POST', /^\/api\/admin\/reset$/, ['admin'], c => resetDemo(c.u, c.body));

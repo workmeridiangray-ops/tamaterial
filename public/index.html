@@ -146,6 +146,7 @@ textarea.in{min-height:84px;resize:vertical}
 .bd.ok{background:var(--acc-soft);color:var(--ink);border-color:transparent}
 .bd.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
 .bd.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.avatar{flex:none;width:40px;height:40px;border-radius:50%;background:var(--acc-soft);color:var(--acc-ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
 .bd.dark{background:#121413;color:#fff;border-color:transparent}
 
 /* dashboard */
@@ -826,22 +827,33 @@ function clientsView(){
  if(m.adding)return addClientView(m);
  if(m.clientId)return clientDetail(m);
  const q=(m.q||'').toLowerCase().trim();
- const list=D().clients.filter(c=>!q||(c.name+' '+c.code+' '+c.gst).toLowerCase().indexOf(q)>=0);
+ const list=D().clients.filter(c=>!q||(c.name+' '+c.code+' '+c.gst).toLowerCase().indexOf(q)>=0).sort((a,b)=>a.name<b.name?-1:1);
+ const T=today(),badge=c=>{if(canMoney()&&D().invoices.some(i=>i.clientId===c.id&&balOf(i)>0&&i.due<T))return bdg('Overdue','bad');if(c.gstRegistered&&!c.gst)return bdg('To verify','warn');return ''};
  return pgHead('Clients')+(canMoney()?'<button class="btn pri blk" data-act="addclient" style="margin-bottom:14px">'+ic('plus')+' Add client</button>':'')+
- searchBox('m.clients.q',m.q,'Search name, code or GST')+
- (list.length?list.map(c=>'<button class="row" data-act="opencl" data-id="'+c.id+'"><div class="grow"><div class="t">'+esc(c.name)+'</div><div class="s"><span class="mono">'+esc(c.code)+'</span> · '+esc(c.terms)+(c.terms==='Credit'?' ('+esc(c.creditDays)+' days)':'')+' · '+D().projects.filter(p=>p.clientId===c.id).length+' projects</div></div><span class="mut">'+ic('chev',18)+'</span></button>').join(''):empty('No clients match your search.'));
+ searchBox('m.clients.q',m.q,'Search name, code or GSTIN')+'<p class="mut sm" style="margin:-6px 0 10px">'+list.length+' client'+(list.length===1?'':'s')+', sorted A to Z</p>'+
+ (list.length?list.map(c=>'<button class="row" data-act="opencl" data-id="'+c.id+'"><div class="avatar">'+esc(initials(c.name))+'</div><div class="grow"><div class="t">'+esc(c.name)+'</div><div class="s"><span class="mono">'+esc(c.code)+'</span>'+(c.address?' · '+esc((c.address.split(',').slice(-2).join(',')).trim()):'')+'</div></div>'+badge(c)+'<span class="mut">'+ic('chev',18)+'</span></button>').join(''):empty('No clients match your search.'));
 }
+const initials=name=>(name||'').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
 function clientDetail(m){
  const idx=D().clients.findIndex(c=>c.id===m.clientId);if(idx<0){m.clientId=null;return clientsView()}
  const c=D().clients[idx],P='db.clients.'+idx+'.',ed=canMoney();
  const tabs=[['overview','Overview'],['projects','Projects & tests']].concat(canMoney()?[['workorders','Work orders'],['payments','Payments'],['rates','Rates'],['crm','CRM']]:[]);
  let body='';
  if(m.tab==='overview'){
-  body='<div class="card">'+fld('Client code',inp(P+'code',c.code,{ro:!ed,dis:!ed}))+fld('Client name',inp(P+'name',c.name,{ro:!ed,dis:!ed}))+fld('Address',ta(P+'address',c.address,{dis:!ed}))+fld('GST number',inp(P+'gst',c.gst,{ro:!ed,dis:!ed}))+
+  body='<div class="card">'+fld('Client code',inp(P+'code',c.code,{ro:!ed,dis:!ed}))+fld('Client name',inp(P+'name',c.name,{ro:!ed,dis:!ed}))+fld('Address',ta(P+'address',c.address,{dis:!ed}))+
+  (c.gstRegistered!==false?fld('GST number',inp(P+'gst',c.gst,{ro:!ed,dis:!ed})):fld('GST','<p class="mut sm" style="margin:0">Not GST registered</p>'))+
+  (c.pan?fld('PAN',inp(P+'pan',c.pan,{ro:!ed,dis:!ed})):'')+(c.state?fld('State',inp(P+'state',c.state,{ro:!ed,dis:!ed})):'')+(c.clientType?fld('Client type',inp('x',c.clientType,{ro:true,dis:true})):'')+
   fld('Billing terms',ed?chipRow(P+'terms',c.terms,[['Advance','Advance'],['Credit','Credit']]):inp('x',c.terms,{ro:true,dis:true}))+
   (c.terms==='Credit'?fld('Credit days',inp(P+'creditDays',c.creditDays,{mode:'numeric',ro:!ed,dis:!ed})):'')+
+  (c.creditLimit?fld('Credit limit',inp(P+'creditLimit',c.creditLimit,{mode:'numeric',ro:!ed,dis:!ed})):'')+
   fld('Contact person',inp(P+'contact',c.contact,{ro:!ed,dis:!ed}))+fld('Phone',inp(P+'phone',c.phone,{mode:'tel',ro:!ed,dis:!ed}))+
-  (ed?'<p class="hint">Changes are saved automatically.</p>':'<p class="hint">View only for your role.</p>')+'</div>';
+  (c.billingMode?fld('Billing mode',inp('x',c.billingMode,{ro:true,dis:true})):'')+(num(c.tds)>0?fld('TDS deducted by client',inp('x',c.tds+'%',{ro:true,dis:true})):'')+
+  (c.poRequired?'<p class="hint">PO / WO number required before invoicing.</p>':'')+
+  (ed?'<p class="hint">Changes are saved automatically.</p>':'<p class="hint">View only for your role.</p>')+'</div>'+
+  (ed&&(c.accEmail||c.invEmail||c.repEmail||c.accMobile)?'<div class="card"><h3 style="margin-bottom:8px">Who receives what</h3>'+
+   (c.accEmail||c.accMobile?'<div class="kv"><span>Accounts</span><b>'+esc(c.accEmail||'')+(c.accEmail&&c.accMobile?' · ':'')+esc(c.accMobile||'')+'</b></div>':'')+
+   '<div class="kv"><span>Invoices to</span><b>'+esc(c.invEmail||c.accEmail||'—')+(c.invWhatsapp?' · '+esc(c.invWhatsapp):'')+'</b></div>'+
+   '<div class="kv"><span>Reports to</span><b>'+esc(c.repEmail||'—')+(c.repWhatsapp?' · '+esc(c.repWhatsapp):'')+'</b></div></div>':'');
  }else if(m.tab==='projects'){
   const pj=D().projects.filter(p=>p.clientId===c.id);
   body=pj.map(p=>{const ss=D().samples.filter(s=>s.projectId===p.id),op=m.openProj===p.id;
@@ -884,14 +896,32 @@ function woForm(c,m){
  (e.all?'<div class="err" style="margin-bottom:8px">'+esc(e.all)+'</div>':'')+
  '<div class="btns"><button class="btn" data-act="wocancel">Cancel</button><button class="btn pri'+(S.busy?' off':'')+'" data-act="wosave">Save work order</button></div></div>';
 }
+const GST_STATES={'01':'Jammu & Kashmir','02':'Himachal Pradesh','03':'Punjab','04':'Chandigarh','05':'Uttarakhand','06':'Haryana','07':'Delhi','08':'Rajasthan','09':'Uttar Pradesh','10':'Bihar','11':'Sikkim','12':'Arunachal Pradesh','13':'Nagaland','14':'Manipur','15':'Mizoram','16':'Tripura','17':'Meghalaya','18':'Assam','19':'West Bengal','20':'Jharkhand','21':'Odisha','22':'Chhattisgarh','23':'Madhya Pradesh','24':'Gujarat','26':'Dadra & Nagar Haveli and Daman & Diu','27':'Maharashtra','28':'Andhra Pradesh (old)','29':'Karnataka','30':'Goa','31':'Lakshadweep','32':'Kerala','33':'Tamil Nadu','34':'Puducherry','35':'Andaman & Nicobar','36':'Telangana','37':'Andhra Pradesh','38':'Ladakh'};
 function addClientView(m){
  const n=m.nc,e=n.err||{};
- return pgHead('Add client','cladd0')+'<div class="card">'+fld('Client name',inp('m.clients.nc.name',n.name,{err:e.name}),e.name)+fld('Client code',inp('m.clients.nc.code',n.code,{err:e.code}),e.code)+
- fld('Address',ta('m.clients.nc.address',n.address,{err:e.address}),e.address)+fld('GST number',inp('m.clients.nc.gst',n.gst,{err:e.gst,max:15}),e.gst)+
- fld('Billing terms',chipRow('m.clients.nc.terms',n.terms,[['Advance','Advance'],['Credit','Credit']]))+
+ return pgHead('New client','cladd0')+
+ '<div class="sec"><h2>1 · GST and identity</h2></div><div class="card">'+
+ '<label style="display:flex;align-items:center;gap:8px;padding:6px 0"><input type="checkbox" data-m="m.clients.nc.gstRegistered" '+(n.gstRegistered?'checked':'')+'> Client is GST registered</label>'+
+ (n.gstRegistered?'<div class="two" style="align-items:end">'+fld('GSTIN',inp('m.clients.nc.gst',n.gst,{err:e.gst,max:15,ph:'15 characters'}),e.gst)+'<button type="button" class="btn" style="margin-bottom:16px" data-act="gstfetch">Fetch</button></div><p class="hint" style="margin-top:-8px">Reads the state and PAN straight out of the GSTIN — no lookup needed.</p>':'')+
+ fld('Client / company name',inp('m.clients.nc.name',n.name,{err:e.name,ph:'As on GST / PAN'}),e.name)+
+ '<div class="two">'+fld('PAN',inp('m.clients.nc.pan',n.pan,{max:10,ph:'From GSTIN'}))+fld('State',inp('m.clients.nc.state',n.state,{ph:'From GSTIN'}))+'</div>'+
+ fld('Client type',sel('m.clients.nc.clientType',n.clientType,[['Proprietorship','Proprietorship'],['Partnership','Partnership'],['Pvt Ltd','Private Limited'],['LLP','LLP'],['Individual','Individual'],['Government','Government']]))+
+ fld('Billing address (printed on invoice)',ta('m.clients.nc.billingAddress',n.billingAddress,{ph:'Leave blank to use the address below'}))+
+ fld('Address',ta('m.clients.nc.address',n.address,{err:e.address}),e.address)+fld('Client code',inp('m.clients.nc.code',n.code,{err:e.code}),e.code)+'</div>'+
+ '<div class="sec"><h2>2 · Contacts and who receives what</h2></div><div class="card">'+
+ '<h3 style="margin-bottom:8px">Accounts contact</h3>'+fld('Name',inp('m.clients.nc.contact',n.contact,{}))+'<div class="two">'+fld('Mobile',inp('m.clients.nc.accMobile',n.accMobile,{mode:'tel',max:10,ph:'10 digits'}))+fld('Email',inp('m.clients.nc.accEmail',n.accEmail,{ph:'name@company.com'}))+'</div>'+
+ '<h3 style="margin:14px 0 8px">Send invoices to</h3><div class="two">'+fld('Email',inp('m.clients.nc.invEmail',n.invEmail,{ph:'Same as accounts'}))+fld('WhatsApp',inp('m.clients.nc.invWhatsapp',n.invWhatsapp,{mode:'tel',max:10,ph:'Same as accounts'}))+'</div>'+
+ '<h3 style="margin:14px 0 8px">Send test reports to</h3><div class="two">'+fld('Email',inp('m.clients.nc.repEmail',n.repEmail,{ph:'e.g. site engineer'}))+fld('WhatsApp',inp('m.clients.nc.repWhatsapp',n.repWhatsapp,{mode:'tel',max:10,ph:'10 digits'}))+'</div></div>'+
+ '<div class="sec"><h2>3 · Billing rules</h2></div><div class="card">'+
+ fld('Payment terms',chipRow('m.clients.nc.terms',n.terms,[['Advance','Advance'],['Credit','Credit']]))+
  (n.terms==='Credit'?fld('Credit days',inp('m.clients.nc.creditDays',n.creditDays,{mode:'numeric',err:e.creditDays}),e.creditDays):'')+
- fld('Contact person',inp('m.clients.nc.contact',n.contact,{}))+fld('Phone',inp('m.clients.nc.phone',n.phone,{mode:'tel',err:e.phone,max:10}),e.phone)+
- '<div class="btns"><button class="btn" data-act="cladd0">Cancel</button><button class="btn pri" data-act="savecl">Save client</button></div></div>';
+ fld('Credit limit (₹, optional)',inp('m.clients.nc.creditLimit',n.creditLimit,{mode:'numeric',ph:'0'}))+
+ fld('Billing mode',sel('m.clients.nc.billingMode',n.billingMode,[['Per part, as each report is approved','Per part, as each report is approved'],['Per sample, once fully reported','Per sample, once fully reported'],['Monthly, all tests together','Monthly, all tests together']]))+
+ fld('TDS deducted by client',sel('m.clients.nc.tds',n.tds,[['0','No TDS'],['1','1%'],['2','2%'],['10','10%']]))+
+ fld('Phone',inp('m.clients.nc.phone',n.phone,{mode:'tel',err:e.phone,max:10}),e.phone)+
+ '<label style="display:flex;align-items:center;gap:8px;padding:6px 0"><input type="checkbox" data-m="m.clients.nc.poRequired" '+(n.poRequired?'checked':'')+'> PO / WO number required on invoice</label>'+
+ '<p class="hint">Projects, work orders and test rates are added from the client page once it\'s created.</p></div>'+
+ '<div class="btns"><button class="btn" data-act="cladd0">Cancel</button><button class="btn pri" data-act="savecl">Create client</button></div>';
 }
 
 /* ---------- admin ---------- */
@@ -1699,6 +1729,7 @@ function partLbl(s,j){if(j.age==null||!Array.isArray(s.d&&s.d.ages))return '';co
 /* ================= BILLS ================= */
 function billsView(){
  const m=M('bills');
+ if(m.pay2)return recordPaymentForm2(m);
  if(m.invId)return invDetail(m);
  if(m.vnew)return vendorForm(m);
  if(m.vid)return vendorDetail(m);
@@ -1706,11 +1737,11 @@ function billsView(){
  if(S.online&&!m.tab)return billsHub(m);
  const T=today(),inv=D().invoices,billed=r2(inv.reduce((a,i)=>a+i.total,0)),rec=r2(inv.reduce((a,i)=>a+paidOf(i),0)),odl=inv.filter(i=>balOf(i)>0&&i.due<T),odv=r2(odl.reduce((a,i)=>a+balOf(i),0));
  const toInv=S.online?D().jobs.filter(j=>j.status==='done'&&!j.invoiced):[];
- const tabs=S.online?tabsBar('bltab',m.tab,[['bills','Bills'],['toinvoice','To invoice ('+toInv.length+')'],['clients','Clients'],['payments','Payments'],['vendors','Vendors']]):'';
+ const tabs=S.online?tabsBar('bltab',m.tab,[['bills','Bills'],['toinvoice','To invoice ('+toInv.length+')'],['clients','Clients'],['payhist','Payment history'],['payments','Payments'],['vendors','Vendors']]):'';
  const stats='<div class="stats"><div class="stat"><b>'+inr(billed)+'</b><span>Billed</span></div><div class="stat"><b>'+inr(rec)+'</b><span>Received</span></div><div class="stat hot"><b>'+inr(billed-rec)+'</b><span>Pending</span></div></div>'+(odl.length?'<div class="note bad" style="margin:10px 0 14px"><b>'+odl.length+' bill'+(odl.length===1?'':'s')+' overdue</b> · '+inr(odv)+' to collect</div>':'<div style="height:10px"></div>');
  const tab=S.online?m.tab:'bills';
  let body;
- if(tab==='clients')body=billClientsBody(m);else if(tab==='payments')body=billPaymentsBody(m);else if(tab==='vendors')body=vendorsBody(m);else if(tab==='toinvoice')body=toInvoiceBody(m);else body=billsListBody(m);
+ if(tab==='clients')body=billClientsBody(m);else if(tab==='payhist')body=payHistBody(m);else if(tab==='payments')body=billPaymentsBody(m);else if(tab==='vendors')body=vendorsBody(m);else if(tab==='toinvoice')body=toInvoiceBody(m);else body=billsListBody(m);
  return pgHead('Bills & payments',S.online?'blhome':null)+tabs+body;
 }
 function billsHub(m){
@@ -1748,6 +1779,61 @@ function clientSums(){
 function billClientsBody(m){
  const q=(m.pq||'').toLowerCase().trim(),L=clientSums().filter(x=>!q||(x.c.name+' '+x.c.code).toLowerCase().indexOf(q)>=0);
  return searchBox('m.bills.pq',m.pq,'Search client')+(L.map(x=>'<button class="row" data-act="blclient" data-id="'+x.c.id+'"><div class="grow"><div class="t">'+esc(x.c.name)+'</div><div class="s">'+x.n+' bill'+(x.n===1?'':'s')+' · billed '+inr(x.b)+' · received '+inr(x.r)+'</div><div class="s">'+(x.last?'Last payment '+fd(x.last):'No payment yet')+'</div></div><div style="text-align:right"><b>'+inr(x.pend)+'</b><div class="xs mut">pending</div>'+(x.od?'<div>'+bdg(x.od+' overdue','bad')+'</div>':'')+'</div></button>').join('')||empty('No clients with bills yet.'));
+}
+function projectSums(){
+ return D().projects.map(p=>{const ii=D().invoices.filter(i=>{const s=sm(i.sampleId);return s&&s.projectId===p.id}),b=r2(ii.reduce((a,i)=>a+i.total,0)),r=r2(ii.reduce((a,i)=>a+paidOf(i),0));
+  return{p:p,c:cl(p.clientId),n:ii.length,b:b,r:r,pend:r2(b-r),od:ii.filter(i=>balOf(i)>0&&i.due<today()).length}}).filter(x=>x.n>0).sort((a,b)=>b.pend-a.pend);
+}
+function payHistBody(m){
+ const inv=D().invoices,pays=D().payments,billed=r2(inv.reduce((a,i)=>a+i.total,0)),cleared=r2(pays.reduce((a,p)=>a+(p.cash!=null?p.cash+p.tds:+p.amount),0));
+ const pend=inv.filter(i=>balOf(i)>0),pendV=r2(pend.reduce((a,i)=>a+balOf(i),0)),odCnt=pend.filter(i=>i.due<today()).length;
+ const chq=pays.filter(p=>p.mode==='Cheque'&&p.cleared===false),chqV=r2(chq.reduce((a,p)=>a+(+p.amount),0));
+ const q=(m.pq||'').toLowerCase().trim(),view=m.phv||'project';
+ const stat=(lbl,big,sub,cls)=>'<div class="stat'+(cls?' '+cls:'')+'"><b>'+big+'</b><span>'+lbl+'</span>'+(sub?'<div class="xs mut" style="margin-top:2px">'+sub+'</div>':'')+'</div>';
+ const top='<p class="mut sm" style="margin-bottom:10px">All invoices and payments, since the first invoice. No period filter.</p>'+
+  '<div class="stats">'+stat('Invoices raised',inv.length,inr(billed)+' billed')+stat('Cleared',pays.length,inr(cleared)+' received')+stat('Pending',pend.length,inr(pendV)+(odCnt?' · '+odCnt+' overdue':''),'hot')+(chq.length?stat('Cheques to clear',chq.length,inr(chqV)+' deposited'):'')+'</div>'+
+  searchBox('m.bills.pq',m.pq,'Search client, project, invoice or reference')+
+  '<div class="chips" style="margin:10px 0">'+[['project','By project'],['all','All invoices']].map(x=>'<button class="chip'+(view===x[0]?' on':'')+'" data-act="phview" data-v="'+x[0]+'">'+x[1]+' ('+(x[0]==='project'?projectSums().length:inv.length)+')</button>').join('')+'</div>';
+ let body;
+ if(view==='all'){
+  const L=inv.filter(i=>!q||((cl(i.clientId).name||'')+' '+i.no+' '+(i.reportNo||'')).toLowerCase().indexOf(q)>=0).sort((a,b)=>a.date<b.date?1:-1);
+  body=L.map(i=>{const st=bstat(i);return '<button class="row" data-act="openinv" data-id="'+i.id+'"><div class="grow"><div class="t mono">'+esc(i.no)+'</div><div class="s">'+esc(cl(i.clientId).name)+' · '+fd(i.date)+' · '+inr(i.total)+' · balance '+inr(balOf(i))+'</div></div>'+bdg(st,bcls(st))+'</button>'}).join('')||empty('No invoices match.');
+ }else{
+  const L=projectSums().filter(x=>!q||((x.c.name||'')+' '+(x.p.name||'')+' '+(x.p.site||'')).toLowerCase().indexOf(q)>=0);
+  body=L.map(x=>'<div class="card" style="'+(x.od?'border-color:var(--bad)':'')+'"><div class="t">'+esc(x.p.site||x.p.name)+'</div><div class="s mut" style="margin-bottom:10px">'+esc(x.c.code)+' · '+esc(x.c.name)+'</div>'+
+   '<div class="stats" style="grid-template-columns:repeat(3,1fr)">'+stat('Invoices',x.n)+stat('Cleared',x.n-(x.pend>0?1:0))+stat('Pending',x.pend>0?1:0)+'</div>'+
+   '<div class="bar" style="margin:10px 0"><i style="width:'+(x.b?Math.round(x.r/x.b*100):100)+'%"></i></div>'+
+   '<div class="kv"><span>Billed</span><b>'+inr(x.b)+'</b></div><div class="kv"><span>Received</span><b style="color:var(--acc-ink)">'+inr(x.r)+'</b></div><div class="kv"><span>Balance</span><b style="color:'+(x.pend>0?'var(--warn)':'inherit')+'">'+inr(x.pend)+'</b></div>'+
+   '<button class="btn blk" style="margin-top:10px" data-act="blclient" data-id="'+x.c.id+'">View '+x.n+' invoice'+(x.n===1?'':'s')+'</button></div>').join('')||empty('No projects with bills yet.');
+ }
+ return top+body+'<button class="btn pri blk" style="margin-top:14px" data-act="recpaynew">'+ic('plus')+' Record payment</button>';
+}
+function recordPaymentForm2(m){
+ const p=m.pay2,e=p.err||{},c=p.clientId?cl(p.clientId):null;
+ const clients=D().clients.slice().sort((a,b)=>a.name<b.name?-1:1);
+ if(!c)return pgHead('Record payment','recpay2back')+'<div class="sec"><h2>1 · Client</h2></div>'+(clients.map(x=>'<button class="row" data-act="pay2client" data-id="'+x.id+'"><div class="grow"><div class="t">'+esc(x.name)+'</div><div class="s">'+esc(x.code)+'</div></div></button>').join('')||empty('No clients yet.'));
+ const projs=D().projects.filter(x=>x.clientId===c.id);
+ const allInv=D().invoices.filter(i=>i.clientId===c.id&&balOf(i)>0).filter(i=>!p.projectId||(sm(i.sampleId)||{}).projectId===p.projectId);
+ const ids=Object.keys(p.sel).filter(id=>allInv.some(i=>i.id===id));
+ const applyTotal=r2(num(p.amount)+(num(p.tds)||0));
+ let remain=applyTotal,rows='';
+ ids.forEach(id=>{const i=D().invoices.find(x=>x.id===id);if(!i)return;const bal=balOf(i),ap=Math.max(0,Math.min(bal,remain));remain=r2(remain-ap);rows+='<div class="kv"><span class="mono">'+esc(i.no)+'</span><b>'+inr(ap)+(ap>=bal?' <span class="xs mut">fully paid</span>':ap>0?' <span class="xs mut">part paid</span>':'')+'</b></div>'});
+ return pgHead('Record payment','recpay2back')+
+ '<div class="sec"><h2>1 · Client and project</h2></div><div class="card">'+fld('Client',inp('x',c.name+' · '+c.code+(c.terms==='Credit'?' · Credit, '+c.creditDays+' days':''),{ro:true,dis:true,hint:''}))+
+ (projs.length?fld('Project',sel('m.bills.pay2.projectId',p.projectId,[['','All projects']].concat(projs.map(x=>[x.id,x.name+(x.site?' · '+x.site:'')])))):'')+'</div>'+
+ '<div class="sec"><h2>2 · Invoices this payment covers</h2></div>'+
+ (allInv.length?'<div class="card flat" style="padding:4px 14px">'+allInv.map(i=>{const st=bstat(i);return '<label class="row" style="cursor:pointer"><input type="checkbox" style="margin-right:4px" data-act="pay2tog" data-id="'+i.id+'" '+(p.sel[i.id]?'checked':'')+'><div class="grow"><div class="t mono">'+esc(i.no)+'</div><div class="s">'+fd(i.date)+' · balance '+inr(balOf(i))+'</div></div>'+(st==='Overdue'?bdg('Overdue','bad'):'')+'</label>'}).join('')+'</div>':empty('No unpaid invoices for this client.'))+
+ (e.sel?'<div class="err">'+esc(e.sel)+'</div>':'')+
+ '<div class="sec"><h2>3 · Payment details</h2></div><div class="card">'+
+ fld('Date of payment received',inp('m.bills.pay2.date',p.date,{type:'date',maxd:today()}))+
+ fld('Mode',chipRow('m.bills.pay2.mode',p.mode,[['Cash','Cash'],['Cheque','Cheque'],['UPI','UPI'],['NEFT','NEFT']]))+
+ fld('Reference / transaction ID',inp('m.bills.pay2.ref',p.ref,{ph:'Choose a mode first'}))+
+ '<div class="two">'+fld('Amount received (₹)',inp('m.bills.pay2.amount',p.amount,{mode:'decimal',err:e.amount,ph:'0'}),e.amount)+fld('TDS (₹)',inp('m.bills.pay2.tds',p.tds,{mode:'decimal',ph:'0'}))+'</div>'+
+ '<button type="button" class="lnk" style="margin:-8px 0 8px" data-act="pay2fill">Fill full balance of selected bills</button>'+
+ fld('Deposited to',inp('m.bills.pay2.depositTo',p.depositTo,{ph:'e.g. Bank current a/c ••4321'}))+
+ fld('Remarks (optional)',ta('m.bills.pay2.remarks',p.remarks,{ph:'e.g. Collected by [name] at site'}))+'</div>'+
+ (ids.length?'<div class="sec"><h2>4 · How it is applied</h2></div><div class="card flat" style="padding:4px 14px">'+rows+'<div class="kv" style="border-top:1px solid var(--line);padding-top:8px"><span>Total applied</span><b>'+inr(r2(applyTotal-Math.max(0,remain)))+'</b></div></div>':'')+
+ '<button class="btn pri blk" style="margin-top:14px" data-act="recpay2">Save payment</button>';
 }
 function clientBillsDetail(m){
  const c=cl(m.cid),ii=D().invoices.filter(i=>i.clientId===c.id).sort((a,b)=>a.date<b.date?1:-1),pp=D().payments.filter(p=>ii.some(i=>i.id===p.invoiceId)).sort((a,b)=>a.date<b.date?1:-1);
@@ -2014,8 +2100,26 @@ const ACT={
  bltab(t){M('bills').tab=t.dataset.v;render()},
  blhome(){M('bills').tab=null;render();window.scrollTo(0,0)},
  qtile(){S.route='quotes';S.m.quotes=Object.assign(defs('quotes'),{ed:newQuote()});render();window.scrollTo(0,0)},
- bltile(){M('bills').tab='bills';render();window.scrollTo(0,0)},
+ bltile(){M('bills').tab='payhist';M('bills').phv='project';render();window.scrollTo(0,0)},
  toinvtile(){M('bills').tab='toinvoice';render();window.scrollTo(0,0)},
+ payhist(){M('bills').tab='payhist';M('bills').phv='project';render();window.scrollTo(0,0)},
+ phview(t){M('bills').phv=t.dataset.v;render()},
+ recpaynew(){const m=M('bills');m.pay2={clientId:'',projectId:'',sel:{},amount:'',tds:'',date:today(),mode:'UPI',ref:'',depositTo:'',remarks:'',err:{}};render();window.scrollTo(0,0)},
+ recpay2back(){M('bills').pay2=null;render();window.scrollTo(0,0)},
+ pay2client(t){const m=M('bills');m.pay2.clientId=t.dataset.id;m.pay2.projectId='';m.pay2.sel={};render()},
+ pay2proj(t){const m=M('bills');m.pay2.projectId=t.dataset.id;m.pay2.sel={};render()},
+ pay2tog(t){const m=M('bills'),id=t.dataset.id;if(m.pay2.sel[id])delete m.pay2.sel[id];else m.pay2.sel[id]=true;render()},
+ pay2fill(){const m=M('bills'),p=m.pay2,ids=Object.keys(p.sel);const bal=r2(ids.reduce((a,id)=>{const i=D().invoices.find(x=>x.id===id);return a+(i?balOf(i):0)},0));p.amount=String(bal);render()},
+ async recpay2(){const m=M('bills'),p=m.pay2,e={},ids=Object.keys(p.sel);
+  if(!ids.length)e.sel='Choose at least one invoice';
+  const a=num(p.amount),tds=num(p.tds)||0,bal=r2(ids.reduce((x,id)=>{const i=D().invoices.find(y=>y.id===id);return x+(i?balOf(i):0)},0));
+  if(!(a>0))e.amount='Enter an amount greater than 0';else if(r2(a+tds)>bal+0.004)e.amount='More than the balance of the selected bills ('+inr(bal)+')';
+  if(!p.date)e.date='Choose the payment date';
+  if(Object.keys(e).length){p.err=e;render();return}
+  if(S.busy)return;S.busy=true;render();
+  try{const r=await api('POST','/api/clients/'+p.clientId+'/apply-payment',{invoiceIds:ids,amount:r2(a),tds:r2(tds),date:p.date,mode:p.mode,ref:p.ref.trim(),depositTo:p.depositTo.trim(),remarks:p.remarks.trim()});(r.payments||[]).forEach(x=>upsertLocal('payments',x))}
+  catch(er){S.busy=false;p.err={amount:er.message};render();return}
+  S.busy=false;m.pay2=null;toast('Payment of '+inr(r2(a))+' recorded');render();window.scrollTo(0,0)},
  exptile(){M('bills').tab='vendors';render();window.scrollTo(0,0)},
  blclient(t){M('bills').cid=t.dataset.id;render();window.scrollTo(0,0)},
  blclientback(){M('bills').cid=null;render();window.scrollTo(0,0)},
@@ -2101,17 +2205,24 @@ const ACT={
   const p={id:'p'+rid(),clientId:c.id,name:np.name.trim(),site:(np.site||'').trim()||c.address||''};
   if(!(await createRec('projects',p)))return;
   m.np={name:'',site:''};toast('Project added');render()},
- addclient(){const m=M('clients'),n=D().clients.length+1;m.adding=true;m.nc={name:'',code:'CL-'+pad(n,3),address:'',gst:'',terms:'Credit',creditDays:String(D().settings.creditDays||30),contact:'',phone:'',err:{}};render();window.scrollTo(0,0)},
+ addclient(){const m=M('clients'),n=D().clients.length+1;m.adding=true;m.nc={name:'',code:'CL-'+pad(n,3),address:'',gst:'',gstRegistered:true,clientType:'Pvt Ltd',pan:'',state:'',billingAddress:'',terms:'Credit',creditDays:String(D().settings.creditDays||30),contact:'',phone:'',accEmail:'',accMobile:'',invEmail:'',invWhatsapp:'',repEmail:'',repWhatsapp:'',creditLimit:'',billingMode:'Per part, as each report is approved',tds:'0',poRequired:false,err:{}};render();window.scrollTo(0,0)},
  cladd0(){M('clients').adding=false;render();window.scrollTo(0,0)},
+ gstfetch(){const m=M('clients'),n=m.nc,g=(n.gst||'').trim().toUpperCase();
+  if(g.length!==15){n.err={gst:'GSTIN should be 15 characters'};render();return}
+  const st=GST_STATES[g.slice(0,2)];if(!st){n.err={gst:'Unrecognised state code'};render();return}
+  n.state=st;n.pan=g.slice(2,12);n.err={};toast('State and PAN read from the GSTIN');render()},
  async savecl(){const m=M('clients'),n=m.nc,e={};
   if(!n.name.trim())e.name='Enter the client name';
   if(!n.code.trim())e.code='Enter a client code';else if(D().clients.some(c=>c.code.toLowerCase()===n.code.trim().toLowerCase()))e.code='This code is already used';
   if(!n.address.trim())e.address='Enter the address';
-  if(n.gst.trim()&&n.gst.trim().length!==15)e.gst='GST number should be 15 characters';
+  if(n.gstRegistered&&n.gst.trim()&&n.gst.trim().length!==15)e.gst='GST number should be 15 characters';
   if(n.terms==='Credit'&&!(num(n.creditDays)>0))e.creditDays='Enter credit days';
   if(n.phone.trim()&&!/^\d{10}$/.test(n.phone.trim()))e.phone='Enter a 10-digit phone number';
   if(Object.keys(e).length){n.err=e;render();toast('Please fix the highlighted fields',1);return}
-  const c={id:'c'+rid(),code:n.code.trim(),name:n.name.trim(),address:n.address.trim(),gst:n.gst.trim().toUpperCase(),terms:n.terms,creditDays:n.terms==='Credit'?String(n.creditDays):'0',contact:n.contact.trim(),phone:n.phone.trim(),rates:{}};
+  const c={id:'c'+rid(),code:n.code.trim(),name:n.name.trim(),address:n.address.trim(),gst:n.gstRegistered?n.gst.trim().toUpperCase():'',gstRegistered:n.gstRegistered,clientType:n.clientType,pan:n.pan,state:n.state,billingAddress:(n.billingAddress||n.address).trim(),
+   terms:n.terms,creditDays:n.terms==='Credit'?String(n.creditDays):'0',contact:n.contact.trim(),phone:n.phone.trim(),rates:{},
+   accEmail:n.accEmail.trim(),accMobile:n.accMobile.trim(),invEmail:n.invEmail.trim(),invWhatsapp:n.invWhatsapp.trim(),repEmail:n.repEmail.trim(),repWhatsapp:n.repWhatsapp.trim(),
+   creditLimit:n.creditLimit,billingMode:n.billingMode,tds:n.tds,poRequired:!!n.poRequired};
   if(!(await createRec('clients',c)))return;
   m.adding=false;m.clientId=c.id;m.tab='overview';toast('Client added');render();window.scrollTo(0,0)},
  /* admin */
