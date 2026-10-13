@@ -11,6 +11,14 @@ off this list when it's actually built (and say so in the commit message).
   access by role is already enforced server-side (every route/collection checks role), matching
   the spec's matrix in substance, but it's hardcoded in server.js rather than an editable
   Users/Roles table an admin can change from the UI.
+- **Rule 8, "Credit client: invoice + report sent together"** — currently every client, Credit
+  or Advance, still needs an explicit "Mark as sent" step from Accounts after a report is
+  approved (Advance correctly stays blocked until paid; Credit isn't blocked, but still needs that
+  manual click). I tried auto-marking Credit reports as sent the moment they're approved and it
+  broke two existing tests that explicitly expect "approved" and "sent" to stay separate stages
+  regardless of billing terms — so that manual step looks intentional (a last review before a
+  report leaves the building), not an oversight. Didn't want to silently remove a review step for
+  real client-facing reports without you confirming that's what you want.
 - **Billing screens 1–13 exact restructure** (master spec). Most already exist and work the
   same way (quotation, to-invoice, client master, payment history, record payment) — this is
   mostly renaming/reflow to match the spec's exact screen list, not new functionality.
