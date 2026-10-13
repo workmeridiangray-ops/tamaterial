@@ -160,6 +160,13 @@ textarea.in{min-height:84px;resize:vertical}
 .mod{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-height:92px;padding:12px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;font-size:13px;font-weight:600;min-width:0}
 .mod:active{background:var(--wash)}
 .mod .ic{color:var(--ink)}
+.tiles2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0}
+.tile2{background:var(--surface);border:1px solid var(--line);border-radius:14px;min-height:118px;padding:16px 14px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;text-align:left;min-width:0;box-shadow:var(--shadow)}
+.tile2:active{background:var(--wash)}
+.tile2 .ic{color:var(--acc-ink)}
+.tile2 b{font-size:14px;font-weight:700;overflow-wrap:anywhere}
+.tile2 span{font-size:12px;color:var(--g1);line-height:1.3}
+.tile2.hot{border-color:var(--acc);box-shadow:inset 0 3px 0 var(--acc)}
 
 /* wizard */
 .wz{min-height:100vh;background:var(--paper)}
@@ -733,7 +740,7 @@ function fld(label,inner,err,hint){return '<div class="fld"><label class="lbl">'
 function chipRow(sp,cur,opts){return '<div class="chips">'+opts.map(x=>'<button type="button" class="chip'+(String(cur)===String(x[0])?' on':'')+'" data-act="set" data-sp="'+sp+'" data-v="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div>'}
 const goA=(r,set)=>'data-go="'+r+'"'+(set?' data-set="'+esc(JSON.stringify(set))+'"':'');
 const M=r=>S.m[r]||(S.m[r]=defs(r));
-function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null,day:null,month:null,sendId:null,send:null,sentDone:null},reviews:{month:null,day:null,sampleId:null,remark:'',ret:false,reason:'',sign:false,done:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{tab:'bills',f:'All',q:'',invId:null,pay:null,cid:null,pf:'All',pq:'',vid:null,vnew:null,vpay:null,vf:'Unpaid'},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null,wo:null},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null},quotes:{tab:'all',id:null,ed:null,q:''},tickets:{tab:'open',id:null,adding:false,nt:null,reply:''}})[r]||{}}
+function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null,day:null,month:null,sendId:null,send:null,sentDone:null},reviews:{month:null,day:null,sampleId:null,remark:'',ret:false,reason:'',sign:false,done:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{tab:null,f:'All',q:'',invId:null,pay:null,cid:null,pf:'All',pq:'',vid:null,vnew:null,vpay:null,vf:'Unpaid'},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null,wo:null},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null},quotes:{tab:'all',id:null,ed:null,q:''},tickets:{tab:'open',id:null,adding:false,nt:null,reply:''}})[r]||{}}
 function go(r,set){S.route=r;S.m[r]=Object.assign(defs(r),set||{});window.scrollTo(0,0);render()}
 const pgHead=(title,backAct,sub)=>'<div class="pg">'+(backAct?'<button class="ibtn" data-act="'+backAct+'" aria-label="Back">'+ic('back')+'</button>':'')+'<div class="grow"><h1>'+title+'</h1>'+(sub?'<div class="mut sm">'+sub+'</div>':'')+'</div></div>';
 const empty=t=>'<div class="empty">'+t+'</div>';
@@ -853,7 +860,8 @@ function clientDetail(m){
  }else if(m.tab==='rates'){
   body='<div class="card"><h3 style="margin-bottom:8px">Rates in use today</h3>'+D().tests.map(t=>{const ri=rateInfoC(c,t);return '<div class="pgn"><div class="grow"><b>'+esc(t.name)+'</b><div class="xs mut">'+esc(ri.src)+'</div></div><b>'+inr(ri.rate)+'</b></div>'}).join('')+'<p class="hint">Work order rates win, then the list below, then the standard rate.</p></div><div class="card"><p class="hint" style="margin:0 0 14px">Price per test for this client. Leave blank to use the standard rate.</p>'+D().tests.map(t=>fld(esc(t.name)+' <span class="mut xs">(per '+esc(t.unit)+')</span>',inp(P+'rates.'+t.id,(c.rates&&c.rates[t.id])||'',{mode:'decimal',ph:'Standard '+inr(t.rate)}))).join('')+'<p class="hint">Saved automatically.</p></div>';
  }
- return pgHead(esc(c.name),'clback','<span class="mono">'+esc(c.code)+'</span> · '+esc(c.terms))+tabsBar('cltab',m.tab,tabs)+body;
+ const pend=canMoney()?r2(D().invoices.filter(i=>i.clientId===c.id).reduce((a,i)=>a+balOf(i),0)):0;
+ return pgHead(esc(c.name),'clback','<span class="mono">'+esc(c.code)+'</span> · '+esc(c.terms)+(canMoney()?' · <b>'+(pend>0?inr(pend)+' pending':'No balance due')+'</b>':''))+tabsBar('cltab',m.tab,tabs)+body;
 }
 function woTab(c,m){
  if(m.wo)return woForm(c,m);
@@ -1695,6 +1703,7 @@ function billsView(){
  if(m.vnew)return vendorForm(m);
  if(m.vid)return vendorDetail(m);
  if(m.cid&&S.online)return clientBillsDetail(m);
+ if(S.online&&!m.tab)return billsHub(m);
  const T=today(),inv=D().invoices,billed=r2(inv.reduce((a,i)=>a+i.total,0)),rec=r2(inv.reduce((a,i)=>a+paidOf(i),0)),odl=inv.filter(i=>balOf(i)>0&&i.due<T),odv=r2(odl.reduce((a,i)=>a+balOf(i),0));
  const toInv=S.online?D().jobs.filter(j=>j.status==='done'&&!j.invoiced):[];
  const tabs=S.online?tabsBar('bltab',m.tab,[['bills','Bills'],['toinvoice','To invoice ('+toInv.length+')'],['clients','Clients'],['payments','Payments'],['vendors','Vendors']]):'';
@@ -1702,7 +1711,19 @@ function billsView(){
  const tab=S.online?m.tab:'bills';
  let body;
  if(tab==='clients')body=billClientsBody(m);else if(tab==='payments')body=billPaymentsBody(m);else if(tab==='vendors')body=vendorsBody(m);else if(tab==='toinvoice')body=toInvoiceBody(m);else body=billsListBody(m);
- return pgHead('Bills & payments')+stats+tabs+body;
+ return pgHead('Bills & payments',S.online?'blhome':null)+tabs+body;
+}
+function billsHub(m){
+ const T=today(),inv=D().invoices,pend=r2(inv.reduce((a,i)=>a+balOf(i),0)),odl=inv.filter(i=>balOf(i)>0&&i.due<T);
+ const toInv=D().jobs.filter(j=>j.status==='done'&&!j.invoiced).length;
+ const V=VB(),vpay=r2(V.reduce((a,v)=>a+vBal(v),0));
+ const tiles=[
+  ['receipt','New quotation','Price a job for a client','qtile',0],
+  ['chart','Bill &amp; payment dashboard',inr(pend)+' pending'+(odl.length?' · '+odl.length+' overdue':''),'bltile',odl.length>0],
+  ['clip','To invoice',toInv?toInv+' test'+(toInv===1?'':'s')+' ready to bill':'All caught up','toinvtile',toInv>0],
+  ['receipt','Expenses',vpay>0?inr(vpay)+' to pay vendors':'No vendor bills due','exptile',0]
+ ];
+ return pgHead('Billing')+'<div class="tiles2">'+tiles.map(t=>'<button class="tile2'+(t[4]?' hot':'')+'" data-act="'+t[3]+'">'+ic(t[0],24)+'<b>'+t[1]+'</b><span>'+t[2]+'</span></button>').join('')+'</div>';
 }
 function toInvoiceBody(m){
  const rows=D().jobs.filter(j=>j.status==='done'&&!j.invoiced).map(j=>{const s=sm(j.sampleId)||{};return{j:j,s:s}}).filter(x=>x.s.id).sort((a,b)=>a.j.doneOn<b.j.doneOn?1:-1);
@@ -1991,6 +2012,11 @@ const ACT={
  revdoneback(){const m=M('reviews');m.done=null;render();window.scrollTo(0,0)},
  /* bills & payments */
  bltab(t){M('bills').tab=t.dataset.v;render()},
+ blhome(){M('bills').tab=null;render();window.scrollTo(0,0)},
+ qtile(){S.route='quotes';S.m.quotes=Object.assign(defs('quotes'),{ed:newQuote()});render();window.scrollTo(0,0)},
+ bltile(){M('bills').tab='bills';render();window.scrollTo(0,0)},
+ toinvtile(){M('bills').tab='toinvoice';render();window.scrollTo(0,0)},
+ exptile(){M('bills').tab='vendors';render();window.scrollTo(0,0)},
  blclient(t){M('bills').cid=t.dataset.id;render();window.scrollTo(0,0)},
  blclientback(){M('bills').cid=null;render();window.scrollTo(0,0)},
  vnew(){M('bills').vnew={vendor:'',desc:'',category:'calibration',billNo:'',date:today(),due:addDays(today(),15),amount:'',err:{}};render();window.scrollTo(0,0)},
