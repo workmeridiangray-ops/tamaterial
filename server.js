@@ -673,7 +673,12 @@ function sendReport(u, id, b) {
   s.reportStatus = 'sent'; s.sentOn = L.today(); s.sendGeo = geo;
   return tx(() => put('samples', s, u, 'send', s.uid + ' marked as sent' + geoTxt(geo)));
 }
-const paidOf = inv => L.r2(all('payments').filter(p => p.invoiceId === inv.id).reduce((a, p) => a + (+p.amount), 0));
+// A cheque payment is only real money once it clears: it starts "Deposited" (invoice stays due) and
+// either becomes "Cleared" (counts as paid) or "Bounced" (never did, invoice reopens). Cash/UPI/bank
+// transfer/NEFT are credited immediately. Older payments saved before this status existed have no
+// field at all, so an absent status is treated as Credited (unchanged behaviour for them).
+const payCounts = p => p.status !== 'Deposited' && p.status !== 'Bounced';
+const paidOf = inv => L.r2(all('payments').filter(p => p.invoiceId === inv.id && payCounts(p)).reduce((a, p) => a + (+p.amount), 0));
 const balanceOf = inv => L.r2(inv.total - paidOf(inv));
 function recordPayment(u, invId, b) {
   const inv = get('invoices', invId); if (!inv) bad('Invoice not found', 404);
@@ -684,8 +689,20 @@ function recordPayment(u, invId, b) {
   if (!L.isDate(b.date) || b.date > L.today()) bad('Choose a valid payment date (not in the future)');
   if (!['Cash', 'UPI', 'Bank transfer', 'Cheque'].includes(b.mode)) bad('Choose a payment mode');
   const geo = geoOf(b, false);
-  const p = { id: 'pay' + rid(), invoiceId: inv.id, amount, date: b.date, mode: b.mode, ref: str(b.ref, 60), geo, at: new Date().toISOString() };
-  return tx(() => { put('payments', p, u, 'payment', inv.no + ' · ₹' + amount + ' via ' + p.mode + geoTxt(geo)); return { payment: p }; });
+  const status = b.mode === 'Cheque' ? 'Deposited' : 'Credited';
+  const p = { id: 'pay' + rid(), invoiceId: inv.id, amount, date: b.date, mode: b.mode, ref: str(b.ref, 60), status, geo, at: new Date().toISOString() };
+  return tx(() => { put('payments', p, u, 'payment', inv.no + ' · ₹' + amount + ' via ' + p.mode + (status === 'Deposited' ? ' (cheque deposited, pending clearance)' : '') + geoTxt(geo)); return { payment: p }; });
+}
+function chequeTransition(u, id, to) {
+  const p = get('payments', id); if (!p) bad('Payment not found', 404);
+  if (p.mode !== 'Cheque') bad('Only a cheque payment has a clearance status', 409);
+  if (p.status !== 'Deposited') bad('This cheque is already ' + (p.status || 'Credited'), 409);
+  const inv = get('invoices', p.invoiceId);
+  return tx(() => {
+    p.status = to;
+    put('payments', p, u, 'payment', (inv ? inv.no : p.invoiceId) + ' · cheque ' + p.ref + ' marked ' + to.toLowerCase() + ' (₹' + p.amount + ')');
+    return { payment: p };
+  });
 }
 /* One payment can be split across several of a client's bills: applied oldest-first, TDS counted as settled without being cash received. */
 function applyClientPayment(u, clientId, b) {
@@ -701,6 +718,7 @@ function applyClientPayment(u, clientId, b) {
   let remaining = L.r2(cash + tds);
   if (remaining > totalBal + 0.004) bad('Amount is more than the total balance of the selected invoices (₹' + totalBal + ')');
   const geo = geoOf(b, false), groupId = 'pg' + rid(), at = new Date().toISOString(), created = [];
+  const status = b.mode === 'Cheque' ? 'Deposited' : 'Credited';
   return tx(() => {
     let tdsLeft = tds;
     invs.forEach(inv => {
@@ -708,8 +726,8 @@ function applyClientPayment(u, clientId, b) {
       const bal = balanceOf(inv), applied = Math.min(bal, remaining);
       const tdsHere = Math.min(tdsLeft, applied); tdsLeft = L.r2(tdsLeft - tdsHere);
       const cashHere = L.r2(applied - tdsHere);
-      const p = { id: 'pay' + rid(), invoiceId: inv.id, amount: applied, cash: cashHere, tds: tdsHere, date: b.date, mode: b.mode, ref: str(b.ref, 60), depositTo: str(b.depositTo, 80), remarks: str(b.remarks, 300), groupId, geo, at };
-      put('payments', p, u, 'payment', inv.no + ' · ₹' + applied + ' via ' + p.mode + (tdsHere ? ' (incl. ₹' + tdsHere + ' TDS)' : '') + geoTxt(geo));
+      const p = { id: 'pay' + rid(), invoiceId: inv.id, amount: applied, cash: cashHere, tds: tdsHere, date: b.date, mode: b.mode, ref: str(b.ref, 60), depositTo: str(b.depositTo, 80), remarks: str(b.remarks, 300), status, groupId, geo, at };
+      put('payments', p, u, 'payment', inv.no + ' · ₹' + applied + ' via ' + p.mode + (tdsHere ? ' (incl. ₹' + tdsHere + ' TDS)' : '') + (status === 'Deposited' ? ' (cheque deposited, pending clearance)' : '') + geoTxt(geo));
       created.push(p);
       remaining = L.r2(remaining - applied);
     });
@@ -898,6 +916,8 @@ route('GET', /^\/api\/workorders\/([\w-]+)\/file$/, ['admin', 'accounts'], c => 
 route('POST', /^\/api\/samples\/([\w-]+)\/send$/, ['admin', 'accounts'], c => ({ sample: sendReport(c.u, c.m[1], c.body) }));
 route('POST', /^\/api\/invoices\/([\w-]+)\/payments$/, ['admin', 'accounts'], c => recordPayment(c.u, c.m[1], c.body));
 route('POST', /^\/api\/clients\/([\w-]+)\/apply-payment$/, ['admin', 'accounts'], c => applyClientPayment(c.u, c.m[1], c.body));
+route('POST', /^\/api\/payments\/([\w-]+)\/clear$/, ['admin', 'accounts'], c => chequeTransition(c.u, c.m[1], 'Cleared'));
+route('POST', /^\/api\/payments\/([\w-]+)\/bounce$/, ['admin', 'accounts'], c => chequeTransition(c.u, c.m[1], 'Bounced'));
 route('POST', /^\/api\/users$/, ['admin'], c => adminUsers(c.u, 'POST', null, c.body));
 route('PUT', /^\/api\/users\/([\w-]+)$/, ['admin'], c => adminUsers(c.u, 'PUT', c.m[1], c.body));
 route('POST', /^\/api\/admin\/reset$/, ['admin'], c => resetDemo(c.u, c.body));

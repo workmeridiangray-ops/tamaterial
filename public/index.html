@@ -483,7 +483,8 @@ const sm=id=>D().samples.find(x=>x.id===id)||null;
 const jobsOf=sid=>D().jobs.filter(j=>j.sampleId===sid);
 const invoicesOf=s=>D().invoices.filter(i=>i.sampleId===s.id);
 const unpaidInvOf=s=>invoicesOf(s).find(i=>balOf(i)>0)||null;
-const paidOf=i=>r2(D().payments.filter(p=>p.invoiceId===i.id).reduce((a,p)=>a+(+p.amount),0));
+const payCounts=p=>p.status!=='Deposited'&&p.status!=='Bounced';
+const paidOf=i=>r2(D().payments.filter(p=>p.invoiceId===i.id&&payCounts(p)).reduce((a,p)=>a+(+p.amount),0));
 const balOf=i=>r2(i.total-paidOf(i));
 function bstat(i){const b=balOf(i);if(b<=0)return'Paid';if(i.due<today())return'Overdue';if(paidOf(i)>0)return'Part paid';return'Unpaid'}
 const bcls=s=>({Paid:'ok',Overdue:'bad','Part paid':'warn',Unpaid:'warn'}[s]||'');
@@ -1791,17 +1792,20 @@ function projectSums(){
   return{p:p,c:cl(p.clientId),n:ii.length,b:b,r:r,pend:r2(b-r),od:ii.filter(i=>balOf(i)>0&&i.due<today()).length}}).filter(x=>x.n>0).sort((a,b)=>b.pend-a.pend);
 }
 function payHistBody(m){
- const inv=D().invoices,pays=D().payments,billed=r2(inv.reduce((a,i)=>a+i.total,0)),cleared=r2(pays.reduce((a,p)=>a+(p.cash!=null?p.cash+p.tds:+p.amount),0));
+ const inv=D().invoices,pays=D().payments,billed=r2(inv.reduce((a,i)=>a+i.total,0)),cleared=r2(pays.filter(payCounts).reduce((a,p)=>a+(p.cash!=null?p.cash+p.tds:+p.amount),0));
  const pend=inv.filter(i=>balOf(i)>0),pendV=r2(pend.reduce((a,i)=>a+balOf(i),0)),odCnt=pend.filter(i=>i.due<today()).length;
- const chq=pays.filter(p=>p.mode==='Cheque'&&p.cleared===false),chqV=r2(chq.reduce((a,p)=>a+(+p.amount),0));
+ const chq=pays.filter(p=>p.mode==='Cheque'&&p.status==='Deposited'),chqV=r2(chq.reduce((a,p)=>a+(+p.amount),0));
  const q=(m.pq||'').toLowerCase().trim(),view=m.phv||'project';
  const stat=(lbl,big,sub,cls)=>'<div class="stat'+(cls?' '+cls:'')+'"><b>'+big+'</b><span>'+lbl+'</span>'+(sub?'<div class="xs mut" style="margin-top:2px">'+sub+'</div>':'')+'</div>';
  const top='<p class="mut sm" style="margin-bottom:10px">All invoices and payments, since the first invoice. No period filter.</p>'+
   '<div class="stats">'+stat('Invoices raised',inv.length,inr(billed)+' billed')+stat('Cleared',pays.length,inr(cleared)+' received')+stat('Pending',pend.length,inr(pendV)+(odCnt?' · '+odCnt+' overdue':''),'hot')+(chq.length?stat('Cheques to clear',chq.length,inr(chqV)+' deposited'):'')+'</div>'+
   searchBox('m.bills.pq',m.pq,'Search client, project, invoice or reference')+
-  '<div class="chips" style="margin:10px 0">'+[['project','By project'],['all','All invoices']].map(x=>'<button class="chip'+(view===x[0]?' on':'')+'" data-act="phview" data-v="'+x[0]+'">'+x[1]+' ('+(x[0]==='project'?projectSums().length:inv.length)+')</button>').join('')+'</div>';
+  '<div class="chips" style="margin:10px 0">'+[['project','By project'],['all','All invoices'],['cheques','Cheques to clear ('+chq.length+')']].map(x=>'<button class="chip'+(view===x[0]?' on':'')+'" data-act="phview" data-v="'+x[0]+'">'+x[1]+(x[0]==='project'?' ('+projectSums().length+')':x[0]==='all'?' ('+inv.length+')':'')+'</button>').join('')+'</div>';
  let body;
- if(view==='all'){
+ if(view==='cheques'){
+  body=chq.map(p=>{const i=D().invoices.find(x=>x.id===p.invoiceId)||{};return '<div class="card"><div class="t mono">'+esc(i.no||p.invoiceId)+'</div><div class="s">'+esc(cl(i.clientId).name)+' · '+fd(p.date)+' · '+inr(p.amount)+(p.ref?' · ref '+esc(p.ref):'')+'</div>'+
+   '<div class="row-btns" style="margin-top:10px;display:flex;gap:8px"><button class="btn ok" style="flex:1" data-act="chqclear" data-id="'+p.id+'">Mark cleared</button><button class="btn bad" style="flex:1" data-act="chqbounce" data-id="'+p.id+'">Mark bounced</button></div></div>'}).join('')||empty('No cheques are waiting to clear.');
+ }else if(view==='all'){
   const L=inv.filter(i=>!q||((cl(i.clientId).name||'')+' '+i.no+' '+(i.reportNo||'')).toLowerCase().indexOf(q)>=0).sort((a,b)=>a.date<b.date?1:-1);
   body=L.map(i=>{const st=bstat(i);return '<button class="row" data-act="openinv" data-id="'+i.id+'"><div class="grow"><div class="t mono">'+esc(i.no)+'</div><div class="s">'+esc(cl(i.clientId).name)+' · '+fd(i.date)+' · '+inr(i.total)+' · balance '+inr(balOf(i))+'</div></div>'+bdg(st,bcls(st))+'</button>'}).join('')||empty('No invoices match.');
  }else{
@@ -2201,6 +2205,8 @@ const ACT={
  invback(){const m=M('bills');m.invId=null;m.pay=null;render();window.scrollTo(0,0)},
  payfill(){const m=M('bills'),i=D().invoices.find(x=>x.id===m.invId);if(m.pay){m.pay.amount=String(balOf(i));render()}},
  recpay(){recordPay()},
+ async chqclear(t){if(S.busy)return;S.busy=true;render();try{const r=await api('POST','/api/payments/'+t.dataset.id+'/clear',{});upsertLocal('payments',r.payment);toast('Cheque marked cleared')}catch(e){toast(e.message,1)}S.busy=false;render()},
+ async chqbounce(t){if(S.busy)return;S.busy=true;render();try{const r=await api('POST','/api/payments/'+t.dataset.id+'/bounce',{});upsertLocal('payments',r.payment);toast('Cheque marked bounced — invoice reopened')}catch(e){toast(e.message,1)}S.busy=false;render()},
  /* clients */
  opencl(t){const m=M('clients');m.clientId=t.dataset.id;m.tab='overview';m.openProj=null;render();window.scrollTo(0,0)},
  clback(){const m=M('clients');m.clientId=null;render();window.scrollTo(0,0)},
