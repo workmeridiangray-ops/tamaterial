@@ -107,7 +107,10 @@ function pinOk(u, pin) {
   if (!u.salt || !u.hash) return false;            /* Google-only user: no PIN set */
   try { return crypto.timingSafeEqual(Buffer.from(hashPin(pin, u.salt), 'hex'), Buffer.from(u.hash, 'hex')); } catch (e) { return false; }
 }
-const pubUser = (u, full) => full ? { id: u.id, login: u.login, email: u.email || '', name: u.name, role: u.role, active: u.active } : { id: u.id, name: u.name, role: u.role, active: u.active };
+// signatory is reviewer-only and defaults to true (an existing reviewer with the field unset,
+// from before this flag existed, keeps signing exactly as before) — only an explicit false locks it.
+const isSignatory = u => u.role === 'reviewer' && u.signatory !== false;
+const pubUser = (u, full) => full ? { id: u.id, login: u.login, email: u.email || '', name: u.name, role: u.role, active: u.active, authorisedTests: u.authorisedTests || [], signatory: u.role === 'reviewer' ? isSignatory(u) : false } : { id: u.id, name: u.name, role: u.role, active: u.active };
 const sha = t => crypto.createHash('sha256').update(t).digest('hex');
 function newSession(userId) {
   const token = crypto.randomBytes(32).toString('hex');
@@ -511,6 +514,7 @@ function createSample(u, b) {
   const sig = String(rep.sig || ''); if (!/^data:image\/png;base64,/.test(sig) || sig.length > 300000) bad('A signature is required');
   const photo = String(b.photo || ''); if (photo && (!/^data:image\/(jpeg|png);base64,/.test(photo) || photo.length > 2e6)) bad('Photo is not valid or too large');
   const asg = get('users', b.assignee); if (!asg || asg.role !== 'tester' || !asg.active) bad('Choose an active tester');
+  if (Array.isArray(asg.authorisedTests) && asg.authorisedTests.length && !asg.authorisedTests.includes(test.id)) bad(asg.name + ' is not authorised for ' + test.name + ' (NABL competence)');
   const dd = b.d || {}, d = {};
   if (test.kind === 'cube') {
     const ages = Array.isArray(dd.ages) ? dd.ages.map(Number).filter((a, i, arr) => [7, 14, 28].includes(a) && arr.indexOf(a) === i).sort((a, c) => a - c) : [];
@@ -647,6 +651,7 @@ function approveReport(u, id, b) {
   const s = get('samples', id); if (!s) bad('Sample not found', 404);
   if (s.reportStatus !== 'awaiting') bad('Only a report that is awaiting approval can be approved', 409);
   if (s.review && s.review.to && u.role === 'reviewer' && s.review.to !== u.id) bad('This report was sent to ' + s.review.toName, 403);
+  if (u.role === 'reviewer' && !isSignatory(u)) bad('You are not an authorised signatory for final reports — ask an admin to sign this one', 403);
   if (s.review && b.confirm !== true) bad('Tick the box to sign the report');
   return tx(() => {
     const now = new Date().toISOString(), num = parseInt(s.uid.slice(-6), 10);
@@ -747,7 +752,9 @@ function adminUsers(u, method, id, b) {
       c = newCred(b.pin);
     } else if (!email) bad('Give a login name and PIN, or an email for Google sign-in');
     if (!ROLES.includes(b.role)) bad('Choose a role');
-    const rec = { id: 'u_' + rid(), login, email, name: str(b.name, 60, { req: 'Enter the full name' }), role: b.role, active: true, salt: c.salt, hash: c.hash };
+    const allTestIds = all('tests').map(x => x.id);
+    const authorisedTests = Array.isArray(b.authorisedTests) ? b.authorisedTests.filter(x => allTestIds.includes(x)) : [];
+    const rec = { id: 'u_' + rid(), login, email, name: str(b.name, 60, { req: 'Enter the full name' }), role: b.role, active: true, salt: c.salt, hash: c.hash, authorisedTests, signatory: b.role === 'reviewer' ? b.signatory !== false : false };
     return tx(() => { put('users', rec, u, 'create', 'User ' + (login || email) + ' (' + rec.role + ') added'); return pubUser(rec, true); });
   }
   const cur = get('users', id); if (!cur) bad('User not found', 404);
@@ -757,6 +764,8 @@ function adminUsers(u, method, id, b) {
   if (b.active != null) next.active = !!b.active;
   if (b.email != null) { const em = str(b.email, 120).toLowerCase(); if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) bad('Enter a valid email address'); if (em && all('users').some(x => x.id !== id && (x.email || '') === em)) bad('This email is already added'); next.email = em; }
   if (b.pin != null && b.pin !== '') { if (!/^\d{4,8}$/.test(String(b.pin))) bad('PIN must be 4 to 8 digits'); Object.assign(next, newCred(b.pin)); }
+  if (b.authorisedTests != null) { const allTestIds = all('tests').map(x => x.id); next.authorisedTests = Array.isArray(b.authorisedTests) ? b.authorisedTests.filter(x => allTestIds.includes(x)) : []; }
+  if (b.signatory != null) next.signatory = !!b.signatory;
   if (id === u.id && (!next.active || next.role !== 'admin')) bad('You cannot disable or demote your own account');
   const others = all('users').filter(x => x.id !== id && x.active && x.role === 'admin').length;
   if (cur.role === 'admin' && (!next.active || next.role !== 'admin') && others === 0) bad('Keep at least one active admin');

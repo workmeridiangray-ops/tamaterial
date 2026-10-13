@@ -758,7 +758,7 @@ function fld(label,inner,err,hint){return '<div class="fld"><label class="lbl">'
 function chipRow(sp,cur,opts){return '<div class="chips">'+opts.map(x=>'<button type="button" class="chip'+(String(cur)===String(x[0])?' on':'')+'" data-act="set" data-sp="'+sp+'" data-v="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div>'}
 const goA=(r,set)=>'data-go="'+r+'"'+(set?' data-set="'+esc(JSON.stringify(set))+'"':'');
 const M=r=>S.m[r]||(S.m[r]=defs(r));
-function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null,day:null,month:null,sendId:null,send:null,sentDone:null},reviews:{month:null,day:null,sampleId:null,remark:'',ret:false,reason:'',sign:false,done:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{tab:null,f:'All',q:'',invId:null,pay:null,cid:null,pf:'All',pq:'',vid:null,vnew:null,vpay:null,vf:'Unpaid'},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null,wo:null,rbf:{testId:'',projectId:'',rate:'',effectiveFrom:today(),reason:'',err:{}}},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null},quotes:{tab:'all',id:null,ed:null,q:''},tickets:{tab:'open',id:null,adding:false,nt:null,reply:''}})[r]||{}}
+function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null,day:null,month:null,sendId:null,send:null,sentDone:null},reviews:{month:null,day:null,sampleId:null,remark:'',ret:false,reason:'',sign:false,done:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{tab:null,f:'All',q:'',invId:null,pay:null,cid:null,pf:'All',pq:'',vid:null,vnew:null,vpay:null,vf:'Unpaid'},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null,wo:null,rbf:{testId:'',projectId:'',rate:'',effectiveFrom:today(),reason:'',err:{}}},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null,eu:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null},quotes:{tab:'all',id:null,ed:null,q:''},tickets:{tab:'open',id:null,adding:false,nt:null,reply:''}})[r]||{}}
 function go(r,set){S.route=r;S.m[r]=Object.assign(defs(r),set||{});window.scrollTo(0,0);render()}
 const pgHead=(title,backAct,sub)=>'<div class="pg">'+(backAct?'<button class="ibtn" data-act="'+backAct+'" aria-label="Back">'+ic('back')+'</button>':'')+'<div class="grow"><h1>'+title+'</h1>'+(sub?'<div class="mut sm">'+sub+'</div>':'')+'</div></div>';
 const empty=t=>'<div class="empty">'+t+'</div>';
@@ -955,10 +955,16 @@ function addClientView(m){
 function adminView(){
  const m=M('admin');let body='';
  if(m.tab==='users'){
-  const nu=m.nu,e=nu.err||{};
-  body=D().users.map(u=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(u.name)+(u.id===S.user.id?' <span class="mut sm">(you)</span>':'')+'</div><div class="s"><span class="mono">'+esc(u.login||u.email)+'</span>'+(u.login&&u.email?' · '+esc(u.email):'')+' · '+esc(ROLE_LABEL[u.role])+'</div></div>'+bdg(u.active?'Active':'Disabled',u.active?'ok':'bad')+(S.online&&u.active?'<button class="btn sm" data-act="invite" data-id="'+u.id+'">Invite</button> ':'')+'<button class="btn sm" data-act="touser" data-id="'+u.id+'">'+(u.active?'Disable':'Enable')+'</button></div>').join('')+
+  const nu=m.nu,e=nu.err||{},eu=m.eu;
+  body=D().users.map(u=>'<div class="card" style="padding:10px 14px"><div class="row" style="cursor:default;border:0;margin:0;padding:0"><div class="grow"><div class="t">'+esc(u.name)+(u.id===S.user.id?' <span class="mut sm">(you)</span>':'')+'</div><div class="s"><span class="mono">'+esc(u.login||u.email)+'</span>'+(u.login&&u.email?' · '+esc(u.email):'')+' · '+esc(ROLE_LABEL[u.role])+(u.role==='reviewer'?(u.signatory?' · Signatory':' · Not a signatory'):'')+(u.role==='tester'&&u.authorisedTests&&u.authorisedTests.length?' · '+u.authorisedTests.length+' authorised test'+(u.authorisedTests.length===1?'':'s'):'')+'</div></div>'+bdg(u.active?'Active':'Disabled',u.active?'ok':'bad')+(S.online&&u.active?'<button class="btn sm" data-act="invite" data-id="'+u.id+'">Invite</button> ':'')+'<button class="btn sm" data-act="touser" data-id="'+u.id+'">'+(u.active?'Disable':'Enable')+'</button>'+((u.role==='tester'||u.role==='reviewer')?'<button class="btn sm" data-act="edituser" data-id="'+u.id+'">'+(eu===u.id?'Close':'Edit')+'</button>':'')+'</div>'+
+   (eu===u.id?'<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">'+
+    (u.role==='reviewer'?'<label style="display:flex;align-items:center;gap:8px;padding:4px 0"><input type="checkbox" '+(u.signatory?'checked':'')+' data-act="togsig" data-id="'+u.id+'"> Authorised signatory (can sign final reports — NABL)</label>':'')+
+    (u.role==='tester'?'<p class="hint" style="margin:4px 0 8px">Tests this person is authorised (NABL competent) to carry out. Leave none ticked to allow all tests.</p>'+D().tests.map(t=>'<label style="display:flex;align-items:center;gap:8px;padding:3px 0"><input type="checkbox" '+((u.authorisedTests||[]).includes(t.id)?'checked':'')+' data-act="togauth" data-id="'+u.id+'" data-tid="'+t.id+'"> '+esc(t.name)+'</label>').join(''):'')+
+   '</div>':'')+'</div>').join('')+
   '<div class="card" style="margin-top:14px"><h3 style="margin-bottom:12px">Add user</h3>'+fld('Full name',inp('m.admin.nu.name',nu.name,{err:e.name}),e.name)+(S.online?fld('Google email (optional)',inp('m.admin.nu.email',nu.email,{err:e.email,ph:'name@gmail.com'}),e.email,'They can sign in with Google. Leave login and PIN empty for Google-only.'):'')+fld('Login name'+(S.online?' (optional)':''),inp('m.admin.nu.login',nu.login,{err:e.login}),e.login)+
   fld('Role',sel('m.admin.nu.role',nu.role,[['store','Store'],['tester','Tester'],['reviewer','Reviewer'],['accounts','Accounts'],['admin','Admin']]))+fld('PIN (4 digits'+(S.online?', optional':'')+')',inp('m.admin.nu.pin',nu.pin,{mode:'numeric',max:4,err:e.pin}),e.pin)+
+  (nu.role==='tester'?'<p class="hint" style="margin:4px 0 8px">Authorised tests (NABL competence) — leave none ticked to allow all tests. Changeable later from Edit.</p>'+D().tests.map(t=>'<label style="display:flex;align-items:center;gap:8px;padding:3px 0"><input type="checkbox" '+((nu.authorisedTests||[]).includes(t.id)?'checked':'')+' data-act="toggleNuTest" data-tid="'+t.id+'"> '+esc(t.name)+'</label>').join(''):'')+
+  (nu.role==='reviewer'?'<label style="display:flex;align-items:center;gap:8px;padding:6px 0"><input type="checkbox" data-m="m.admin.nu.signatory" '+(nu.signatory!==false?'checked':'')+'> Authorised signatory (can sign final reports)</label>':'')+
   '<button class="btn pri blk" data-act="adduser">Add user</button></div>';
  }else if(m.tab==='tests'){
   body=D().tests.map((t,i)=>'<div class="card">'+fld('Test name',inp('db.tests.'+i+'.name',t.name))+fld('IS code reference',inp('db.tests.'+i+'.code',t.code))+
@@ -2286,10 +2292,20 @@ const ACT={
    if(!/^\d{4}$/.test(n.pin))er.pin='PIN must be 4 digits';
   }
   if(Object.keys(er).length){n.err=er;render();return}
-  const body={name:n.name.trim(),login:n.login.trim().toLowerCase(),pin:n.pin,role:n.role,email:(n.email||'').trim()};
+  const body={name:n.name.trim(),login:n.login.trim().toLowerCase(),pin:n.pin,role:n.role,email:(n.email||'').trim(),authorisedTests:n.authorisedTests||[],signatory:n.signatory!==false};
   if(S.online){try{upsertLocal('users',await api('POST','/api/users',body))}catch(x){n.err={login:x.message};render();return}}
-  else{D().users.push({id:'u_'+rid(),login:body.login,pin:body.pin,name:body.name,role:body.role,active:true});persistNow()}
+  else{D().users.push({id:'u_'+rid(),login:body.login,pin:body.pin,name:body.name,role:body.role,active:true,authorisedTests:body.authorisedTests,signatory:body.signatory});persistNow()}
   m.nu={name:'',email:'',login:'',pin:'',role:'tester',err:{}};toast('User added');render()},
+ toggleNuTest(t){const nu=M('admin').nu,id=t.dataset.tid;nu.authorisedTests=nu.authorisedTests||[];const i=nu.authorisedTests.indexOf(id);if(i>=0)nu.authorisedTests.splice(i,1);else nu.authorisedTests.push(id);render()},
+ edituser(t){const m=M('admin');m.eu=m.eu===t.dataset.id?null:t.dataset.id;render()},
+ async togsig(t){const id=t.dataset.id,u=us(id),v=!u.signatory;
+  if(S.online){try{upsertLocal('users',await api('PUT','/api/users/'+id,{signatory:v}))}catch(x){toast(x.message,1);return}}
+  else{u.signatory=v;persistNow()}
+  toast(us(id).name+(us(id).signatory?' can now sign reports':' can no longer sign reports'));render()},
+ async togauth(t){const id=t.dataset.id,tid=t.dataset.tid,u=us(id),cur=(u.authorisedTests||[]).slice(),i=cur.indexOf(tid);if(i>=0)cur.splice(i,1);else cur.push(tid);
+  if(S.online){try{upsertLocal('users',await api('PUT','/api/users/'+id,{authorisedTests:cur}))}catch(x){toast(x.message,1);return}}
+  else{u.authorisedTests=cur;persistNow()}
+  render()},
  nabl(t){const x=ts(t.dataset.id);x.nabl=!x.nabl;persist();render()},
  addtest(){D().tests.push({id:'t_'+rid(),name:'New test',code:'',rate:'0',nabl:false,kind:'simple',unit:'sample',ru:'value'});persistNow();render();toast('Test added — fill in the details')},
  reset(){S.confirm={title:'Reset demo data?',msg:'This restores the original clients, samples, bills and users. Anything you added or changed will be lost.',label:'Reset everything',act:'resetdo'};render()},
