@@ -139,7 +139,7 @@ function failed(key) {
 }
 
 /* ---------------- seed ---------------- */
-const COLLS = ['users', 'tests', 'clients', 'projects', 'samples', 'jobs', 'invoices', 'payments', 'leads', 'interactions', 'tasks', 'notifications', 'tickets', 'workorders', 'vendorbills', 'quotes'];
+const COLLS = ['users', 'tests', 'clients', 'projects', 'samples', 'jobs', 'invoices', 'payments', 'leads', 'interactions', 'tasks', 'notifications', 'tickets', 'workorders', 'vendorbills', 'quotes', 'ratebook'];
 function seedDb() {                       /* the demo lab: ORG must be 'demo' */
   const seed = buildSeed(), rev = nextRev();
   const ins = st('INSERT INTO records(org,coll,id,data,rev,deleted) VALUES(?,?,?,?,?,0) ON CONFLICT(org,coll,id) DO UPDATE SET data=excluded.data,rev=excluded.rev,deleted=0');
@@ -200,7 +200,7 @@ function shape(u, coll, r, asg) {
     case 'invoices': case 'payments': return MONEY_ROLES.includes(u.role) ? r : null;
     case 'leads': case 'interactions': case 'tasks': return CRM_ROLES.includes(u.role) ? r : null;
     case 'workorders': { if (!MONEY_ROLES.includes(u.role)) return null; const w = Object.assign({}, r); delete w.file; return w; }
-    case 'vendorbills': case 'quotes': return MONEY_ROLES.includes(u.role) ? r : null;
+    case 'vendorbills': case 'quotes': case 'ratebook': return MONEY_ROLES.includes(u.role) ? r : null;
     case 'tickets': return (u.role === 'admin' || r.raisedBy === u.id || r.assignee === u.id) ? r : null;
     case 'notifications': return r.userId === u.id ? r : null;      /* everyone sees only their own */
     default: return null;
@@ -250,7 +250,8 @@ const GENERIC = {
   settings: { roles: ['admin'] },
   workorders: { roles: ['admin', 'accounts'], deletable: true },
   vendorbills: { roles: ['admin', 'accounts'], deletable: true },
-  quotes: { roles: ['admin', 'accounts'], deletable: true }
+  quotes: { roles: ['admin', 'accounts'], deletable: true },
+  ratebook: { roles: ['admin', 'accounts'] }
 };
 const LEAD_STAGES = ['new', 'contacted', 'quoted', 'won', 'lost'];
 const INT_TYPES = ['call', 'visit', 'email', 'whatsapp', 'note'];
@@ -320,6 +321,15 @@ function clean(coll, b, old, actor) {
     const status = ['draft', 'sent', 'accepted', 'rejected'].includes(b.status) ? b.status : 'draft';
     return { id, no, clientId: client ? client.id : '', prospect: client ? '' : prospect, contact: str(b.contact, 80), phone: str(b.phone, 20), subject: str(b.subject, 160), date: L.isDate(b.date) ? b.date : L.today(), validTill: optDate(b.validTill, 'Valid till') || L.addDays(L.today(), 15),
       lines, gstPct, subtotal: sub, gst, total: L.r2(sub + gst), terms: str(b.terms, 1200), notes: str(b.notes, 500), status, workorderId: old ? old.workorderId || '' : '', createdBy: old ? old.createdBy : actor.id };
+  }
+  if (coll === 'ratebook') {
+    if (old) bad('A rate book row is never changed — add a new one instead', 409);
+    if (!get('clients', b.clientId)) bad('Choose the client');
+    if (b.projectId) { const pr = get('projects', b.projectId); if (!pr || pr.clientId !== b.clientId) bad('Choose a project of this client'); }
+    if (!all('tests').some(t => t.id === b.testId)) bad('Choose a test');
+    if (!L.isDate(b.effectiveFrom)) bad('Enter the date this rate takes effect');
+    const rate = money(b.rate, 'Rate'); if (!(rate > 0)) bad('Enter the rate');
+    return { id, clientId: b.clientId, projectId: b.projectId || '', testId: b.testId, rate: String(L.r2(rate)), effectiveFrom: b.effectiveFrom, reason: str(b.reason, 200), createdBy: actor.id, createdOn: L.today() };
   }
   if (coll === 'projects') {
     if (!get('clients', b.clientId)) bad('Unknown client');
@@ -522,8 +532,8 @@ function createSample(u, b) {
     const yy = b.receipt.slice(2, 4);
     const s = { id: 's' + n, uid: 'UID-' + yy + '-' + L.pad(n, 6), ulr: test.nabl ? settings.cert + '-' + yy + '-' + L.pad(n, 6) + '-F' : '', receipt: b.receipt, clientId: client.id, projectId: proj.id, sampledBy: b.sampledBy, billing: b.billing, testId: test.id, mark, d, photo, cond: b.cond, reason, rep: { name: repName, mobile: String(rep.mobile), sig }, assignee: asg.id, createdBy: u.id, reportStatus: 'testing', geo };
     const jobs = test.kind === 'cube'
-      ? d.ages.map(a => ({ id: 'j' + n + '_' + a, sampleId: s.id, age: a, due: L.addDays(d.casting, a), assignee: asg.id, status: 'pending', results: null, remarks: '' }))
-      : [{ id: 'j' + n, sampleId: s.id, age: null, due: d.due, assignee: asg.id, status: 'pending', results: null, remarks: '' }];
+      ? d.ages.map(a => ({ id: 'j' + n + '_' + a, sampleId: s.id, age: a, due: L.addDays(d.casting, a), assignee: asg.id, status: 'pending', results: null, remarks: '', ulr: s.ulr ? s.ulr + '-' + 'ABCDEFG'[d.ages.indexOf(a)] : '' }))
+      : [{ id: 'j' + n, sampleId: s.id, age: null, due: d.due, assignee: asg.id, status: 'pending', results: null, remarks: '', ulr: s.ulr }];
     put('samples', s, u, 'create', 'Sample ' + s.uid + ' received for ' + client.name + geoTxt(geo));
     jobs.forEach(j => put('jobs', j, u, 'create', jobLabel(test, j) + ' due ' + j.due));
     notify(asg.id, 'n_assign_' + s.id, { type: 'assign', title: 'New test assigned to you', body: s.uid + ' · ' + (test.kind === 'cube' ? 'cubes, ' + d.ages.join('/') + '-day tests' : test.name) + ' · first due ' + jobs.map(j => j.due).sort()[0], sampleId: s.id, jobId: jobs[0].id });
@@ -608,7 +618,7 @@ function invoiceJob(u, job, sample) {
   if (job.invoiced) return get('invoices', job.invoiceId);
   if (job.status !== 'done') bad('Only a completed test can be invoiced', 409);
   const s = sample || get('samples', job.sampleId); if (!s) bad('Sample not found', 404);
-  const settings = get('settings', 'main'), tests = all('tests'), clients = all('clients'), ctx = { settings, tests, clients, workorders: all('workorders') }, today = L.today();
+  const settings = get('settings', 'main'), tests = all('tests'), clients = all('clients'), ctx = { settings, tests, clients, workorders: all('workorders'), ratebook: all('ratebook') }, today = L.today();
   const n = ctr('inv'); ctrSet('inv', n + 1);
   const inv = L.buildPartInvoice(ctx, s, job, n, today);
   inv.issuedOn = today; inv.reportNo = s.reportNo || ''; inv.source = 'report';

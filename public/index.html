@@ -469,7 +469,7 @@ let pt=null;
 function persist(){clearTimeout(pt);pt=setTimeout(persistNow,S.online?700:250)}
 function persistNow(){clearTimeout(pt);if(S.online){pushDirty();return}if(!lsSet(KEY,JSON.stringify(S.db)))toast('Storage is full or blocked — changes may not be kept',1)}
 {const sid=lsGet(SKEY);if(sid){const u=S.db.users.find(x=>x.id===sid&&x.active);if(u)S.user=u}}
-const ALLCOLL=['users','tests','clients','projects','samples','jobs','invoices','payments','leads','interactions','tasks','notifications','tickets','workorders','vendorbills','quotes'];
+const ALLCOLL=['users','tests','clients','projects','samples','jobs','invoices','payments','leads','interactions','tasks','notifications','tickets','workorders','vendorbills','quotes','ratebook'];
 
 /* lookups */
 const D=()=>S.db;
@@ -491,9 +491,13 @@ const can=m=>S.user&&PERM[S.user.role].indexOf(m)>=0&&((m!=='tickets'&&m!=='quot
 const isTester=()=>S.user&&S.user.role==='tester';
 function myJobs(){const all=D().jobs;return S.user.role==='tester'?all.filter(j=>j.assignee===S.user.id):all}
 function jobTab(j){if(j.status==='done')return'done';return j.due<=today()?'due':'upcoming'}
-const WO=()=>D().workorders||[],VB=()=>D().vendorbills||[],QT=()=>D().quotes||[];
-function rateInfoC(c,t,on){on=on||today();
- const ws=WO().filter(w=>c&&w.clientId===c.id&&w.status!=='closed'&&(!w.date||w.date<=on)&&(!w.validTill||w.validTill>=on)).sort((a,b)=>a.date<b.date?1:-1);
+const WO=()=>D().workorders||[],VB=()=>D().vendorbills||[],QT=()=>D().quotes||[],RB=()=>D().ratebook||[];
+function rateInfoC(c,t,on,projectId){on=on||today();
+ const book=RB().filter(r=>c&&r.clientId===c.id&&r.testId===t.id&&r.effectiveFrom<=on);
+ const forProj=projectId?book.filter(r=>r.projectId===projectId):[];
+ const pick=(forProj.length?forProj:book.filter(r=>!r.projectId)).sort((a,b)=>a.effectiveFrom<b.effectiveFrom?1:-1)[0];
+ if(pick)return{rate:+pick.rate,src:'Rate book · since '+fd(pick.effectiveFrom)};
+ const ws=WO().filter(w=>c&&w.clientId===c.id&&w.status!=='closed'&&(!w.projectId||w.projectId===projectId)&&(!w.date||w.date<=on)&&(!w.validTill||w.validTill>=on)).sort((a,b)=>a.date<b.date?1:-1);
  for(const w of ws){const v=w.rates&&w.rates[t.id];if(v!==''&&v!=null&&!isNaN(+v))return{rate:+v,src:'Work order '+w.no}}
  const v=c&&c.rates?c.rates[t.id]:'';if(v!==''&&v!=null&&!isNaN(+v))return{rate:+v,src:'Client rate'};
  return{rate:+t.rate,src:'Standard rate'}}
@@ -1760,7 +1764,7 @@ function toInvoiceBody(m){
  const rows=D().jobs.filter(j=>j.status==='done'&&!j.invoiced).map(j=>{const s=sm(j.sampleId)||{};return{j:j,s:s}}).filter(x=>x.s.id).sort((a,b)=>a.j.doneOn<b.j.doneOn?1:-1);
  if(!rows.length)return empty('Nothing waiting to be invoiced. Every completed test has been billed.');
  return '<p class="mut sm" style="margin-bottom:10px">Each test is billed on its own as soon as its result is in — no need to wait for the whole sample.</p><div class="card flat" style="padding:4px 14px">'+
- rows.map(({j,s})=>{const t=ts(s.testId),c=cl(s.clientId),lbl=partLbl(s,j),ri=rateInfoC(c,t),est=r2((ri.rate||0)*((j.results&&j.results.rows||[]).length||qtyOf(s,t)));
+ rows.map(({j,s})=>{const t=ts(s.testId),c=cl(s.clientId),lbl=partLbl(s,j),ri=rateInfoC(c,t,null,s.projectId),est=r2((ri.rate||0)*((j.results&&j.results.rows||[]).length||qtyOf(s,t)));
   return '<div class="pgn"><div class="grow"><div class="t mono">'+esc(s.uid)+(lbl?' · Part '+lbl:'')+'</div><div class="xs mut">'+esc(c.name||'')+' · '+esc(t.name)+(j.age?' · '+j.age+'-day':'')+' · tested '+fd(j.doneOn)+'</div><div class="xs mut">Est. '+inr(est)+'</div></div><button class="btn pri" data-act="mkinv" data-id="'+j.id+'">Invoice</button></div>';
  }).join('')+'</div>';
 }
