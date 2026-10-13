@@ -21,8 +21,8 @@ off this list when it's actually built (and say so in the commit message).
   no screen yet to browse a test's rate history per client/project.
 - **Admin UI to add rate book rows** — rows can only be created via the API right now, not from
   a screen.
-- **`partStatus` not surfaced in the UI** — the Registered→Paid lifecycle function exists
-  (lib/logic.js) but no badge/screen shows it yet (testing schedule, to-invoice queue, client
-  project view).
+- **`partStatus` not surfaced everywhere** — now shown per-part in the client master's project
+  view (Billing 6b). Still not shown on the testing schedule or the to-invoice queue (those
+  screens are inherently single-status views already, so lower priority).
 - **Distinct cheque-clearing UI beyond the Payment History tab** — Mark cleared/bounced exists
   there now; no dedicated cheque-ledger screen.

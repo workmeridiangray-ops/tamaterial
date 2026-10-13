@@ -758,7 +758,7 @@ function fld(label,inner,err,hint){return '<div class="fld"><label class="lbl">'
 function chipRow(sp,cur,opts){return '<div class="chips">'+opts.map(x=>'<button type="button" class="chip'+(String(cur)===String(x[0])?' on':'')+'" data-act="set" data-sp="'+sp+'" data-v="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div>'}
 const goA=(r,set)=>'data-go="'+r+'"'+(set?' data-set="'+esc(JSON.stringify(set))+'"':'');
 const M=r=>S.m[r]||(S.m[r]=defs(r));
-function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null,day:null,month:null,sendId:null,send:null,sentDone:null},reviews:{month:null,day:null,sampleId:null,remark:'',ret:false,reason:'',sign:false,done:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{tab:null,f:'All',q:'',invId:null,pay:null,cid:null,pf:'All',pq:'',vid:null,vnew:null,vpay:null,vf:'Unpaid'},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null,wo:null},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null},quotes:{tab:'all',id:null,ed:null,q:''},tickets:{tab:'open',id:null,adding:false,nt:null,reply:''}})[r]||{}}
+function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null,day:null,month:null,sendId:null,send:null,sentDone:null},reviews:{month:null,day:null,sampleId:null,remark:'',ret:false,reason:'',sign:false,done:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{tab:null,f:'All',q:'',invId:null,pay:null,cid:null,pf:'All',pq:'',vid:null,vnew:null,vpay:null,vf:'Unpaid'},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null,wo:null,rbf:{testId:'',projectId:'',rate:'',effectiveFrom:today(),reason:'',err:{}}},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null},quotes:{tab:'all',id:null,ed:null,q:''},tickets:{tab:'open',id:null,adding:false,nt:null,reply:''}})[r]||{}}
 function go(r,set){S.route=r;S.m[r]=Object.assign(defs(r),set||{});window.scrollTo(0,0);render()}
 const pgHead=(title,backAct,sub)=>'<div class="pg">'+(backAct?'<button class="ibtn" data-act="'+backAct+'" aria-label="Back">'+ic('back')+'</button>':'')+'<div class="grow"><h1>'+title+'</h1>'+(sub?'<div class="mut sm">'+sub+'</div>':'')+'</div></div>';
 const empty=t=>'<div class="empty">'+t+'</div>';
@@ -887,7 +887,17 @@ function clientDetail(m){
  }else if(m.tab==='workorders'&&canMoney()){
   body=woTab(c,m);
  }else if(m.tab==='rates'){
-  body='<div class="card"><h3 style="margin-bottom:8px">Rates in use today</h3>'+D().tests.map(t=>{const ri=rateInfoC(c,t);return '<div class="pgn"><div class="grow"><b>'+esc(t.name)+'</b><div class="xs mut">'+esc(ri.src)+'</div></div><b>'+inr(ri.rate)+'</b></div>'}).join('')+'<p class="hint">Work order rates win, then the list below, then the standard rate.</p></div><div class="card"><p class="hint" style="margin:0 0 14px">Price per test for this client. Leave blank to use the standard rate.</p>'+D().tests.map(t=>fld(esc(t.name)+' <span class="mut xs">(per '+esc(t.unit)+')</span>',inp(P+'rates.'+t.id,(c.rates&&c.rates[t.id])||'',{mode:'decimal',ph:'Standard '+inr(t.rate)}))).join('')+'<p class="hint">Saved automatically.</p></div>';
+  const rbf=m.rbf||(m.rbf={testId:'',projectId:'',rate:'',effectiveFrom:today(),reason:'',err:{}});
+  const projs=D().projects.filter(p=>p.clientId===c.id);
+  const book=D().ratebook.filter(r=>r.clientId===c.id).sort((a,b)=>a.effectiveFrom<b.effectiveFrom?1:-1);
+  body='<div class="card"><h3 style="margin-bottom:8px">Rates in use today</h3>'+D().tests.map(t=>{const ri=rateInfoC(c,t);return '<div class="pgn"><div class="grow"><b>'+esc(t.name)+'</b><div class="xs mut">'+esc(ri.src)+'</div></div><b>'+inr(ri.rate)+'</b></div>'}).join('')+'<p class="hint">Rate book wins (project-specific over client-wide), then work order, then the list below, then the standard rate.</p></div><div class="card"><p class="hint" style="margin:0 0 14px">Price per test for this client. Leave blank to use the standard rate.</p>'+D().tests.map(t=>fld(esc(t.name)+' <span class="mut xs">(per '+esc(t.unit)+')</span>',inp(P+'rates.'+t.id,(c.rates&&c.rates[t.id])||'',{mode:'decimal',ph:'Standard '+inr(t.rate)}))).join('')+'<p class="hint">Saved automatically.</p></div>'+
+  '<div class="card"><h3 style="margin-bottom:8px">Rate book</h3><p class="hint" style="margin:0 0 14px">A dated rate for one test (optionally scoped to one project). Rows are never edited — add a new one to change a rate, the old row stays for history and for invoices already raised.</p>'+
+  fld('Test',sel('m.clients.rbf.testId',rbf.testId,[['','Choose a test']].concat(D().tests.map(t=>[t.id,t.name])),rbf.err.testId),rbf.err.testId)+
+  (projs.length?fld('Project (optional — leave blank for all projects of this client)',sel('m.clients.rbf.projectId',rbf.projectId,[['','All projects']].concat(projs.map(p=>[p.id,p.name])))):'')+
+  '<div class="two">'+fld('Rate',inp('m.clients.rbf.rate',rbf.rate,{mode:'decimal',err:rbf.err.rate}),rbf.err.rate)+fld('Effective from',inp('m.clients.rbf.effectiveFrom',rbf.effectiveFrom,{type:'date',err:rbf.err.effectiveFrom}),rbf.err.effectiveFrom)+'</div>'+
+  fld('Reason (optional)',inp('m.clients.rbf.reason',rbf.reason,{ph:'e.g. revised rate card, bulk discount'}))+
+  '<button class="btn pri blk" data-act="addratebook">Add rate book row</button></div>'+
+  (book.length?'<div class="sec"><h2>History, newest first</h2></div><div class="card flat" style="padding:4px 14px">'+book.map(r=>{const t=ts(r.testId),pj=r.projectId&&D().projects.find(p=>p.id===r.projectId);return '<div class="pgn"><div class="grow"><b>'+esc(t.name||'')+'</b>'+(pj?' · '+esc(pj.name):' · all projects')+'<div class="xs mut">since '+fd(r.effectiveFrom)+(r.reason?' · '+esc(r.reason):'')+'</div></div><b>'+inr(r.rate)+'</b></div>'}).join('')+'</div>':'');
  }
  const pend=canMoney()?r2(D().invoices.filter(i=>i.clientId===c.id).reduce((a,i)=>a+balOf(i),0)):0;
  return pgHead(esc(c.name),'clback','<span class="mono">'+esc(c.code)+'</span> · '+esc(c.terms)+(canMoney()?' · <b>'+(pend>0?inr(pend)+' pending':'No balance due')+'</b>':''))+tabsBar('cltab',m.tab,tabs)+body;
@@ -2227,6 +2237,14 @@ const ACT={
   const p={id:'p'+rid(),clientId:c.id,name:np.name.trim(),site:(np.site||'').trim()||c.address||''};
   if(!(await createRec('projects',p)))return;
   m.np={name:'',site:''};toast('Project added');render()},
+ async addratebook(){const m=M('clients'),rbf=m.rbf,c=cl(m.clientId),e={};
+  if(!rbf.testId)e.testId='Choose a test';
+  const rate=num(rbf.rate);if(!(rate>0))e.rate='Enter the rate';
+  if(!rbf.effectiveFrom)e.effectiveFrom='Choose the date this rate takes effect';
+  if(Object.keys(e).length){rbf.err=e;render();return}
+  const row={id:'rb'+rid(),clientId:c.id,projectId:rbf.projectId||'',testId:rbf.testId,rate:r2(rate),effectiveFrom:rbf.effectiveFrom,reason:(rbf.reason||'').trim()};
+  if(!(await createRec('ratebook',row)))return;
+  m.rbf={testId:'',projectId:'',rate:'',effectiveFrom:today(),reason:'',err:{}};toast('Rate book row added');render()},
  addclient(){const m=M('clients'),n=D().clients.length+1;m.adding=true;m.nc={name:'',code:'CL-'+pad(n,3),address:'',gst:'',gstRegistered:true,clientType:'Pvt Ltd',pan:'',state:'',billingAddress:'',terms:'Credit',creditDays:String(D().settings.creditDays||30),contact:'',phone:'',accEmail:'',accMobile:'',invEmail:'',invWhatsapp:'',repEmail:'',repWhatsapp:'',creditLimit:'',billingMode:'Per part, as each report is approved',tds:'0',poRequired:false,err:{}};render();window.scrollTo(0,0)},
  cladd0(){M('clients').adding=false;render();window.scrollTo(0,0)},
  gstfetch(){const m=M('clients'),n=m.nc,g=(n.gst||'').trim().toUpperCase();
