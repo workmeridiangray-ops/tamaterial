@@ -494,6 +494,16 @@ const can=m=>S.user&&PERM[S.user.role].indexOf(m)>=0&&((m!=='tickets'&&m!=='quot
 const isTester=()=>S.user&&S.user.role==='tester';
 function myJobs(){const all=D().jobs;return S.user.role==='tester'?all.filter(j=>j.assignee===S.user.id):all}
 function jobTab(j){if(j.status==='done')return'done';return j.due<=today()?'due':'upcoming'}
+// Mirrors partStatus() in lib/logic.js: Registered -> In test -> In review -> To bill -> Invoiced -> Paid.
+function partStatusC(j,s){
+ if(j.status!=='done')return j.due&&j.due<today()?'In test':'Registered';
+ if(!s||(s.reportStatus!=='approved'&&s.reportStatus!=='sent'))return 'In review';
+ if(!j.invoiced)return 'To bill';
+ const inv=j.invoiceId&&D().invoices.find(x=>x.id===j.invoiceId);
+ if(inv&&inv.total>0&&paidOf(inv)>=inv.total-0.004)return 'Paid';
+ return 'Invoiced';
+}
+const PSCLS={'Registered':'','In test':'','In review':'warn','To bill':'hot','Invoiced':'dark','Paid':'ok'};
 const WO=()=>D().workorders||[],VB=()=>D().vendorbills||[],QT=()=>D().quotes||[],RB=()=>D().ratebook||[];
 function rateInfoC(c,t,on,projectId){on=on||today();
  const book=RB().filter(r=>c&&r.clientId===c.id&&r.testId===t.id&&r.effectiveFrom<=on);
@@ -865,7 +875,7 @@ function clientDetail(m){
   const pj=D().projects.filter(p=>p.clientId===c.id);
   body=pj.map(p=>{const ss=D().samples.filter(s=>s.projectId===p.id),op=m.openProj===p.id;
    return '<div class="card flat" style="padding:0;overflow:hidden"><button class="row" style="border:0;border-radius:0;margin:0" data-act="openproj" data-id="'+p.id+'"><div class="grow"><div class="t">'+esc(p.name)+'</div><div class="s">'+esc(p.site)+' · '+ss.length+' sample'+(ss.length===1?'':'s')+'</div></div><span class="mut" style="transform:rotate('+(op?90:0)+'deg)">'+ic('chev',18)+'</span></button>'+
-   (op?'<div style="padding:4px 14px 12px">'+(ss.length?ss.map(s=>'<div class="pgn"><div class="grow"><div class="mono">'+esc(s.uid)+'</div><div class="sm mut">'+esc(ts(s.testId).name)+' · '+fd(s.receipt)+'</div></div>'+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus))+'</div>').join(''):'<p class="mut sm" style="padding:8px 0">No tests yet for this project.</p>')+'</div>':'')+'</div>'}).join('')||empty('No projects yet.');
+   (op?'<div style="padding:4px 14px 12px">'+(ss.length?ss.map(s=>jobsOf(s.id).map(j=>{const lbl=partLbl(s,j),ps=partStatusC(j,s);return '<div class="pgn"><div class="grow"><div class="mono">'+esc(j.ulr||s.uid+(lbl?'-'+lbl:''))+'</div><div class="sm mut">'+esc(ts(s.testId).name)+(j.age?' · '+j.age+'-day':'')+' · '+fd(s.receipt)+'</div></div>'+bdg(ps,PSCLS[ps]||'')+'</div>'}).join('')).join(''):'<p class="mut sm" style="padding:8px 0">No tests yet for this project.</p>')+'</div>':'')+'</div>'}).join('')||empty('No projects yet.');
   const np=m.np||{name:'',site:''};
   body+='<div class="card"><h3 style="margin-bottom:12px">Add project</h3>'+fld('Project name',inp('m.clients.np.name',np.name,{err:np.err&&np.err.name}),np.err&&np.err.name)+fld('Site address',ta('m.clients.np.site',np.site,{}),np.err&&np.err.site)+'<button class="btn pri blk" data-act="addproj">Add project</button></div>';
  }else if(m.tab==='payments'){
