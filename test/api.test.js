@@ -58,10 +58,8 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   ok((await call('GET', '/api/bootstrap', S)).j.data.notifications.some(n => n.type === 'assign' && n.sampleId === cr.j.sample.id), 'assigned tester is notified of the new sample');
   ok(cr.j.sample.geo && cr.j.sample.geo.lat === 18.5601 && /^20\d\d-/.test(cr.j.sample.geo.at), 'sample stores location and a server timestamp');
   ok(cr.s === 200 && /000146$/.test(cr.j.sample.uid) && cr.j.sample.ulr.endsWith('-000146-F'), 'sample created with UID/ULR ...000146');
-  ok(cr.j.jobs.length === 2 && cr.j.invoice === null && /^INV-/.test(cr.j.billNo), 'two jobs; store gets bill number but no invoice amounts');
-  const inv = (await call('GET', '/api/bootstrap', A)).j.data.invoices.find(i => i.sampleId === cr.j.sample.id);
-  ok(inv.lines[0].rate === 330 && inv.lines[0].qty === 6 && inv.subtotal === 1980 && inv.gst === 356.4 && inv.total === 2336.4, 'invoice uses client rate 330 x 6 cubes + 18% GST');
-  ok(inv.due === L.addDays(T, 30), 'credit invoice due after 30 days');
+  ok(cr.j.jobs.length === 2, 'two jobs created, one per age');
+  ok(!(await call('GET', '/api/bootstrap', A)).j.data.invoices.some(i => i.sampleId === cr.j.sample.id), 'no invoice exists until a part is actually invoiced');
   const next = (await call('POST', '/api/samples', R, Object.assign({}, body, { testId: 't_wat', d: { desc: 'Water', qty: 1, due: T } }))).j;
   ok(/000147$/.test(next.sample.uid) && next.sample.ulr === '', 'next sample is 147, no ULR outside NABL scope');
 
@@ -78,6 +76,16 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   ok(res.j.job.geo && res.j.job.geo.lng === 73.7786 && res.j.job.doneBy === 'u_suresh' && /^20\d\d-/.test(res.j.job.doneAt), 'result stores who, where and when (server time)');
   ok(res.s === 200 && res.j.job.results.rows[0].strength === 20 && res.j.job.results.avg === 20.44, 'strength = 450000/22500 = 20; average 20.44');
   ok((await call('POST', '/api/jobs/' + due.id + '/result', S, { rows, setup: SETUP, geo: GEO })).s === 409, 'cannot save a result twice');
+
+  // per-part invoicing: the 7-day result can be billed now, well before the 28-day job is even due
+  ok((await call('GET', '/api/jobs/to-invoice', S)).s === 403, 'tester cannot see the to-invoice queue');
+  const toInv = (await call('GET', '/api/jobs/to-invoice', A)).j.rows;
+  ok(toInv.some(r => r.job.id === due.id && r.partLabel === 'A' && r.client === 'Alpha Testing Lab' || r.client), 'the done 7-day job appears in the to-invoice queue');
+  ok((await call('POST', '/api/jobs/' + early.id + '/invoice', A)).s === 409, 'cannot invoice a part whose result is not in yet');
+  const partInv = await call('POST', '/api/jobs/' + due.id + '/invoice', A);
+  ok(partInv.s === 200 && partInv.j.invoice.lines[0].rate === 330 && partInv.j.invoice.lines[0].qty === 3 && partInv.j.invoice.partLabel === 'A' && partInv.j.invoice.total === 1168.2, '7-day part billed on its own: 330 x 3 cubes + 18% GST');
+  ok((await call('POST', '/api/jobs/' + due.id + '/invoice', A)).j.invoice.id === partInv.j.invoice.id, 'invoicing the same part again returns the same invoice, not a duplicate');
+  ok(!(await call('GET', '/api/jobs/to-invoice', A)).j.rows.some(r => r.job.id === due.id), 'billed part drops off the to-invoice queue');
   // finish: use the other seeded due-today job to test status flip
   const j144 = 'j144_7';
   const r144 = await call('POST', '/api/jobs/' + j144 + '/result', S, { rows: [{ l: 150, b: 150, h: 150, load: 500 }, { l: 150, b: 150, h: 150, load: 505 }, { l: 150, b: 150, h: 150, load: 510 }], setup: SETUP, geo: GEO });
@@ -113,10 +121,10 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   const fin = await call('POST', '/api/samples/' + next.sample.id + '/approve', P, { confirm: true, remark: 'Fine', geo: GEO });
   ok(fin.j.sample.reportStatus === 'approved' && /^TA\/CT\/\d\d\/0147$/.test(fin.j.sample.reportNo) && fin.j.sample.approvedBy === 'Priya' && fin.j.sample.approvalNotes.length >= 1, 'approved and signed with a report number and notification record');
   ok(!((await call('GET', '/api/bootstrap', P)).j.data.invoices || []).length, 'reviewer sees no invoices');
-  const invA = (await call('GET', '/api/bootstrap', A)).j.data.invoices.find(i => i.sampleId === next.sample.id);
+  const invA = (await call('GET', '/api/bootstrap', A)).j.data.invoices.find(i => i.sampleId === next.sample.id && i.id !== partInv.j.invoice.id);
   ok(invA.lines[0].rate === 1000 && invA.lines[0].woNo === 'WO/2026/01' && invA.source === 'report' && invA.reportNo === fin.j.sample.reportNo && invA.total === 1180, 'invoice is created from the approved report at the work order rate (1000 + 18% GST)');
   ok(invA.issuedOn === T && invA.due === L.addDays(T, 30), 'credit invoice is dated from the report, due in 30 days');
-  ok((await call('POST', '/api/samples/s142/invoice', M)).s === 409, 'cannot invoice a report that is not approved');
+  ok((await call('POST', '/api/jobs/j144_28/invoice', M)).s === 409, 'cannot invoice a job that has no result yet');
   // vendor bills
   const vb = await call('POST', '/api/vendorbills', M, { vendor: 'Calibration Co', category: 'calibration', billNo: 'C-1', date: T, due: L.addDays(T, 15), amount: 5000 });
   ok(vb.s === 200 && vb.j.payments.length === 0, 'vendor bill added');

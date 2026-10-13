@@ -512,19 +512,16 @@ function createSample(u, b) {
     Object.assign(d, { desc: str(dd.desc, 300, { req: 'Describe the sample' }), qty, due: dd.due });
   }
   return tx(() => {
-    const n = ctr('uid'), invNo = ctr('inv'); ctrSet('uid', n + 1); ctrSet('inv', invNo + 1);
+    const n = ctr('uid'); ctrSet('uid', n + 1);
     const yy = b.receipt.slice(2, 4);
     const s = { id: 's' + n, uid: 'UID-' + yy + '-' + L.pad(n, 6), ulr: test.nabl ? settings.cert + '-' + yy + '-' + L.pad(n, 6) + '-F' : '', receipt: b.receipt, clientId: client.id, projectId: proj.id, sampledBy: b.sampledBy, billing: b.billing, testId: test.id, mark, d, photo, cond: b.cond, reason, rep: { name: repName, mobile: String(rep.mobile), sig }, assignee: asg.id, createdBy: u.id, reportStatus: 'testing', geo };
     const jobs = test.kind === 'cube'
       ? d.ages.map(a => ({ id: 'j' + n + '_' + a, sampleId: s.id, age: a, due: L.addDays(d.casting, a), assignee: asg.id, status: 'pending', results: null, remarks: '' }))
       : [{ id: 'j' + n, sampleId: s.id, age: null, due: d.due, assignee: asg.id, status: 'pending', results: null, remarks: '' }];
-    const inv = L.buildInvoice({ settings, tests, clients, workorders: all('workorders') }, s, invNo);
-    s.invoiceId = inv.id; s.billNo = inv.no;
     put('samples', s, u, 'create', 'Sample ' + s.uid + ' received for ' + client.name + geoTxt(geo));
     jobs.forEach(j => put('jobs', j, u, 'create', jobLabel(test, j) + ' due ' + j.due));
-    put('invoices', inv, u, 'create', inv.no + ' · total ' + inv.total);
     notify(asg.id, 'n_assign_' + s.id, { type: 'assign', title: 'New test assigned to you', body: s.uid + ' · ' + (test.kind === 'cube' ? 'cubes, ' + d.ages.join('/') + '-day tests' : test.name) + ' · first due ' + jobs.map(j => j.due).sort()[0], sampleId: s.id, jobId: jobs[0].id });
-    return { sample: s, jobs, invoice: MONEY_ROLES.includes(u.role) ? inv : null, billNo: inv.no };
+    return { sample: s, jobs };
   });
 }
 const jobLabel = (t, j) => (t.kind === 'cube' ? j.age + '-day cube test' : t.name);
@@ -599,22 +596,19 @@ function returnReport(u, id, b) {
   });
 }
 /* Invoice from the approved report, priced from the client's active work order (then client rate, then standard rate). */
-function issueInvoice(u, s) {
+const invoicesOf = s => all('invoices').filter(i => i.sampleId === s.id);
+// Bills one completed, unbilled job (one part/age of a sample, or its only job). Safe to call more than once: a job already billed is skipped.
+function invoiceJob(u, job, sample) {
+  if (job.invoiced) return get('invoices', job.invoiceId);
+  if (job.status !== 'done') bad('Only a completed test can be invoiced', 409);
+  const s = sample || get('samples', job.sampleId); if (!s) bad('Sample not found', 404);
   const settings = get('settings', 'main'), tests = all('tests'), clients = all('clients'), ctx = { settings, tests, clients, workorders: all('workorders') }, today = L.today();
-  const client = clients.find(c => c.id === s.clientId);
-  const days = parseInt(client && client.creditDays, 10) || parseInt(settings.creditDays, 10) || 30;
-  let inv = s.invoiceId && get('invoices', s.invoiceId);
-  if (!inv) {
-    const n = ctr('inv'); ctrSet('inv', n + 1);
-    inv = L.buildInvoice(ctx, s, n, today); inv.date = today; inv.due = s.billing === 'Advance' ? today : L.addDays(today, days);
-    s.invoiceId = inv.id; s.billNo = inv.no;
-  } else {
-    const fresh = L.buildInvoice(ctx, s, 0, today);
-    if (fresh.total + 0.004 >= paidOf(inv)) { inv.lines = fresh.lines; inv.subtotal = fresh.subtotal; inv.gstPct = fresh.gstPct; inv.gst = fresh.gst; inv.total = fresh.total; }
-    if (s.billing === 'Credit') { inv.date = today; inv.due = L.addDays(today, days); }
-  }
+  const n = ctr('inv'); ctrSet('inv', n + 1);
+  const inv = L.buildPartInvoice(ctx, s, job, n, today);
   inv.issuedOn = today; inv.reportNo = s.reportNo || ''; inv.source = 'report';
-  put('invoices', inv, u, 'invoice', inv.no + ' issued from report ' + (s.reportNo || s.uid) + ' · total ₹' + inv.total + (inv.lines[0] && inv.lines[0].woNo ? ' · work order ' + inv.lines[0].woNo : ''));
+  job.invoiced = true; job.invoiceId = inv.id;
+  put('jobs', job, u, 'invoice', inv.no + ' created for ' + s.uid + (inv.partLabel ? ' part ' + inv.partLabel : '') + ' · total ₹' + inv.total + (inv.lines[0].woNo ? ' · work order ' + inv.lines[0].woNo : ''));
+  put('invoices', inv, u, 'invoice', inv.no + ' issued · total ₹' + inv.total);
   return inv;
 }
 function vendorPay(u, id, b) {
@@ -647,8 +641,8 @@ function approveReport(u, id, b) {
     testers.forEach(tu => { notify(tu.id, 'n_ok_' + s.id + '_' + tu.id, { type: 'approved', title: 'Report approved', body: s.reportNo + ' approved by ' + u.name, sampleId: s.id, mail: true }); notes.push({ who: 'Tester: ' + tu.name, text: 'Report ' + s.reportNo + ' approved. Test moved to Approved.', how: 'In-app', at: now }); });
     const acc = staffOf(['accounts', 'admin']).filter(x => x.id !== u.id); acc.forEach(a => notify(a.id, 'n_okacc_' + s.id + '_' + a.id, { type: 'approved', title: 'Report approved, ready to send', body: s.reportNo + ' · ' + (cl.name || '') + (pj.name ? ' · ' + pj.name : ''), sampleId: s.id, mail: true }));
     if (acc.length) notes.push({ who: 'Accounts department', text: 'Report ' + s.reportNo + ' is ready to send (' + (cl.name || '') + (pj.name ? ', ' + pj.name : '') + ').', how: 'In-app', at: now });
-    const inv = issueInvoice(u, s);
-    if (acc.length) notes.push({ who: 'Accounts department', text: 'Invoice ' + inv.no + ' created from the report: ₹' + inv.total + (inv.lines[0].woNo ? ' at work order ' + inv.lines[0].woNo + ' rates' : '') + '.', how: 'In-app', at: now });
+    const billed = jobs.filter(j => j.status === 'done' && !j.invoiced).map(j => invoiceJob(u, j, s));
+    billed.forEach(inv => { if (acc.length) notes.push({ who: 'Accounts department', text: 'Invoice ' + inv.no + ' created from the report: ₹' + inv.total + (inv.lines[0].woNo ? ' at work order ' + inv.lines[0].woNo + ' rates' : '') + '.', how: 'In-app', at: now }); });
     s.approvalNotes = notes;
     put('samples', s, u, 'approve', s.uid + ' report approved and signed' + geoTxt(geo));
     return s;
@@ -658,8 +652,8 @@ function sendReport(u, id, b) {
   const geo = geoOf(b, false);
   const s = get('samples', id); if (!s) bad('Sample not found', 404);
   if (s.reportStatus !== 'approved') bad('Approve the report before sending it', 409);
-  const inv = get('invoices', s.invoiceId);
-  if (s.billing === 'Advance' && inv && balanceOf(inv) > 0.004) bad('Blocked: this is an Advance client and bill ' + inv.no + ' is unpaid', 409);
+  const unpaid = invoicesOf(s).find(i => balanceOf(i) > 0.004);
+  if (s.billing === 'Advance' && unpaid) bad('Blocked: this is an Advance client and bill ' + unpaid.no + ' is unpaid', 409);
   s.reportStatus = 'sent'; s.sentOn = L.today(); s.sendGeo = geo;
   return tx(() => put('samples', s, u, 'send', s.uid + ' marked as sent' + geoTxt(geo)));
 }
@@ -845,7 +839,14 @@ route('POST', /^\/api\/jobs\/([\w-]+)\/result$/, ['admin', 'tester'], c => saveR
 route('POST', /^\/api\/samples\/([\w-]+)\/submit$/, ['admin', 'tester'], c => submitReview(c.u, c.m[1], c.body));
 route('POST', /^\/api\/samples\/([\w-]+)\/return$/, ['admin', 'reviewer', 'accounts'], c => returnReport(c.u, c.m[1], c.body));
 route('POST', /^\/api\/samples\/([\w-]+)\/approve$/, ['admin', 'accounts', 'reviewer'], c => ({ sample: approveReport(c.u, c.m[1], c.body) }));
-route('POST', /^\/api\/samples\/([\w-]+)\/invoice$/, ['admin', 'accounts'], c => { const s = get('samples', c.m[1]); if (!s) bad('Sample not found', 404); if (!['approved', 'sent'].includes(s.reportStatus)) bad('The report must be approved first', 409); return tx(() => { const inv = issueInvoice(c.u, s); put('samples', s, c.u, 'invoice', s.uid + ' invoice ' + inv.no); return { invoice: inv, sample: s }; }); });
+route('GET', /^\/api\/jobs\/to-invoice$/, ['admin', 'accounts'], c => {
+  const rows = all('jobs').filter(j => j.status === 'done' && !j.invoiced).map(j => {
+    const sa = get('samples', j.sampleId), t = get('tests', sa.testId);
+    return { job: j, sample: shape(c.u, 'samples', sa, new Set()), test: { id: t.id, name: t.name, code: t.code, kind: t.kind }, client: (get('clients', sa.clientId) || {}).name || '', partLabel: L.partLabel(sa, j) };
+  }).sort((a, b) => a.job.doneOn < b.job.doneOn ? 1 : -1);
+  return { rows };
+});
+route('POST', /^\/api\/jobs\/([\w-]+)\/invoice$/, ['admin', 'accounts'], c => { const j = get('jobs', c.m[1]); if (!j) bad('Test not found', 404); return tx(() => { const inv = invoiceJob(c.u, j); return { invoice: inv, job: j }; }); });
 route('POST', /^\/api\/vendorbills\/([\w-]+)\/pay$/, ['admin', 'accounts'], c => vendorPay(c.u, c.m[1], c.body));
 route('POST', /^\/api\/workorders\/([\w-]+)\/file$/, ['admin', 'accounts'], c => woFile(c.u, c.m[1], c.body));
 route('GET', /^\/api\/workorders\/([\w-]+)\/file$/, ['admin', 'accounts'], c => { const w = get('workorders', c.m[1]); if (!w || !w.file) bad('No file uploaded', 404); return { name: w.fileName, data: w.file }; });

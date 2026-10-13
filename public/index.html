@@ -471,7 +471,8 @@ const ts=id=>D().tests.find(x=>x.id===id)||{};
 const us=id=>D().users.find(x=>x.id===id)||{};
 const sm=id=>D().samples.find(x=>x.id===id)||null;
 const jobsOf=sid=>D().jobs.filter(j=>j.sampleId===sid);
-const invOf=s=>D().invoices.find(i=>i.id===s.invoiceId)||null;
+const invoicesOf=s=>D().invoices.filter(i=>i.sampleId===s.id);
+const unpaidInvOf=s=>invoicesOf(s).find(i=>balOf(i)>0)||null;
 const paidOf=i=>r2(D().payments.filter(p=>p.invoiceId===i.id).reduce((a,p)=>a+(+p.amount),0));
 const balOf=i=>r2(i.total-paidOf(i));
 function bstat(i){const b=balOf(i);if(b<=0)return'Paid';if(i.due<today())return'Overdue';if(paidOf(i)>0)return'Part paid';return'Unpaid'}
@@ -800,7 +801,7 @@ function homeView(){
  if(can('schedule'))dueJ.slice().sort((a,b)=>a.due<b.due?-1:1).slice(0,4).forEach(j=>{const s=sm(j.sampleId);att.push({t:s.uid+' · '+jobLabel(j),s:j.due<T?'Overdue since '+fd(j.due):'Due today',go:['schedule',{tab:'due',jobId:j.id}],bad:j.due<T})});
  if(can('reviews'))reviewList().slice(0,4).forEach(x=>att.push({t:x.uid+' · report to review',s:cl(x.clientId).name,go:['reviews',{sampleId:x.id}]}));
  if(can('approve')){aw.slice(0,3).forEach(s=>att.push({t:s.uid+' · report awaiting approval',s:cl(s.clientId).name,go:['approve',{tab:'awaiting',sampleId:s.id}]}));
-  D0.samples.filter(s=>s.reportStatus==='approved').forEach(s=>{const i=invOf(s);if(s.billing==='Advance'&&i&&balOf(i)>0)att.push({t:s.uid+' · send blocked',s:'Advance bill '+i.no+' unpaid',go:['bills',{invId:i.id}],bad:true})})}
+  D0.samples.filter(s=>s.reportStatus==='approved').forEach(s=>{const i=unpaidInvOf(s);if(s.billing==='Advance'&&i)att.push({t:s.uid+' · send blocked',s:'Advance bill '+i.no+' unpaid',go:['bills',{invId:i.id}],bad:true})})}
  if(can('bills'))overdue.slice(0,3).forEach(i=>att.push({t:i.no+' overdue · '+inr(balOf(i)),s:cl(i.clientId).name+' · due '+fd(i.due),go:['bills',{invId:i.id}],bad:true}));
  if(role==='store')D0.samples.filter(s=>s.reportStatus!=='sent').slice(-4).reverse().forEach(s=>att.push({t:s.uid+' · '+RSTAT[s.reportStatus],s:cl(s.clientId).name,go:['create',{}]}));
  const attH=att.slice(0,7).map(a=>'<button class="row" '+goA(a.go[0],a.go[1])+'><div class="grow"><div class="t">'+esc(a.t)+'</div><div class="s">'+esc(a.s)+'</div></div>'+(a.bad?bdg('Overdue','bad'):'')+'<span class="mut">'+ic('chev',18)+'</span></button>').join('');
@@ -1110,9 +1111,9 @@ function createView(){
 }
 function doneView(m){
  const s=sm(m.doneId);if(!s)return createView();
- const jb=jobsOf(s.id),inv=invOf(s);
+ const jb=jobsOf(s.id),inv=S.online?null:invoicesOf(s)[0];
  return '<div class="card done"><div class="tick">'+ic('check',30)+'</div><h1>Sample saved</h1><p class="mut" style="margin-top:4px">Tests are now on the testing schedule.</p></div>'+
- '<div class="card"><dl class="dl"><dt>UID</dt><dd class="mono">'+esc(s.uid)+'</dd><dt>ULR</dt><dd class="mono">'+(s.ulr?esc(s.ulr):'Not in NABL scope — no ULR')+'</dd><dt>Client</dt><dd>'+esc(cl(s.clientId).name)+'</dd><dt>Bill</dt><dd><span class="mono">'+esc(inv?inv.no:(s.billNo||'—'))+'</span>'+(inv?' · '+inr(inv.total)+' · due '+fd(inv.due):'')+'</dd></dl></div>'+
+ '<div class="card"><dl class="dl"><dt>UID</dt><dd class="mono">'+esc(s.uid)+'</dd><dt>ULR</dt><dd class="mono">'+(s.ulr?esc(s.ulr):'Not in NABL scope — no ULR')+'</dd><dt>Client</dt><dd>'+esc(cl(s.clientId).name)+'</dd>'+(S.online?'<dt>Billing</dt><dd>Each test is invoiced on its own once its result is approved, from Bills → To invoice</dd>':'<dt>Bill</dt><dd><span class="mono">'+esc(inv?inv.no:(s.billNo||'—'))+'</span>'+(inv?' · '+inr(inv.total)+' · due '+fd(inv.due):'')+'</dd>')+'</dl></div>'+
  '<div class="sec"><h2>Scheduled tests</h2></div>'+jb.map(j=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(jobLabel(j))+'</div><div class="s">Due '+fd(j.due)+' · '+esc(us(j.assignee).name||'')+'</div></div></div>').join('')+
  '<div class="btns" style="margin-top:14px"><button class="btn" data-act="cdone">Back to list</button><button class="btn pri" data-act="newsample">New sample</button></div>';
 }
@@ -1492,8 +1493,8 @@ function reportsView(){
  '<tr class="tot"><td>Total</td><td class="r">'+inr(billed)+'</td><td class="r">'+inr(rec)+'</td><td class="r">'+inr(billed-rec)+'</td></tr></tbody></table></div>'+
  (S.online?'<div class="sec"><h2>Export to spreadsheet</h2></div><div class="chips" style="margin-bottom:6px">'+['clients','invoices','payments','leads','interactions'].concat(S.user.role==='admin'?['samples']:[]).map(x=>'<button class="chip" data-act="csv" data-v="'+x+'">'+x+' (.csv)</button>').join('')+'</div>':'')+
  '<div class="sec"><h2>All reports</h2></div>'+
- list.map(s=>{const i=invOf(s),bs=i?bstat(i):'';const tab=s.reportStatus==='sent'?'sent':s.reportStatus==='approved'?'approved':'awaiting';
-  return '<button class="row" '+goA('approve',{tab:tab,sampleId:s.id})+'><div class="grow"><div class="t mono">'+esc(s.uid)+'</div><div class="s">'+esc(cl(s.clientId).name)+'</div><div class="s">'+esc(ts(s.testId).name)+'</div><div class="chips" style="margin-top:6px;gap:6px">'+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus))+(i?bdg('Bill: '+bs,bcls(bs)):'')+'</div></div><span class="mut">'+ic('chev',18)+'</span></button>'}).join('');
+ list.map(s=>{const ii=invoicesOf(s),uu=ii.find(x=>balOf(x)>0),bs=ii.length?(uu?bstat(uu):'Paid'):'';const tab=s.reportStatus==='sent'?'sent':s.reportStatus==='approved'?'approved':'awaiting';
+  return '<button class="row" '+goA('approve',{tab:tab,sampleId:s.id})+'><div class="grow"><div class="t mono">'+esc(s.uid)+'</div><div class="s">'+esc(cl(s.clientId).name)+'</div><div class="s">'+esc(ts(s.testId).name)+'</div><div class="chips" style="margin-top:6px;gap:6px">'+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus))+(ii.length?bdg('Bill: '+bs,bcls(bs)):'')+'</div></div><span class="mut">'+ic('chev',18)+'</span></button>'}).join('');
 }
 
 /* ================= APPROVE & SEND ================= */
@@ -1666,19 +1667,26 @@ function approveView(){
  const ss=D().samples,by={awaiting:ss.filter(s=>s.reportStatus==='awaiting'),approved:ss.filter(s=>s.reportStatus==='approved'),sent:ss.filter(s=>s.reportStatus==='sent')};
  const list=by[m.tab]||[];
  return pgHead('Approve & send reports')+tabsBar('aptab',m.tab,[['awaiting','Awaiting approval ('+by.awaiting.length+')'],['approved','Approved – to send ('+by.approved.length+')'],['sent','Sent ('+by.sent.length+')']])+
- (list.map(s=>{const i=invOf(s),blk=s.billing==='Advance'&&i&&balOf(i)>0;
+ (list.map(s=>{const blk=s.billing==='Advance'&&unpaidInvOf(s);
   return '<button class="row" data-act="openrep" data-id="'+s.id+'"><div class="grow"><div class="t mono">'+esc(s.uid)+'</div><div class="s">'+esc(cl(s.clientId).name)+' · '+esc(ts(s.testId).name)+'</div><div class="s">'+(m.tab==='sent'?'Sent '+fd(s.sentOn):'Received '+fd(s.receipt))+'</div></div>'+(m.tab==='approved'&&blk?bdg('Bill unpaid','bad'):'')+'<span class="mut">'+ic('chev',18)+'</span></button>'}).join('')||empty('No reports in this tab.'));
 }
 function approveDetail(m){
  const s=sm(m.sampleId);if(!s){m.sampleId=null;return approveView()}
- const i=invOf(s),blk=s.billing==='Advance'&&i&&balOf(i)>0;let act='';
+ const i=unpaidInvOf(s),blk=s.billing==='Advance'&&!!i;let act='';
  if(s.reportStatus==='testing')act='<div class="note">Testing is still in progress. This is a preview of the report so far.</div>';
  if(s.reportStatus==='awaiting')act=s.review?(can('reviews')?'<button class="btn pri blk" '+goA('reviews',{sampleId:s.id})+'>Open in Reviews</button>':'<div class="note">With reviewer '+esc(s.review.toName||'')+' for review.</div>'):'<button class="btn pri blk" data-act="approve" data-id="'+s.id+'">'+ic('check',20)+' Approve report</button>';
  if(s.reportStatus==='approved')act=(blk?'<div class="note bad"><b>Sending is blocked.</b> This is an Advance client and bill <span class="mono">'+esc(i.no)+'</span> has '+inr(balOf(i))+' unpaid. <button class="lnk" '+goA('bills',{invId:i.id})+'>Open the bill</button></div>':'')+'<button class="btn pri blk'+(blk?' off':'')+'" data-act="sendrep" data-id="'+s.id+'" '+(blk?'disabled':'')+'>'+ic('send',20)+' Send to client</button>';
  if(s.reportStatus==='sent')act='<div class="note ok">Marked as sent on '+fd(s.sentOn)+'.</div>';
- return pgHead('Report','aprback','<span class="mono">'+esc(s.uid)+'</span> · '+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus)))+trailHtml(s)+reportHtml(s)+
- (S.online&&canMoney()&&(s.reportStatus==='approved'||s.reportStatus==='sent')?'<div class="card" style="margin-top:12px"><h3 style="margin-bottom:6px">Invoice</h3>'+(i?'<p class="sm"><span class="mono">'+esc(i.no)+'</span> · '+inr(i.total)+' · balance '+inr(balOf(i))+((i.lines[0]&&i.lines[0].woNo)?' · work order '+esc(i.lines[0].woNo):'')+'</p>':'<p class="sm mut">No invoice yet.</p>')+'<button class="btn blk" data-act="mkinv" data-id="'+s.id+'">'+(i&&i.source==='report'?'Refresh from work order rates':'Create invoice from this report')+'</button></div>':'')+'<div style="height:14px"></div>'+act+'<button class="btn blk" style="margin-top:10px" data-act="copyrep" data-id="'+s.id+'">'+ic('copy',20)+' Copy summary</button>';
+ const jbs=jobsOf(s.id),inv=invoicesOf(s);
+ const partsPanel=S.online&&canMoney()?'<div class="card" style="margin-top:12px"><h3 style="margin-bottom:10px">Billing</h3>'+
+  jbs.map(j=>{const bi=j.invoiced?inv.find(x=>x.id===j.invoiceId):null,lbl=(j.age?j.age+'-day':ts(s.testId).name)+(partLbl(s,j)?' · Part '+partLbl(s,j):'');
+   if(bi)return '<button class="row" '+goA('bills',{invId:bi.id})+'><div class="grow"><div class="t">'+esc(lbl)+'</div><div class="s">'+esc(bi.no)+' · '+inr(bi.total)+' · '+(balOf(bi)>0?'balance '+inr(balOf(bi)):'paid')+'</div></div>'+bdg(balOf(bi)>0?'Unpaid':'Paid',balOf(bi)>0?'bad':'ok')+'</button>';
+   if(j.status==='done')return '<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(lbl)+'</div><div class="s">Result in, not billed yet</div></div><button class="btn pri" data-act="mkinv" data-id="'+j.id+'">Invoice this part</button></div>';
+   return '<div class="row" style="cursor:default"><div class="grow"><div class="t mut">'+esc(lbl)+'</div><div class="s">Due '+fd(j.due)+'</div></div></div>';
+  }).join('')+'</div>':'';
+ return pgHead('Report','aprback','<span class="mono">'+esc(s.uid)+'</span> · '+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus)))+trailHtml(s)+reportHtml(s)+partsPanel+'<div style="height:14px"></div>'+act+'<button class="btn blk" style="margin-top:10px" data-act="copyrep" data-id="'+s.id+'">'+ic('copy',20)+' Copy summary</button>';
 }
+function partLbl(s,j){if(j.age==null||!Array.isArray(s.d&&s.d.ages))return '';const i=s.d.ages.indexOf(j.age);return i<0?'':'ABCDEFG'[i]||''}
 
 /* ================= BILLS ================= */
 function billsView(){
@@ -1688,12 +1696,21 @@ function billsView(){
  if(m.vid)return vendorDetail(m);
  if(m.cid&&S.online)return clientBillsDetail(m);
  const T=today(),inv=D().invoices,billed=r2(inv.reduce((a,i)=>a+i.total,0)),rec=r2(inv.reduce((a,i)=>a+paidOf(i),0)),odl=inv.filter(i=>balOf(i)>0&&i.due<T),odv=r2(odl.reduce((a,i)=>a+balOf(i),0));
- const tabs=S.online?tabsBar('bltab',m.tab,[['bills','Bills'],['clients','Clients'],['payments','Payments'],['vendors','Vendors']]):'';
+ const toInv=S.online?D().jobs.filter(j=>j.status==='done'&&!j.invoiced):[];
+ const tabs=S.online?tabsBar('bltab',m.tab,[['bills','Bills'],['toinvoice','To invoice ('+toInv.length+')'],['clients','Clients'],['payments','Payments'],['vendors','Vendors']]):'';
  const stats='<div class="stats"><div class="stat"><b>'+inr(billed)+'</b><span>Billed</span></div><div class="stat"><b>'+inr(rec)+'</b><span>Received</span></div><div class="stat hot"><b>'+inr(billed-rec)+'</b><span>Pending</span></div></div>'+(odl.length?'<div class="note bad" style="margin:10px 0 14px"><b>'+odl.length+' bill'+(odl.length===1?'':'s')+' overdue</b> · '+inr(odv)+' to collect</div>':'<div style="height:10px"></div>');
  const tab=S.online?m.tab:'bills';
  let body;
- if(tab==='clients')body=billClientsBody(m);else if(tab==='payments')body=billPaymentsBody(m);else if(tab==='vendors')body=vendorsBody(m);else body=billsListBody(m);
+ if(tab==='clients')body=billClientsBody(m);else if(tab==='payments')body=billPaymentsBody(m);else if(tab==='vendors')body=vendorsBody(m);else if(tab==='toinvoice')body=toInvoiceBody(m);else body=billsListBody(m);
  return pgHead('Bills & payments')+stats+tabs+body;
+}
+function toInvoiceBody(m){
+ const rows=D().jobs.filter(j=>j.status==='done'&&!j.invoiced).map(j=>{const s=sm(j.sampleId)||{};return{j:j,s:s}}).filter(x=>x.s.id).sort((a,b)=>a.j.doneOn<b.j.doneOn?1:-1);
+ if(!rows.length)return empty('Nothing waiting to be invoiced. Every completed test has been billed.');
+ return '<p class="mut sm" style="margin-bottom:10px">Each test is billed on its own as soon as its result is in — no need to wait for the whole sample.</p><div class="card flat" style="padding:4px 14px">'+
+ rows.map(({j,s})=>{const t=ts(s.testId),c=cl(s.clientId),lbl=partLbl(s,j),ri=rateInfoC(c,t),est=r2((ri.rate||0)*((j.results&&j.results.rows||[]).length||qtyOf(s,t)));
+  return '<div class="pgn"><div class="grow"><div class="t mono">'+esc(s.uid)+(lbl?' · Part '+lbl:'')+'</div><div class="xs mut">'+esc(c.name||'')+' · '+esc(t.name)+(j.age?' · '+j.age+'-day':'')+' · tested '+fd(j.doneOn)+'</div><div class="xs mut">Est. '+inr(est)+'</div></div><button class="btn pri" data-act="mkinv" data-id="'+j.id+'">Invoice</button></div>';
+ }).join('')+'</div>';
 }
 function billsListBody(m){
  const T=today(),q=(m.q||'').toLowerCase().trim();
@@ -1997,7 +2014,7 @@ const ACT={
    m.wo=null;toast('Work order saved')}catch(er){w.err={all:er.message}}
   S.busy=false;render()},
  async wofile(t){try{const r=await api('GET','/api/workorders/'+t.dataset.id+'/file');saveDataFile(r.name,r.data)}catch(e){toast(e.message,1)}},
- async mkinv(t){if(S.busy)return;S.busy=true;try{const r=await api('POST','/api/samples/'+t.dataset.id+'/invoice',{});upsertLocal('invoices',r.invoice);upsertLocal('samples',r.sample);toast('Invoice '+r.invoice.no+' ready: '+inr(r.invoice.total))}catch(e){toast(e.message,1)}S.busy=false;render()},
+ async mkinv(t){if(S.busy)return;S.busy=true;try{const r=await api('POST','/api/jobs/'+t.dataset.id+'/invoice',{});upsertLocal('invoices',r.invoice);upsertLocal('jobs',r.job);toast('Invoice '+r.invoice.no+' ready: '+inr(r.invoice.total))}catch(e){toast(e.message,1)}S.busy=false;render()},
  /* quotations */
  qtab(t){M('quotes').tab=t.dataset.v;render()},
  qnew(){M('quotes').ed=newQuote();render();window.scrollTo(0,0)},
@@ -2033,8 +2050,8 @@ const ACT={
   const m=M('approve');m.sampleId=null;m.tab='approved';toast('Report approved — ready to send');render();window.scrollTo(0,0)},
  async sendrep(t){
   if(S.busy)return;
-  const s=sm(t.dataset.id),i=invOf(s);
-  if(s.billing==='Advance'&&i&&balOf(i)>0){toast('Blocked: the advance bill is unpaid',1);return}
+  const s=sm(t.dataset.id),i=unpaidInvOf(s);
+  if(s.billing==='Advance'&&i){toast('Blocked: the advance bill is unpaid',1);return}
   S.busy=true;const geo=await tryLoc();S.busy=false;
   if(S.online){S.busy=true;try{const r=await api('POST','/api/samples/'+s.id+'/send',{geo:geo});upsertLocal('samples',r.sample)}catch(er){S.busy=false;toast(er.message,1);return}S.busy=false}
   else{s.reportStatus='sent';s.sentOn=today();s.sendGeo=stampGeo(geo);persistNow()}
