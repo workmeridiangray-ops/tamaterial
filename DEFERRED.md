@@ -17,10 +17,6 @@ off this list when it's actually built (and say so in the commit message).
 - **GST certificate / PAN card file uploads** (client master).
 - **Live GSTIN registry lookup** — state/PAN are decoded offline from the GSTIN string itself;
   client name/address still typed manually (no paid verification API connected).
-- **Per-rate change history log UI** — the rate book itself is append-only and correct; there's
-  no screen yet to browse a test's rate history per client/project.
-- **Admin UI to add rate book rows** — rows can only be created via the API right now, not from
-  a screen.
 - **`partStatus` not surfaced everywhere** — now shown per-part in the client master's project
   view (Billing 6b). Still not shown on the testing schedule or the to-invoice queue (those
   screens are inherently single-status views already, so lower priority).
