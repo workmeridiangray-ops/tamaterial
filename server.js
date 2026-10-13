@@ -629,6 +629,7 @@ function invoiceJob(u, job, sample) {
   job.invoiced = true; job.invoiceId = inv.id;
   put('jobs', job, u, 'invoice', inv.no + ' created for ' + s.uid + (inv.partLabel ? ' part ' + inv.partLabel : '') + ' · total ₹' + inv.total + (inv.lines[0].woNo ? ' · work order ' + inv.lines[0].woNo : ''));
   put('invoices', inv, u, 'invoice', inv.no + ' issued · total ₹' + inv.total);
+  if (inv.lines[0].woNo) woUsageAlert(u, s.clientId, inv.lines[0].woNo);
   return inv;
 }
 function vendorPay(u, id, b) {
@@ -639,6 +640,35 @@ function vendorPay(u, id, b) {
   if (!L.isDate(b.date) || b.date > L.today()) bad('Choose a valid payment date (not in the future)');
   if (!['Cash', 'UPI', 'Bank transfer', 'Cheque'].includes(b.mode)) bad('Choose a payment mode');
   return tx(() => { v.payments = (v.payments || []).concat([{ id: 'vp' + rid(), date: b.date, amount, mode: b.mode, ref: str(b.ref, 60), by: u.name }]); put('vendorbills', v, u, 'payment', v.vendor + ' · paid ₹' + amount + ' via ' + b.mode); return { bill: v }; });
+}
+// Work order rule: alert Accounts at 80% of WO value used, or within 30 days of expiry.
+// Each alert fires once per work order (alerted80 / alertedExpiry), not on every invoice/check.
+function woAlertRecipients(w) {
+  if (w.alertThreshold === false) return [];
+  return staffOf(['admin', 'accounts']);
+}
+function woUsageAlert(u, clientId, woNo) {
+  const w = all('workorders').find(x => x.clientId === clientId && x.no === woNo); if (!w || w.status === 'closed') return;
+  const value = L.num(w.value); if (!(value > 0) || w.alerted80) return;
+  const used = L.r2(all('invoices').filter(i => i.clientId === clientId && i.lines[0] && i.lines[0].woNo === woNo).reduce((a, i) => a + i.subtotal, 0));
+  if (used < value * 0.8) return;
+  const recips = woAlertRecipients(w); if (!recips.length) { w.alerted80 = true; put('workorders', w, u, 'update', 'Work order ' + w.no + ' 80% alert suppressed (alerts off)'); return; }
+  const c = get('clients', clientId) || {};
+  recips.forEach(a => notify(a.id, 'n_wo80_' + w.id, { type: 'wo_alert', title: 'Work order 80% used', body: w.no + ' · ' + (c.name || '') + ' · ₹' + used + ' of ₹' + value, mail: true }));
+  w.alerted80 = true;
+  put('workorders', w, u, 'update', 'Work order ' + w.no + ' reached 80% of its value (₹' + used + ' of ₹' + value + ') — Accounts notified');
+}
+// Sweeps all active work orders for the 30-days-to-expiry alert. Cheap (no I/O beyond what's
+// already cached per request) and safe to call on every bootstrap/snapshot — each WO only ever
+// fires this once thanks to alertedExpiry.
+function woExpiryCheck(u) {
+  const today = L.today();
+  all('workorders').filter(w => w.status !== 'closed' && w.validTill && !w.alertedExpiry && w.alertThreshold !== false && w.validTill >= today && w.validTill <= L.addDays(today, 30)).forEach(w => {
+    const c = get('clients', w.clientId) || {};
+    woAlertRecipients(w).forEach(a => notify(a.id, 'n_woexp_' + w.id, { type: 'wo_alert', title: 'Work order expiring soon', body: w.no + ' · ' + (c.name || '') + ' · valid till ' + w.validTill, mail: true }));
+    w.alertedExpiry = true;
+    put('workorders', w, u, 'update', 'Work order ' + w.no + ' expires within 30 days (' + w.validTill + ') — Accounts notified');
+  });
 }
 function woFile(u, id, b) {
   const w = get('workorders', id); if (!w) bad('Work order not found', 404);
@@ -904,7 +934,7 @@ route('POST', /^\/api\/signup$/, null, c => {
   });
 });
 
-route('GET', /^\/api\/bootstrap$/, '*', c => Object.assign({ user: pubUser(c.u, true) }, snapshot(c.u)));
+route('GET', /^\/api\/bootstrap$/, '*', c => { if (['admin', 'accounts'].includes(c.u.role)) woExpiryCheck(c.u); return Object.assign({ user: pubUser(c.u, true) }, snapshot(c.u)); });
 route('GET', /^\/api\/changes$/, '*', c => changes(c.u, parseInt(c.url.searchParams.get('since'), 10) || 0));
 route('POST', /^\/api\/samples$/, ['admin', 'store'], c => createSample(c.u, c.body));
 route('POST', /^\/api\/jobs\/([\w-]+)\/result$/, ['admin', 'tester'], c => saveResult(c.u, c.m[1], c.body));
