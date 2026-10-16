@@ -533,10 +533,17 @@ function createSample(u, b) {
     if (!L.isDate(dd.due)) bad('Choose a due date');
     Object.assign(d, { desc: str(dd.desc, 300, { req: 'Describe the sample' }), qty, due: dd.due });
   }
+  const groupId = b.groupId ? String(b.groupId) : '';
+  if (groupId) {
+    const head = get('samples', groupId); if (!head) bad('The sample group to add this test to was not found');
+    if (head.clientId !== client.id || head.projectId !== proj.id) bad('Additional tests must use the same client and project as the original sample');
+  }
   return tx(() => {
     const n = ctr('uid'); ctrSet('uid', n + 1);
     const yy = b.receipt.slice(2, 4);
-    const s = { id: 's' + n, uid: 'UID-' + yy + '-' + L.pad(n, 6), ulr: test.nabl ? settings.cert + '-' + yy + '-' + L.pad(n, 6) + '-F' : '', receipt: b.receipt, clientId: client.id, projectId: proj.id, sampledBy: b.sampledBy, billing: b.billing, testId: test.id, mark, d, photo, cond: b.cond, reason, rep: { name: repName, mobile: String(rep.mobile), sig }, assignee: asg.id, createdBy: u.id, reportStatus: 'testing', geo };
+    const gid = groupId || ('s' + n);
+    const seq = all('samples').filter(x => x.groupId === gid).length;
+    const s = { id: 's' + n, uid: 'UID-' + yy + '-' + L.pad(n, 6), ulr: test.nabl ? settings.cert + '-' + yy + '-' + L.pad(n, 6) + '-F' : '', receipt: b.receipt, clientId: client.id, projectId: proj.id, sampledBy: b.sampledBy, billing: b.billing, testId: test.id, mark, d, photo, cond: b.cond, reason, rep: { name: repName, mobile: String(rep.mobile), sig }, assignee: asg.id, createdBy: u.id, reportStatus: 'testing', geo, groupId: gid, groupSeq: seq };
     const jobs = test.kind === 'cube'
       ? d.ages.map(a => ({ id: 'j' + n + '_' + a, sampleId: s.id, age: a, due: L.addDays(d.casting, a), assignee: asg.id, status: 'pending', results: null, remarks: '', ulr: s.ulr ? s.ulr + '-' + 'ABCDEFG'[d.ages.indexOf(a)] : '' }))
       : [{ id: 'j' + n, sampleId: s.id, age: null, due: d.due, assignee: asg.id, status: 'pending', results: null, remarks: '', ulr: s.ulr }];

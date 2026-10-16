@@ -138,6 +138,9 @@ textarea.in{min-height:84px;resize:vertical}
 .note.bad{background:var(--bad-soft);border-color:var(--bad)}
 .note.ok{background:var(--acc-soft);border-color:var(--acc)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
+.pgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.pitem img{width:100%;height:110px;object-fit:cover;border-radius:10px;display:block}
+.pitem .s{margin-top:4px}
 .chip{min-height:48px;padding:6px 16px;border:1.5px solid var(--line);border-radius:999px;background:var(--surface);font-weight:500;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.2}
 .chip small{font-size:11px;color:var(--g1);font-weight:400}
 .chip.on{border-color:var(--acc);background:var(--acc-soft);font-weight:600}
@@ -413,6 +416,7 @@ const ic=(n,s)=>'<svg class="ic" width="'+(s||22)+'" height="'+(s||22)+'" viewBo
 const ROLE_LABEL={admin:'Admin',store:'Store',tester:'Tester',accounts:'Accounts',reviewer:'Reviewer'};
 const MODS=[
  {id:'create',label:'Create new test',short:'New test',icon:'flask'},
+ {id:'samples',label:'Sample Groups',short:'Samples',icon:'flask'},
  {id:'schedule',label:'Testing schedule',short:'Schedule',icon:'clip'},
  {id:'reports',label:'Reports & accounts',short:'Reports',icon:'chart'},
  {id:'quotes',label:'Quotations',short:'Quotes',icon:'receipt'},
@@ -423,7 +427,7 @@ const MODS=[
  {id:'crm',label:'CRM & follow-ups',short:'CRM',icon:'chat'},
  {id:'tickets',label:'Tickets & support',short:'Tickets',icon:'chat'},
  {id:'admin',label:'Admin',short:'Admin',icon:'gear'}];
-const PERM={reviewer:['reviews','tickets'],admin:['create','schedule','reports','reviews','approve','bills','quotes','clients','crm','tickets','admin'],store:['create','clients','tickets'],tester:['schedule','tickets'],accounts:['reports','approve','bills','quotes','clients','crm','tickets']};
+const PERM={reviewer:['reviews','tickets','samples'],admin:['create','schedule','reports','reviews','approve','bills','quotes','clients','crm','tickets','admin','samples'],store:['create','clients','tickets','samples'],tester:['schedule','tickets'],accounts:['reports','approve','bills','quotes','clients','crm','tickets','samples']};
 const NAVPICK={reviewer:['reviews','tickets'],admin:['create','schedule','approve','bills'],store:['create','clients','tickets'],tester:['schedule','tickets'],accounts:['reports','approve','bills','clients']};
 const RSTAT={draft:'Draft',returned:'Returned',testing:'In testing',awaiting:'Awaiting approval',approved:'Approved',sent:'Sent'};
 
@@ -835,7 +839,7 @@ function fld(label,inner,err,hint){return '<div class="fld"><label class="lbl">'
 function chipRow(sp,cur,opts){return '<div class="chips">'+opts.map(x=>'<button type="button" class="chip'+(String(cur)===String(x[0])?' on':'')+'" data-act="set" data-sp="'+sp+'" data-v="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div>'}
 const goA=(r,set)=>'data-go="'+r+'"'+(set?' data-set="'+esc(JSON.stringify(set))+'"':'');
 const M=r=>S.m[r]||(S.m[r]=defs(r));
-function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null,day:null,month:null,sendId:null,send:null,sentDone:null},reviews:{month:null,day:null,sampleId:null,remark:'',ret:false,reason:'',sign:false,done:null},reports:{},approve:{tab:'awaiting',sampleId:null},bills:{tab:null,f:'All',q:'',invId:null,pay:null,cid:null,pf:'All',pq:'',vid:null,vnew:null,vpay:null,vf:'Unpaid'},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null,wo:null,rbf:{testId:'',projectId:'',rate:'',effectiveFrom:today(),reason:'',err:{}}},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null,eu:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null},quotes:{tab:'all',id:null,ed:null,q:''},tickets:{tab:'open',id:null,adding:false,nt:null,reply:''}})[r]||{}}
+function defs(r){return({create:{mode:'list',doneId:null},schedule:{tab:'due',jobId:null,entry:null,day:null,month:null,sendId:null,send:null,sentDone:null},reviews:{month:null,day:null,sampleId:null,remark:'',ret:false,reason:'',sign:false,done:null},reports:{},approve:{tab:'awaiting',sampleId:null},samples:{q:'',gid:null,tab:'overview',testId:null},bills:{tab:null,f:'All',q:'',invId:null,pay:null,cid:null,pf:'All',pq:'',vid:null,vnew:null,vpay:null,vf:'Unpaid'},clients:{q:'',clientId:null,tab:'overview',adding:false,nc:null,np:{name:'',site:''},openProj:null,wo:null,rbf:{testId:'',projectId:'',rate:'',effectiveFrom:today(),reason:'',err:{}}},admin:{tab:'users',nu:{name:'',email:'',login:'',pin:'',role:'tester',err:{}},audit:null,eu:null},crm:{tab:'pipeline',stage:'all',leadId:null,adding:false,nl:null},quotes:{tab:'all',id:null,ed:null,q:''},tickets:{tab:'open',id:null,adding:false,nt:null,reply:''}})[r]||{}}
 function go(r,set){S.route=r;S.m[r]=Object.assign(defs(r),set||{});window.scrollTo(0,0);render()}
 const pgHead=(title,backAct,sub)=>'<div class="pg">'+(backAct?'<button class="ibtn" data-act="'+backAct+'" aria-label="Back">'+ic('back')+'</button>':'')+'<div class="grow"><h1>'+title+'</h1>'+(sub?'<div class="mut sm">'+sub+'</div>':'')+'</div></div>';
 const empty=t=>'<div class="empty">'+t+'</div>';
@@ -1295,7 +1299,7 @@ function clientCrmTab(c,m){
 }
 
 /* ================= CREATE NEW TEST ================= */
-function newWiz(){const T=today();return{step:1,err:{},f:{receipt:T,clientId:'',projectId:'',sampledBy:'TechAssures',billing:'',testId:'',mark:'',grade:'M25',source:'RMC',supplier:'',casting:T,ages:[7,28],sizes:[{l:'150',b:'150',h:'150',n:3}],desc:'',qty:'1',due:addDays(T,7),photo:'',cond:'Acceptable',reason:'',repName:'',repMobile:'',sig:'',assignee:''}}}
+function newWiz(pre){const T=today();pre=pre||{};return{step:1,err:{},f:{receipt:pre.receipt||T,clientId:pre.clientId||'',projectId:pre.projectId||'',sampledBy:pre.sampledBy||'TechAssures',billing:pre.billing||'',testId:'',mark:'',grade:'M25',source:'RMC',supplier:'',casting:T,ages:[7,28],sizes:[{l:'150',b:'150',h:'150',n:3}],desc:'',qty:'1',due:addDays(T,7),photo:'',cond:'Acceptable',reason:'',repName:pre.repName||'',repMobile:pre.repMobile||'',sig:pre.sig||'',assignee:pre.assignee||'',groupId:pre.groupId||''}}}
 function nextUid(){return 'UID-'+yy()+'-'+pad(D().counters.uid,6)}
 function nextUlr(t){return t&&t.id&&t.nabl?D().settings.cert+'-'+yy()+'-'+pad(D().counters.uid,6)+'-F':''}
 const dayDate=(c,a)=>c?fs(addDays(c,a)):'—';
@@ -1305,7 +1309,7 @@ function createView(){
  const list=D().samples.slice().sort((a,b)=>a.receipt===b.receipt?(a.uid<b.uid?1:-1):(a.receipt<b.receipt?1:-1)).slice(0,14);
  return pgHead('Create new test')+'<button class="btn pri blk" data-act="newsample" style="margin-bottom:6px">'+ic('plus')+' New sample</button>'+
  '<div class="sec"><h2>Recent samples</h2></div>'+
- (list.map(s=>'<div class="row" style="cursor:default"><div class="grow"><div class="t mono">'+esc(s.uid)+'</div><div class="s">'+esc(ts(s.testId).name)+' · '+esc(cl(s.clientId).name)+'</div><div class="s">Received '+fd(s.receipt)+'</div></div>'+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus))+'</div>').join('')||empty('No samples yet.'));
+ (list.map(s=>'<button class="row" data-act="opengrp" data-id="'+esc(s.groupId||s.id)+'"><div class="grow"><div class="t mono">'+esc(s.uid)+'</div><div class="s">'+esc(ts(s.testId).name)+' · '+esc(cl(s.clientId).name)+'</div><div class="s">Received '+fd(s.receipt)+'</div></div>'+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus))+'</button>').join('')||empty('No samples yet.'));
 }
 function doneView(m){
  const s=sm(m.doneId);if(!s)return createView();
@@ -1313,7 +1317,59 @@ function doneView(m){
  return '<div class="card done"><div class="tick">'+ic('check',30)+'</div><h1>Sample saved</h1><p class="mut" style="margin-top:4px">Tests are now on the testing schedule.</p></div>'+
  '<div class="card"><dl class="dl"><dt>UID</dt><dd class="mono">'+esc(s.uid)+'</dd><dt>ULR</dt><dd class="mono">'+(s.ulr?esc(s.ulr):'Not in NABL scope — no ULR')+'</dd><dt>Client</dt><dd>'+esc(cl(s.clientId).name)+'</dd>'+(S.online?'<dt>Billing</dt><dd>Each test is invoiced on its own once its result is approved, from Bills → To invoice</dd>':'<dt>Bill</dt><dd><span class="mono">'+esc(inv?inv.no:(s.billNo||'—'))+'</span>'+(inv?' · '+inr(inv.total)+' · due '+fd(inv.due):'')+'</dd>')+'</dl></div>'+
  '<div class="sec"><h2>Scheduled tests</h2></div>'+jb.map(j=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(jobLabel(j))+'</div><div class="s">Due '+fd(j.due)+' · '+esc(us(j.assignee).name||'')+'</div></div></div>').join('')+
- '<div class="btns" style="margin-top:14px"><button class="btn" data-act="cdone">Back to list</button><button class="btn pri" data-act="newsample">New sample</button></div>';
+ '<div class="btns" style="margin-top:14px"><button class="btn" data-act="cdone">Back to list</button><button class="btn pri" data-act="addgrouptest" data-id="'+esc(s.groupId||s.id)+'">'+ic('plus')+' Add another test to this sample</button><button class="btn pri" data-act="newsample">New sample</button></div>';
+}
+/* ================= SAMPLE GROUPS (samples with >1 test registered together) ================= */
+function sampleGroups(){
+ const byG={};D().samples.forEach(s=>{const g=s.groupId||s.id;(byG[g]=byG[g]||[]).push(s)});
+ return Object.keys(byG).map(g=>{const mem=byG[g].slice().sort((a,b)=>(a.groupSeq||0)-(b.groupSeq||0));return{gid:g,members:mem,head:mem[0]}}).sort((a,b)=>a.head.receipt===b.head.receipt?(a.head.uid<b.head.uid?1:-1):(a.head.receipt<b.head.receipt?1:-1));
+}
+function groupStatus(mem){
+ if(mem.every(s=>s.reportStatus==='sent'))return'sent';
+ if(mem.every(s=>s.reportStatus==='approved'||s.reportStatus==='sent'))return'approved';
+ if(mem.some(s=>s.reportStatus==='returned'))return'returned';
+ if(mem.some(s=>s.reportStatus==='awaiting'))return'awaiting';
+ if(mem.every(s=>s.reportStatus==='draft'))return'draft';
+ return'testing';
+}
+function samplesView(){
+ const m=M('samples');
+ if(m.gid)return sampleGroupDetail(m);
+ const q=(m.q||'').toLowerCase().trim();
+ let groups=sampleGroups();
+ if(q)groups=groups.filter(g=>g.members.some(s=>(s.uid+' '+s.mark+' '+cl(s.clientId).name).toLowerCase().indexOf(q)>=0));
+ return pgHead('Sample List')+searchBox('m.samples.q',m.q,'Search by UID, mark or client…')+
+ (groups.length?groups.map(g=>{const s=g.head,n=g.members.length,st=groupStatus(g.members);
+  return '<button class="row" data-act="opengrp" data-id="'+esc(g.gid)+'"><div class="sic c-acc" style="border-radius:10px">'+ic('flask',18)+'</div><div class="grow"><div class="t mono">'+esc(s.uid)+(n>1?' <span class="mut">+'+(n-1)+' more</span>':'')+'</div><div class="s">'+esc(s.mark)+' · '+esc(cl(s.clientId).name)+'</div><div class="s">Received '+fd(s.receipt)+' · '+n+' test'+(n>1?'s':'')+'</div></div>'+bdg(RSTAT[st]||st,rcls(st))+'</button>'}).join(''):empty('No samples match.'));
+}
+function sampleGroupDetail(m){
+ const g=sampleGroups().find(x=>x.gid===m.gid);
+ if(!g)return samplesView();
+ if(m.testId)return testEntryList(m,g);
+ const s=g.head,c=cl(s.clientId),tab=m.tab||'overview';
+ const tabs=[['overview','Overview'],['tests','Tests ('+g.members.length+')'],['photos','Photos'],['docs','Documents']];
+ let body='';
+ if(tab==='overview'){
+  body='<div class="card"><dl class="dl"><dt>Client</dt><dd>'+esc(c.name)+'</dd><dt>Project</dt><dd>'+esc(pr(s.projectId).name)+'</dd><dt>Date of receipt</dt><dd>'+fd(s.receipt)+'</dd><dt>Sampled by</dt><dd>'+esc(s.sampledBy)+'</dd><dt>Condition</dt><dd>'+esc(s.cond)+(s.reason?' · '+esc(s.reason):'')+'</dd><dt>Representative</dt><dd>'+esc(s.rep.name)+' · '+esc(s.rep.mobile)+'</dd></dl></div>'+trailHtml(s);
+ }else if(tab==='tests'){
+  body=g.members.map(x=>{const t=ts(x.testId),jb=jobsOf(x.id),done=jb.filter(j=>j.status==='done').length;
+   return '<button class="row" data-act="opentest" data-id="'+esc(x.id)+'"><div class="sic c-blue" style="border-radius:10px">'+ic(t.kind==='cube'?'clip':'flask',18)+'</div><div class="grow"><div class="t">'+esc(t.name)+'</div><div class="s mono">'+esc(x.uid)+'</div><div class="s">'+done+'/'+jb.length+' specimen'+(jb.length>1?'s':'')+' done</div></div>'+bdg(RSTAT[x.reportStatus],rcls(x.reportStatus))+'</button>'}).join('')+
+  (can('create')?'<button class="btn pri blk" data-act="addgrouptest" data-id="'+esc(g.gid)+'" style="margin-top:10px">'+ic('plus')+' Add another test to this sample</button>':'');
+ }else if(tab==='photos'){
+  const photos=g.members.filter(x=>x.photo);
+  body=photos.length?'<div class="pgrid">'+photos.map(x=>'<div class="pitem"><img src="'+x.photo+'" alt=""><div class="s">'+esc(ts(x.testId).name)+'</div></div>').join('')+'</div>':empty('No photos were captured for this sample.');
+ }else{
+  body=empty('No documents are attached to this sample yet.');
+ }
+ return pgHead(esc(s.mark)||'Sample','samplesback',esc(s.uid)+' · '+esc(c.name))+tabsBar('samplestab',tab,tabs)+body;
+}
+function testEntryList(m,g){
+ const s=sm(m.testId);if(!s)return sampleGroupDetail(Object.assign({},m,{testId:null}));
+ const t=ts(s.testId),jb=jobsOf(s.id);
+ return pgHead(esc(t.name),'sampletestback',esc(s.uid))+
+ '<div class="card"><dl class="dl"><dt>Mark</dt><dd>'+esc(s.mark)+'</dd><dt>Condition</dt><dd>'+esc(s.cond)+'</dd>'+(t.kind==='cube'?'<dt>Grade</dt><dd>'+esc(s.d.grade)+'</dd><dt>Casting date</dt><dd>'+fd(s.d.casting)+'</dd>':'<dt>Due</dt><dd>'+fd(s.d.due)+'</dd>')+'</dl></div>'+
+ '<div class="sec"><h2>Test entries</h2></div>'+
+ (jb.map(j=>'<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(jobLabel(j))+'</div><div class="s">Due '+fd(j.due)+' · '+esc(us(j.assignee).name||'')+'</div>'+(j.status==='done'&&j.results?'<div class="s">'+(j.results.avg!=null?'Avg '+j.results.avg+' N/mm²':j.results.value!=null?j.results.value:'Recorded'):'' )+'</div></div>'+bdg(j.status==='done'?'Done':'Pending',j.status==='done'?'ok':'')+'</div>').join('')||empty('No test entries.'));
 }
 function wzValidate(step){
  const f=S.wiz.f,e={},t=ts(f.testId);
@@ -1359,15 +1415,16 @@ function wizView(){
  const strip=step>1?'<div class="strip"><div><small>Date of receipt</small>'+fd(f.receipt)+'</div><div><small>UID</small><span class="mono">'+nextUid()+'</span></div><div class="full"><small>ULR</small><span class="mono">'+(t.id?(t.nabl?nextUlr(t):'Not in NABL scope — no ULR'):'—')+'</span></div></div>':'';
  if(step===1){
   const projs=f.clientId?D().projects.filter(p=>p.clientId===f.clientId):[];
-  body='<h2 style="margin-bottom:14px">Client Information</h2>'+
-  fld('Date of receipt',inp('wiz.f.receipt',f.receipt,{type:'date',err:e.receipt}),e.receipt)+
+  body=(f.groupId?'<div class="note ok" style="margin-bottom:10px">Adding another test to sample group '+esc(sm(f.groupId)?sm(f.groupId).uid:'')+'. Client, project and receipt are locked to match.</div>':'')+
+  '<h2 style="margin-bottom:14px">Client Information</h2>'+
+  fld('Date of receipt',f.groupId?inp('x0',fd(f.receipt),{ro:1,dis:1}):inp('wiz.f.receipt',f.receipt,{type:'date',err:e.receipt}),e.receipt)+
   '<div class="two">'+fld('UID (auto)',inp('x1',nextUid(),{ro:1,dis:1}))+fld('ULR (auto)',inp('x2',t.id?(t.nabl?nextUlr(t):'No ULR — outside NABL scope'):'Set after choosing test',{ro:1,dis:1}))+'</div>'+
-  fld('Client',sel('wiz.f.clientId',f.clientId,D().clients.map(x=>[x.id,x.name]),{ph:'Select client…',h:'wzclient',err:e.clientId}),e.clientId)+
+  (f.groupId?fld('Client',inp('x1b',c?c.name:'',{ro:1,dis:1})):fld('Client',sel('wiz.f.clientId',f.clientId,D().clients.map(x=>[x.id,x.name]),{ph:'Select client…',h:'wzclient',err:e.clientId}),e.clientId))+
   (c?'<div class="two">'+fld('Client code',inp('x3',c.code,{ro:1,dis:1}))+fld('GST number',inp('x4',c.gst,{ro:1,dis:1}))+'</div>'+fld('Client address',inp('x5',c.address,{ro:1,dis:1})):'')+
-  fld('Project',sel('wiz.f.projectId',f.projectId,projs.map(x=>[x.id,x.name]),{ph:f.clientId?'Select project…':'Choose a client first',dis:!f.clientId,err:e.projectId}),e.projectId)+
+  (f.groupId?fld('Project',inp('x1c',f.projectId?pr(f.projectId).name:'',{ro:1,dis:1})):fld('Project',sel('wiz.f.projectId',f.projectId,projs.map(x=>[x.id,x.name]),{ph:f.clientId?'Select project…':'Choose a client first',dis:!f.clientId,err:e.projectId}),e.projectId))+
   (f.projectId?fld('Site address',inp('x6',pr(f.projectId).site,{ro:1,dis:1})):'')+
-  fld('Sampled by',chipRow('wiz.f.sampledBy',f.sampledBy,[['TechAssures','TechAssures'],['Client','Client']]),'',f.sampledBy==='Client'?'Results apply only to the sample as received.':'')+
-  fld('Billing type',chipRow('wiz.f.billing',f.billing,[['Advance','Advance'],['Credit','Credit']]),e.billing,c?'Set from the client\'s terms ('+esc(c.terms)+'); you can change it.':'')+
+  (f.groupId?'':fld('Sampled by',chipRow('wiz.f.sampledBy',f.sampledBy,[['TechAssures','TechAssures'],['Client','Client']]),'',f.sampledBy==='Client'?'Results apply only to the sample as received.':''))+
+  (f.groupId?'':fld('Billing type',chipRow('wiz.f.billing',f.billing,[['Advance','Advance'],['Credit','Credit']]),e.billing,c?'Set from the client\'s terms ('+esc(c.terms)+'); you can change it.':''))+
   fld('Type of test','<button type="button" class="in" style="display:flex;align-items:center;justify-content:space-between;text-align:left" data-act="opentestpicker">'+(t.id?esc(t.name):'<span class="mut">Select test…</span>')+ic('chev',18)+'</button>',e.testId)+
   (t.id?fld('IS code reference',inp('x7',t.code,{ro:1,dis:1}),'',t.nabl?'':'This test is outside NABL scope, so no ULR is issued.'):'');
  }else if(step===2){
@@ -1549,7 +1606,7 @@ async function saveSample(){
  const w=S.wiz,f=w.f,t=ts(f.testId);let d;
  if(t.kind==='cube'){const sizes=f.sizes.map(s=>({l:num(s.l),b:num(s.b),h:num(s.h),n:+s.n}));d={grade:f.grade,source:f.source,supplier:f.source==='RMC'?f.supplier.trim():'',casting:f.casting,ages:f.ages.slice().sort((a,b)=>a-b),sizes:sizes}}
  else d={desc:f.desc.trim(),qty:num(f.qty),due:f.due};
- const payload={receipt:f.receipt,clientId:f.clientId,projectId:f.projectId,sampledBy:f.sampledBy,billing:f.billing,testId:f.testId,mark:f.mark.trim(),cond:f.cond,reason:f.cond==='Acceptable'?'':f.reason.trim(),photo:f.photo,assignee:f.assignee,rep:{name:f.repName.trim(),mobile:f.repMobile,sig:f.sig},d:d};
+ const payload={receipt:f.receipt,clientId:f.clientId,projectId:f.projectId,sampledBy:f.sampledBy,billing:f.billing,testId:f.testId,mark:f.mark.trim(),cond:f.cond,reason:f.cond==='Acceptable'?'':f.reason.trim(),photo:f.photo,assignee:f.assignee,rep:{name:f.repName.trim(),mobile:f.repMobile,sig:f.sig},d:d,groupId:f.groupId||''};
  S.busy=true;w.err={};render();
  try{
   payload.geo=await getLoc();
@@ -1564,7 +1621,8 @@ function saveSampleLocal(geo){
  const n=db.counters.uid++,d={};
  if(t.kind==='cube'){const sizes=f.sizes.map(s=>({l:num(s.l),b:num(s.b),h:num(s.h),n:+s.n}));d.grade=f.grade;d.source=f.source;d.supplier=f.source==='RMC'?f.supplier.trim():'';d.casting=f.casting;d.ages=f.ages.slice().sort((a,b)=>a-b);d.sizes=sizes;d.total=sizes.reduce((a,s)=>a+s.n,0)}
  else{d.desc=f.desc.trim();d.qty=num(f.qty);d.due=f.due}
- const s={id:'s'+n,uid:'UID-'+yy()+'-'+pad(n,6),ulr:t.nabl?db.settings.cert+'-'+yy()+'-'+pad(n,6)+'-F':'',receipt:f.receipt,clientId:c.id,projectId:f.projectId,sampledBy:f.sampledBy,billing:f.billing,testId:t.id,mark:f.mark.trim(),d:d,photo:f.photo,cond:f.cond,reason:f.cond==='Acceptable'?'':f.reason.trim(),rep:{name:f.repName.trim(),mobile:f.repMobile,sig:f.sig},assignee:f.assignee,createdBy:S.user.id,reportStatus:'testing',geo:geo};
+ const gid=f.groupId||('s'+n),seq=db.samples.filter(x=>x.groupId===gid).length;
+ const s={id:'s'+n,uid:'UID-'+yy()+'-'+pad(n,6),ulr:t.nabl?db.settings.cert+'-'+yy()+'-'+pad(n,6)+'-F':'',receipt:f.receipt,clientId:c.id,projectId:f.projectId,sampledBy:f.sampledBy,billing:f.billing,testId:t.id,mark:f.mark.trim(),d:d,photo:f.photo,cond:f.cond,reason:f.cond==='Acceptable'?'':f.reason.trim(),rep:{name:f.repName.trim(),mobile:f.repMobile,sig:f.sig},assignee:f.assignee,createdBy:S.user.id,reportStatus:'testing',geo:geo,groupId:gid,groupSeq:seq};
  db.samples.push(s);
  if(t.kind==='cube')d.ages.forEach(a=>db.jobs.push({id:'j'+n+'_'+a,sampleId:s.id,age:a,due:addDays(d.casting,a),assignee:s.assignee,status:'pending',results:null,remarks:''}));
  else db.jobs.push({id:'j'+n,sampleId:s.id,age:null,due:d.due,assignee:s.assignee,status:'pending',results:null,remarks:''});
@@ -2199,7 +2257,7 @@ async function recordPay(){
 
 /* ================= RENDER & EVENTS ================= */
 function modBody(){
- return({create:createView,schedule:scheduleView,reports:reportsView,approve:approveView,bills:billsView,clients:clientsView,crm:crmView,tickets:ticketsView,reviews:reviewsView,quotes:quotesView,admin:adminView})[S.route]();
+ return({create:createView,samples:samplesView,schedule:scheduleView,reports:reportsView,approve:approveView,bills:billsView,clients:clientsView,crm:crmView,tickets:ticketsView,reviews:reviewsView,quotes:quotesView,admin:adminView})[S.route]();
 }
 function view(){
  if(S.booting)return '<div class="login"><div class="logo"><i></i><h1>TechAssures Lab</h1></div><p class="mut">Connecting…</p></div>';
@@ -2515,6 +2573,15 @@ const ACT={
  opencl(t){const m=M('clients');m.clientId=t.dataset.id;m.tab='overview';m.openProj=null;render();window.scrollTo(0,0)},
  clback(){const m=M('clients');m.clientId=null;render();window.scrollTo(0,0)},
  cltab(t){M('clients').tab=t.dataset.v;render()},
+ /* sample groups */
+ opengrp(t){go('samples',{gid:t.dataset.id,tab:'overview'})},
+ samplesback(){const m=M('samples');if(m.testId){m.testId=null;render();return}m.gid=null;render();window.scrollTo(0,0)},
+ samplestab(t){M('samples').tab=t.dataset.v;render()},
+ opentest(t){M('samples').testId=t.dataset.id;render();window.scrollTo(0,0)},
+ sampletestback(){M('samples').testId=null;render();window.scrollTo(0,0)},
+ addgrouptest(t){const g=sampleGroups().find(x=>x.gid===t.dataset.id);if(!g)return;const h=g.head;
+  S.wiz=newWiz({groupId:g.gid,clientId:h.clientId,projectId:h.projectId,receipt:h.receipt,sampledBy:h.sampledBy,billing:h.billing,repName:h.rep.name,repMobile:h.rep.mobile,sig:h.rep.sig,assignee:h.assignee});
+  S.wiz.testPicker=true;render()},
  openproj(t){const m=M('clients');m.openProj=m.openProj===t.dataset.id?null:t.dataset.id;render()},
  async addproj(){const m=M('clients'),np=m.np,c=cl(m.clientId);
   if(!np.name.trim()){np.err={name:'Enter a project name'};render();return}
