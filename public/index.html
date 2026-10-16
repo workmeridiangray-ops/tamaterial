@@ -1454,7 +1454,7 @@ function calHtml(ym,counts,over,sel,pre,sub,legend){
  '<div class="cdw"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div><div class="cdg">'+cells+'</div><div class="legend">'+legend+'</div></div>';
 }
 const ages=s=>jobsOf(s.id).map(j=>j.age).filter(x=>x).sort((a,b)=>a-b);
-function avgOf(s){const dj=jobsOf(s.id).filter(j=>j.status==='done'&&j.results).sort((a,b)=>(b.age||0)-(a.age||0))[0];return dj?(dj.results.avg!=null?(+dj.results.avg).toFixed(2):dj.results.value):'—'}
+function avgOf(s){const dj=jobsOf(s.id).filter(j=>j.status==='done'&&j.results).sort((a,b)=>(b.age||0)-(a.age||0))[0];if(!dj)return '—';if(dj.results.avg!=null)return (+dj.results.avg).toFixed(2);if(dj.results.value!=null)return dj.results.value;return 'recorded'}
 function scheduleView(){
  const m=M('schedule');
  if(m.sentDone)return submittedView(m);
@@ -1511,6 +1511,15 @@ function initEntry(m,j){
   const su=j.setup||{},setup={machine:su.machine||machinesList()[0]||'',calDate:su.calDate||'',temp:su.temp!=null?String(su.temp):'27'};
   if(j.status==='done'&&j.results&&j.results.rows)m.entry={setup:setup,rows:j.results.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:String(r.load),weight:r.weight!=null?String(r.weight):'',photo:r.photo||''})),remarks:j.remarks||'',err:{}};
   else{const ex=expandRows(s.d),cnt=Math.max(1,Math.ceil((s.d.total||ex.length)/(s.d.ages.length||1)));const rows=[];for(let i=0;i<cnt;i++){const q=ex[i%ex.length];rows.push({l:q.l,b:q.b,h:q.h,load:'',weight:'',photo:''})}m.entry={setup:setup,rows:rows,remarks:'',err:{}}}
+ }else if(t.kind==='paramset'){
+  const single=t.fields.filter(f=>!f.repeatable),rep=t.fields.filter(f=>f.repeatable);
+  const ex=j.results;
+  const values={};single.forEach(f=>{values[f.key]=ex&&ex.values&&ex.values[f.key]!=null?String(ex.values[f.key]):''});
+  let rows;
+  if(ex&&ex.rows&&ex.rows.length)rows=ex.rows.map(r=>{const o={};rep.forEach(f=>o[f.key]=r[f.key]!=null?String(r[f.key]):'');return o});
+  else if(rep.length){const seed=(rep[0].note||'').split(',').map(x=>x.trim()).filter(x=>x&&x.length<24);rows=(seed.length>1?seed:[1]).map(s=>{const o={};rep.forEach((f,i)=>o[f.key]=i===0&&seed.length>1?s:'');return o})}
+  else rows=[];
+  m.entry={values:values,rows:rows,remarks:j.remarks||'',err:{}};
  }else m.entry={value:j.results&&j.results.value!=null?String(j.results.value):'',remarks:j.remarks||'',err:{}};
 }
 const strengthOf=r=>{const l=num(r.load);return l>0?r2(l*1000/(r.l*r.b)):null};
@@ -1538,6 +1547,17 @@ function jobDetail(m){
     '<input class="vh" id="cpc'+i+'" type="file" accept="image/*" capture="environment" data-cubephoto="'+i+'"><input class="vh" id="cpg'+i+'" type="file" accept="image/*" data-cubephoto="'+i+'"></div>'}).join('')+
   (done?'':'<div class="btns" style="margin-bottom:14px"><button class="btn" data-act="addcube">'+ic('plus',18)+' Add cube</button>'+(en.rows.length>1?'<button class="btn" data-act="rmcube">'+ic('minus',18)+' Remove last</button>':'')+'</div>')+
   '<div class="note ok"><b>Average strength: '+(avg!=null?avg.toFixed(2)+' N/mm²':'—')+'</b><div class="xs mut">N/mm² = load × 1000 ÷ (L × B)</div></div>';
+ }else if(t.kind==='paramset'){
+  const single=t.fields.filter(f=>!f.repeatable),rep=t.fields.filter(f=>f.repeatable);
+  form=single.map(f=>{
+   if(f.type==='calculated')return fld(f.label+(f.unit?' ('+f.unit+')':''),'<div class="in" style="display:flex;align-items:center;background:var(--wash)" title="'+esc(f.note||'')+'">Calculated — confirm with lab</div>','', f.note?'Source: '+f.note:'');
+   return fld(f.label+(f.unit?' ('+f.unit+')':''),inp('m.schedule.entry.values.'+f.key,en.values[f.key],{mode:f.type==='number'?'decimal':undefined,dis:done,err:er['v_'+f.key]}),er['v_'+f.key]);
+  }).join('')+
+  (rep.length?'<h3 style="margin:14px 0 10px">'+esc(t.name.includes('Sieve')?'Sieve readings':'Readings')+'</h3>'+
+   en.rows.map((r,i)=>'<div class="card flat" style="margin-bottom:10px;padding:12px"><div class="xs mut" style="margin-bottom:8px"><b>Row '+(i+1)+'</b></div>'+
+    rep.map(f=>f.type==='calculated'?'<div class="xs mut" style="margin-bottom:8px">'+esc(f.label)+': calculated — confirm with lab</div>':fld(f.label+(f.unit?' ('+f.unit+')':''),inp('m.schedule.entry.rows.'+i+'.'+f.key,r[f.key],{mode:f.type==='number'?'decimal':undefined,dis:done}))).join('')+
+   '</div>').join('')+
+   (done?'':'<div class="btns" style="margin-bottom:14px"><button class="btn" data-act="addrow">'+ic('plus',18)+' Add row</button>'+(en.rows.length>1?'<button class="btn" data-act="rmrow">'+ic('minus',18)+' Remove last</button>':'')+'</div>'):'');
  }else form=fld('Result value ('+esc(t.ru||'value')+')',inp('m.schedule.entry.value',en.value,{mode:'decimal',err:er.value,dis:done}),er.value);
  form+=fld('Remarks (optional)',ta('m.schedule.entry.remarks',en.remarks,{dis:done}));
  const early=!done&&!redo&&j.due>T;
@@ -1561,6 +1581,13 @@ async function saveJob(){
   const rows=en.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:num(r.load),strength:strengthOf(r),weight:num(r.weight)>0?num(r.weight):null,photo:r.photo||''}));
   results={rows:rows,avg:r2(rows.reduce((a,r)=>a+r.strength,0)/rows.length)};
   payload={rows:en.rows.map(r=>({l:r.l,b:r.b,h:r.h,load:num(r.load),weight:r.weight,photo:r.photo||''})),setup:{machine:su.machine,calDate:su.calDate,temp:su.temp},remarks:(en.remarks||'').trim()};
+ }else if(t.kind==='paramset'){
+  const single=t.fields.filter(f=>!f.repeatable&&f.type!=='calculated'),rep=t.fields.filter(f=>f.repeatable&&f.type!=='calculated');
+  single.forEach(f=>{if(String(en.values[f.key]||'').trim()==='')err['v_'+f.key]='Required'});
+  if(Object.keys(err).length){en.err=err;render();toast('Check the highlighted fields',1);return}
+  const values={};single.forEach(f=>values[f.key]=String(en.values[f.key]).trim());
+  const rows=en.rows.map(r=>{const o={};rep.forEach(f=>o[f.key]=String(r[f.key]||'').trim());return o});
+  results={values:values,rows:rows};payload={values:values,rows:rows,remarks:(en.remarks||'').trim()};
  }else{
   if(!(num(en.value)>=0)||String(en.value).trim()===''){en.err={value:'Enter the result value'};render();return}
   results={value:String(en.value).trim()};payload={value:results.value,remarks:(en.remarks||'').trim()};
@@ -1630,6 +1657,13 @@ function reportHtml(s){
    h+='<div class="xs" style="margin:8px 0 4px"><b>'+j.age+'-day test</b>'+(j.status==='done'?' · tested '+fd(j.doneOn||j.due):'')+'</div>';
    if(j.status!=='done')h+='<p class="mut">Result pending — test due '+fd(j.due)+'.</p>';
    else h+='<div class="tbs"><table class="tb"><thead><tr><th>Cube</th><th class="r">L</th><th class="r">B</th><th class="r">H</th><th class="r">Wt (kg)</th><th class="r">Area (mm²)</th><th class="r">Load (kN)</th><th class="r">N/mm²</th></tr></thead><tbody>'+j.results.rows.map((r,i)=>'<tr><td>'+(i+1)+'</td><td class="r">'+r.l+'</td><td class="r">'+r.b+'</td><td class="r">'+r.h+'</td><td class="r">'+(r.weight!=null?r.weight:'—')+'</td><td class="r">'+(r.l*r.b)+'</td><td class="r">'+r.load+'</td><td class="r"><b>'+(+r.strength).toFixed(2)+'</b></td></tr>').join('')+'<tr class="tot"><td colspan="7">Average compressive strength (N/mm²)</td><td class="r">'+(+j.results.avg).toFixed(2)+'</td></tr></tbody></table></div>';
+  }else if(t.kind==='paramset'){
+   if(j.status!=='done')h+='<p class="mut">Result pending — test due '+fd(j.due)+'.</p>';
+   else{
+    const single=t.fields.filter(f=>!f.repeatable),rep=t.fields.filter(f=>f.repeatable),v=j.results.values||{};
+    h+='<div class="tbs"><table class="tb"><tbody>'+single.map(f=>'<tr><td>'+esc(f.label)+'</td><td class="r">'+(f.type==='calculated'?'<i class="mut">calculated — '+esc(f.note||'')+'</i>':esc(v[f.key]!=null?v[f.key]:'—')+(f.unit?' '+esc(f.unit):''))+'</td></tr>').join('')+'</tbody></table></div>'+
+    (rep.length&&(j.results.rows||[]).length?'<div class="tbs"><table class="tb"><thead><tr>'+rep.map(f=>'<th class="r">'+esc(f.label)+(f.unit?' ('+esc(f.unit)+')':'')+'</th>').join('')+'</tr></thead><tbody>'+j.results.rows.map(r=>'<tr>'+rep.map(f=>'<td class="r">'+(f.type==='calculated'?'—':esc(r[f.key]!=null?r[f.key]:'—'))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'');
+   }
   }else h+=(j.status!=='done'?'<p class="mut">Result pending — test due '+fd(j.due)+'.</p>':'<table class="tb"><tbody><tr><td>'+esc(t.name)+'</td><td class="r"><b>'+esc(j.results.value)+'</b> '+esc(t.ru||'')+'</td></tr></tbody></table>');
  });
  const j28=jb.filter(j=>j.age===28&&j.status==='done')[0],fck=gradeFck(s.d&&s.d.grade);
@@ -1649,6 +1683,7 @@ function reportText(s){
  jobsOf(s.id).slice().sort((a,b)=>(a.age||0)-(b.age||0)).forEach(j=>{
   if(j.status!=='done'){L.push((t.kind==='cube'?j.age+'-day: ':'')+'pending (due '+fd(j.due)+')');return}
   if(t.kind==='cube')L.push(j.age+'-day: '+j.results.rows.map(r=>(+r.strength).toFixed(2)).join(', ')+' N/mm² · average '+(+j.results.avg).toFixed(2)+' N/mm²');
+  else if(t.kind==='paramset')L.push('Observations recorded'+(j.remarks?' ('+j.remarks+')':''));
   else L.push('Result: '+j.results.value+' '+(t.ru||'')+(j.remarks?' ('+j.remarks+')':''));
  });
  if(s.sampledBy==='Client')L.push('Results apply only to the sample as received.');
@@ -2135,6 +2170,8 @@ const ACT={
  jobback(){const m=M('schedule');m.jobId=null;m.entry=null;render();window.scrollTo(0,0)},
  addcube(){const r=M('schedule').entry.rows,l=r[r.length-1];r.push({l:l.l,b:l.b,h:l.h,load:'',weight:'',photo:''});render()},
  rmcube(){const r=M('schedule').entry.rows;if(r.length>1)r.pop();render()},
+ addrow(){const r=M('schedule').entry.rows,o={};Object.keys(r[0]||{}).forEach(k=>o[k]='');r.push(o);render()},
+ rmrow(){const r=M('schedule').entry.rows;if(r.length>1)r.pop();render()},
  savejob(){saveJob()},
  schmon(t){const m=M('schedule');m.month=shiftMon(m.month||today().slice(0,7),+t.dataset.v);render()},
  schday(t){const m=M('schedule');m.day=t.dataset.v;m.month=t.dataset.v.slice(0,7);render()},

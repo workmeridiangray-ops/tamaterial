@@ -38,7 +38,7 @@ function idToken(email, over, key) {
   const A = su.j.token;
   const ba = (await call('GET', '/api/bootstrap', A)).j;
   ok(ba.org.slug === 'alpha-testing-lab' && !ba.org.demo, 'bootstrap names the lab');
-  ok(ba.data.clients.length === 0 && ba.data.samples.length === 0 && ba.data.tests.length === 6, 'new lab starts empty with the test catalogue');
+  ok(ba.data.clients.length === 0 && ba.data.samples.length === 0 && ba.data.tests.length === 25, 'new lab starts empty with the test catalogue');
   ok(ba.data.counters.uid === 1, 'new lab UID counter starts at 1');
 
   const D = (await call('POST', '/api/login', null, { login: 'admin', pin: '1111' })).j.token;

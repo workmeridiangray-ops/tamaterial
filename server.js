@@ -273,8 +273,10 @@ function clean(coll, b, old, actor) {
   }
   if (!isId(id)) bad('Invalid id');
   if (coll === 'tests') {
-    return { id, name: str(b.name, 80, { req: 'Test name is required' }), code: str(b.code, 60), rate: String(money(b.rate, 'Rate')), nabl: !!b.nabl,
+    const out = { id, name: str(b.name, 80, { req: 'Test name is required' }), code: str(b.code, 60), rate: String(money(b.rate, 'Rate')), nabl: !!b.nabl,
       kind: old ? old.kind : 'simple', unit: str(b.unit || (old && old.unit) || 'sample', 20), ru: str(b.ru || (old && old.ru) || 'value', 30) };
+    if (old && old.fields) out.fields = old.fields; // paramset observation schema — not editable from the admin test-master form
+    return out;
   }
   if (coll === 'clients') {
     const code = str(b.code, 20, { req: 'Client code is required' });
@@ -573,6 +575,14 @@ function saveResult(u, jobId, b) {
     if (!L.isDate(su.calDate) || su.calDate > L.today()) bad('Enter the machine calibration date (not in the future)');
     if (isNaN(temp) || temp < 0 || temp > 60) bad('Enter the lab temperature in °C');
     setup = { machine: str(su.machine, 40), calDate: su.calDate, temp };
+  } else if (t.kind === 'paramset') {
+    const single = t.fields.filter(f => !f.repeatable && f.type !== 'calculated');
+    const rep = t.fields.filter(f => f.repeatable && f.type !== 'calculated');
+    const values = {};
+    single.forEach(f => { const v = str((b.values || {})[f.key], 60); if (!v) bad('Enter ' + f.label.toLowerCase()); values[f.key] = v; });
+    const rowsIn = Array.isArray(b.rows) ? b.rows.slice(0, 200) : [];
+    const rows = rowsIn.map(r => { const o = {}; rep.forEach(f => o[f.key] = str(r[f.key], 60)); return o; });
+    results = { values, rows };
   } else {
     const v = str(b.value, 40, { req: 'Enter the result value' });
     if (isNaN(L.num(v)) || L.num(v) < 0) bad('Result value must be a number');
@@ -580,7 +590,8 @@ function saveResult(u, jobId, b) {
   }
   return tx(() => {
     job.results = results; if (setup) job.setup = setup; job.remarks = str(b.remarks, 500); job.status = 'done'; job.doneOn = L.today(); job.geo = geo; job.doneAt = geo.at; job.doneBy = u.id;
-    put('jobs', job, u, 'result', s.uid + ' · ' + jobLabel(t, job) + (results.avg != null ? ' · avg ' + results.avg + ' N/mm²' : ' · ' + results.value) + (redo ? ' · corrected' : '') + geoTxt(geo));
+    const logVal = results.avg != null ? ' · avg ' + results.avg + ' N/mm²' : (results.value != null ? ' · ' + results.value : ' · observations recorded');
+    put('jobs', job, u, 'result', s.uid + ' · ' + jobLabel(t, job) + logVal + (redo ? ' · corrected' : '') + geoTxt(geo));
     if (all('jobs').filter(j => j.sampleId === s.id).every(j => j.status === 'done') && s.reportStatus === 'testing') { s.reportStatus = 'draft'; put('samples', s, u, 'status', s.uid + ' report drafted, ready to send for review'); }
     const asg = assignedSet(u);
     return { job, sample: shape(u, 'samples', s, asg) };
