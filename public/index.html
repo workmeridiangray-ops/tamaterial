@@ -191,10 +191,21 @@ textarea.in{min-height:84px;resize:vertical}
 
 /* wizard */
 .wz{min-height:100vh;background:var(--paper)}
-.wz .hdr{padding-left:6px}
-.wz .ttl{font-family:Manrope,sans-serif;font-weight:700;font-size:16px}
+.wz .hdr{padding-left:6px;background:var(--surface);color:var(--ink);border-bottom:1px solid var(--line)}
+.wz .hdr .hbtn{color:var(--ink)}
+.wz .hdr .who{display:none}
+.wz .ttl{font-family:Manrope,sans-serif;font-weight:700;font-size:17px;color:var(--ink)}
 .wzin{max-width:720px;margin:0 auto;padding:16px 16px 120px}
 .bar{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin:6px 0 4px}
+.stepper{display:flex;align-items:center;margin:4px 0 18px}
+.stepper .sp{display:flex;flex-direction:column;align-items:center;gap:6px;flex:none}
+.stepper .sp b{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--wash);color:var(--g2);border:1.5px solid var(--line)}
+.stepper .sp span{font-size:10.5px;font-weight:600;color:var(--g2)}
+.stepper .sp.on b{background:var(--acc-ink);border-color:var(--acc-ink);color:#fff}
+.stepper .sp.on span{color:var(--ink)}
+.stepper .sp.done b{background:var(--acc);border-color:var(--acc);color:#fff}
+.stepper .ln{flex:1;height:2px;background:var(--line);margin:0 6px 16px}
+.stepper .ln.done{background:var(--acc)}
 .bar i{display:block;height:100%;background:var(--acc);border-radius:4px;transition:width .2s}
 .strip{background:#121413;color:#fff;border-radius:12px;padding:12px 14px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:13px}
 .strip small{display:block;color:#A9ACA8;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
@@ -304,9 +315,10 @@ table.tb tr.tot td{font-weight:700;border-bottom:0}
 .sw b{display:block}.sw span{display:block;font-size:13px;color:var(--g1)}.sw i{width:46px;height:26px;border-radius:13px;background:var(--g3);position:relative;flex:none}
 .sw i::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.15s}.sw.on{border-color:var(--acc-ink)}.sw.on i{background:var(--acc-ink)}.sw.on i::after{left:23px}
 .cbx{display:flex;gap:12px;align-items:flex-start;text-align:left;width:100%;padding:14px 4px;margin:6px 0}.cbx i{width:26px;height:26px;border-radius:6px;border:2px solid var(--g2);flex:none;display:flex;align-items:center;justify-content:center;color:#fff}.cbx.on i{background:var(--acc-ink);border-color:var(--acc-ink)}
-.chk{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.chk:last-child{border:0}.chk>span{flex:none;display:flex;width:24px;height:24px;align-items:center;justify-content:center;color:#fff;border-radius:50%}.chk .ok{background:var(--acc-ink)}.chk .no{background:var(--bad)}
+.chk{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.chk:last-child{border:0}.chk>span{flex:none;display:flex;width:24px;height:24px;align-items:center;justify-content:center;color:#fff;border-radius:50%}.chk .ok{background:var(--acc-ink)}.chk .no{background:var(--bad)}
+.qchk{display:flex;align-items:baseline;justify-content:space-between}.qchk b{font-size:15px}.qchk span{font-size:13px;font-weight:700;color:var(--acc-ink)}
 .ph3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.ph3 img,.noph{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:var(--wash);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--g2)}.ph3 span{font-size:11px;color:var(--g1);display:block;margin-top:4px}
-.phrow{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px}.phrow img{width:56px;height:56px;object-fit:cover;border-radius:8px}.phrow .lnk{margin-left:auto}
+.phrow{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px}.phrow img{width:72px;height:72px;object-fit:cover;border-radius:8px}.phrow .lnk{margin-left:auto;border:1.5px solid var(--line);border-radius:10px;padding:8px 14px;font-weight:600}
 .mini{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:var(--wash);border-radius:10px;padding:10px;margin:10px 0}.mini span{display:block;font-size:11px;color:var(--g1)}.mini b{font-size:14px}
 .card.late{border-color:var(--bad)}.grp .gh{display:flex;align-items:center;gap:10px}.gd{width:10px;height:10px;border-radius:50%;background:var(--acc-ink)}.gd.r{background:var(--bad)}.gd.g{background:#2e7d32}
 .cnt{min-width:28px;height:28px;border-radius:14px;background:var(--acc-ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;padding:0 8px}.cnt.r{background:var(--bad)}.cnt.g{background:#2e7d32}
@@ -1290,7 +1302,7 @@ function wizView(){
  const strip=step>1?'<div class="strip"><div><small>Date of receipt</small>'+fd(f.receipt)+'</div><div><small>UID</small><span class="mono">'+nextUid()+'</span></div><div class="full"><small>ULR</small><span class="mono">'+(t.id?(t.nabl?nextUlr(t):'Not in NABL scope — no ULR'):'—')+'</span></div></div>':'';
  if(step===1){
   const projs=f.clientId?D().projects.filter(p=>p.clientId===f.clientId):[];
-  body='<h2 style="margin-bottom:14px">Job details</h2>'+
+  body='<h2 style="margin-bottom:14px">Client Information</h2>'+
   fld('Date of receipt',inp('wiz.f.receipt',f.receipt,{type:'date',err:e.receipt}),e.receipt)+
   '<div class="two">'+fld('UID (auto)',inp('x1',nextUid(),{ro:1,dis:1}))+fld('ULR (auto)',inp('x2',t.id?(t.nabl?nextUlr(t):'No ULR — outside NABL scope'):'Set after choosing test',{ro:1,dis:1}))+'</div>'+
   fld('Client',sel('wiz.f.clientId',f.clientId,D().clients.map(x=>[x.id,x.name]),{ph:'Select client…',h:'wzclient',err:e.clientId}),e.clientId)+
@@ -1336,8 +1348,10 @@ function wizView(){
   '<div class="fld"><div class="sumhd"><label class="lbl" style="margin:0">Signature</label><button type="button" class="lnk" data-act="sigclear">Clear</button></div><canvas class="sig" id="sig" width="640" height="300"></canvas>'+(e.sig?'<div class="err">'+esc(e.sig)+'</div>':'<div class="hint">Sign with your finger or mouse.</div>')+'</div>'+
   fld('Test assigned to',sel('wiz.f.assignee',f.assignee,testers,{ph:'Select tester…',err:e.assignee}),e.assignee);
  }
- return '<div class="wz"><div class="hdr"><button class="hbtn" data-act="wzexit" aria-label="Close">'+ic('x')+'</button><div class="ttl">New sample</div><div class="who">'+esc(ROLE_LABEL[S.user.role])+': '+esc(S.user.name)+'</div></div>'+
- '<div class="wzin"><div class="sm mut" style="font-weight:600">Page '+step+' of 3</div><div class="bar"><i style="width:'+(step/3*100)+'%"></i></div><div style="height:12px"></div>'+body+'</div>'+
+ const stSt=(n,lbl)=>'<div class="sp'+(step===n?' on':step>n?' done':'')+'"><b>'+(step>n?ic('check',14):n)+'</b><span>'+lbl+'</span></div>';
+ const stepper='<div class="stepper">'+stSt(1,'Client')+'<div class="ln'+(step>1?' done':'')+'"></div>'+stSt(2,'Sample')+'<div class="ln'+(step>2?' done':'')+'"></div>'+stSt(3,'Review')+'</div>';
+ return '<div class="wz"><div class="hdr"><button class="hbtn" data-act="wzexit" aria-label="Close">'+ic('back')+'</button><div class="ttl">Register New Sample</div><div class="who">'+esc(ROLE_LABEL[S.user.role])+': '+esc(S.user.name)+'</div></div>'+
+ '<div class="wzin">'+stepper+body+'</div>'+
  '<div class="sbar"><div><button class="btn" data-act="wzback">'+ic('back',18)+' '+(step===1?'Cancel':'Back')+'</button><button class="btn pri'+(S.busy?' off':'')+'" data-act="wznext">'+(step===3?(S.busy?'Saving…':'Save sample'):'Next ')+(step<3?ic('next',18):'')+'</button></div></div></div>';
 }
 /* ---------- notifications: inbox, device alerts, on-phone reminders ---------- */
@@ -1573,13 +1587,15 @@ function jobDetail(m){
  if(t.kind==='cube'){
   const sts=en.rows.map(strengthOf).filter(x=>x!=null),avg=sts.length?r2(sts.reduce((a,b)=>a+b,0)/sts.length):null;
   const su=en.setup||{};
-  form='<h3 style="margin:0 0 10px">Test setup</h3>'+fld('Machine',sel('m.schedule.entry.setup.machine',su.machine,machinesList().map(x=>[x,x]),{dis:done,err:er.machine}),er.machine)+
-   '<div class="two">'+fld('Date of calibration',inp('m.schedule.entry.setup.calDate',su.calDate,{type:'date',maxd:today(),dis:done,err:er.calDate}),er.calDate)+fld('Valid till (1 year)','<div class="in" style="display:flex;align-items:center;background:var(--wash)">'+(su.calDate?fd(addDays(su.calDate,364)):'—')+'</div>')+'</div>'+
-   fld('Lab temperature (°C)',inp('m.schedule.entry.setup.temp',su.temp,{mode:'decimal',dis:done,err:er.temp}),er.temp,'Standard is 27 ± 2 °C')+'<h3 style="margin:14px 0 10px">Cube readings</h3>'+
+  const calLeft=su.calDate?364-Math.round((new Date(today())-new Date(su.calDate))/864e5):null;
+  const calBdg=calLeft==null?'':(calLeft>=0?bdg('Valid — '+calLeft+' days left','ok'):bdg('Calibration expired','bad'));
+  form='<h3 style="margin:0 0 10px">'+ic('gear',16)+' Machine &amp; Environment</h3>'+fld('Machine',sel('m.schedule.entry.setup.machine',su.machine,machinesList().map(x=>[x,x]),{dis:done,err:er.machine}),er.machine)+
+   '<div class="two">'+fld('Date of calibration',inp('m.schedule.entry.setup.calDate',su.calDate,{type:'date',maxd:today(),dis:done,err:er.calDate}),er.calDate)+fld('Valid till (1 year)','<div class="in" style="display:flex;align-items:center;gap:8px;background:var(--wash)">'+(su.calDate?fd(addDays(su.calDate,364)):'—')+(calBdg?' '+calBdg:'')+'</div>')+'</div>'+
+   fld('Lab temperature (°C)',inp('m.schedule.entry.setup.temp',su.temp,{mode:'decimal',dis:done,err:er.temp}),er.temp,'Standard is 27 ± 2 °C')+'<h3 style="margin:14px 0 10px">'+ic('clip',16)+' Measurements</h3>'+
    en.rows.map((r,i)=>{const st=strengthOf(r);
-    return '<div class="card flat" style="margin-bottom:10px;padding:12px"><div class="xs mut" style="margin-bottom:8px"><b>Cube '+(i+1)+'</b> · '+r.l+'×'+r.b+'×'+r.h+' mm</div>'+
+    return '<div class="card flat" style="margin-bottom:10px;padding:12px"><div class="xs mut" style="margin-bottom:8px"><b>Specimen '+(i+1)+' of '+en.rows.length+'</b> · '+r.l+'×'+r.b+'×'+r.h+' mm</div>'+
     '<div class="two">'+fld('Weight (kg)',inp('m.schedule.entry.rows.'+i+'.weight',r.weight,{mode:'decimal',dis:done}))+fld('Max load P (kN)',inp('m.schedule.entry.rows.'+i+'.load',r.load,{mode:'decimal',ph:'kN',err:er['r'+i],dis:done}),er['r'+i])+'</div>'+
-    '<div class="in" style="display:flex;align-items:center;background:var(--wash);font-weight:600;margin-bottom:10px">Strength '+(st!=null?st.toFixed(2)+' N/mm²':'— N/mm²')+'</div>'+
+    '<div style="display:flex;align-items:center;gap:8px;background:var(--acc-soft);color:var(--acc-ink);border-radius:10px;padding:10px 12px;font-weight:700;margin-bottom:10px"><span class="xs" style="font-weight:600;opacity:.8">Compressive Strength</span><span style="margin-left:auto">'+(st!=null?st.toFixed(2)+' N/mm²':'— N/mm²')+'</span></div>'+
     (r.photo?'<div class="phrow"><img src="'+r.photo+'" alt="Cube '+(i+1)+'"><div><b style="color:var(--acc-ink)">Photo added</b></div>'+(done?'':'<label class="lnk" for="cpc'+i+'">Retake</label>')+'</div>':(done?'<div class="mut sm">No photo</div>':'<div class="btns"><label class="btn" for="cpc'+i+'">'+ic('camera')+' Take photo</label><label class="btn" for="cpg'+i+'">'+ic('image')+' Gallery</label></div>'))+
     '<input class="vh" id="cpc'+i+'" type="file" accept="image/*" capture="environment" data-cubephoto="'+i+'"><input class="vh" id="cpg'+i+'" type="file" accept="image/*" data-cubephoto="'+i+'"></div>'}).join('')+
   (done?'':'<div class="btns" style="margin-bottom:14px"><button class="btn" data-act="addcube">'+ic('plus',18)+' Add cube</button>'+(en.rows.length>1?'<button class="btn" data-act="rmcube">'+ic('minus',18)+' Remove last</button>':'')+'</div>')+
@@ -1811,19 +1827,20 @@ function reviewsView(){
 function reviewDetail(m){
  const x=sm(m.sampleId);if(!x){m.sampleId=null;return reviewsView()}
  const rv=x.review||{},checks=rv.checks||[];
- if(x.reportStatus!=='awaiting')return pgHead('Report','revback',bdg(RSTAT[x.reportStatus]||'',rcls(x.reportStatus)))+reportHtml(x)+'<button class="btn blk" style="margin-top:12px" data-act="pdf" data-id="'+x.id+'">Download PDF</button>';
+ if(x.reportStatus!=='awaiting')return pgHead('Test Report','revback',bdg(RSTAT[x.reportStatus]||'',rcls(x.reportStatus)))+reportHtml(x)+'<button class="btn pri blk" style="margin-top:12px" data-act="pdf" data-id="'+x.id+'">Download PDF</button>';
  const photos=[];jobsOf(x.id).forEach(j=>{if(j.results&&j.results.rows)j.results.rows.forEach((r,i)=>photos.push({r:r,i:i,age:j.age}))});
  const allOk=checks.every(c=>c.ok);
- return pgHead('Review','revback')+'<div class="card" style="border-color:var(--acc)"><div style="display:flex;justify-content:space-between;gap:8px"><div class="mono"><b>'+esc(x.ulr||x.uid)+'</b></div>'+bdg('Under review')+'</div><div style="margin:8px 0 2px"><b>'+esc(cl(x.clientId).name||'')+'</b></div><div class="sm mut">'+esc(pr(x.projectId).site||pr(x.projectId).name||'')+'</div><div class="sm mut">From '+esc(rv.byName||us(x.assignee).name||'')+(rv.at?', '+esc(tkWhen(rv.at)):'')+'</div></div>'+
+ const okCount=checks.filter(c=>c.ok).length;
+ return pgHead('Review &amp; Approval','revback',bdg('Awaiting Review','warn'))+'<div class="card" style="border-color:var(--acc)"><div style="display:flex;justify-content:space-between;gap:8px"><div class="mono"><b>'+esc(x.ulr||x.uid)+'</b></div>'+bdg('Under review')+'</div><div style="margin:8px 0 2px"><b>'+esc(cl(x.clientId).name||'')+'</b></div><div class="sm mut">'+esc(pr(x.projectId).site||pr(x.projectId).name||'')+'</div><div class="sm mut">From '+esc(rv.byName||us(x.assignee).name||'')+(rv.at?', '+esc(tkWhen(rv.at)):'')+'</div></div>'+
  (rv.note?'<div class="note"><b>Note from tester</b><div>'+esc(rv.note)+'</div></div>':'')+
  '<div class="sec"><h2><span class="stepn">1</span> Report</h2><button class="btn sm" data-act="fullrep" data-id="'+x.id+'">View full size</button></div><div class="rpwrap">'+reportHtml(x)+'</div>'+
- '<div class="sec"><h2><span class="stepn">2</span> Checks</h2></div>'+(checks.length?'<div class="card flat" style="padding:4px 14px">'+checks.map(c=>'<div class="chk"><span class="'+(c.ok?'ok':'no')+'">'+ic(c.ok?'check':'x',18)+'</span><div><b>'+esc(c.title)+'</b><div class="sm mut">'+esc(c.note)+'</div></div></div>').join('')+'</div>':empty('No automatic checks for this older report.'))+
+ '<div class="sec"><h2><span class="stepn">2</span> Checks</h2></div>'+(checks.length?'<div class="card" style="'+(allOk?'':'border-color:var(--warn)')+'"><div class="qchk"><b>Quality Check Summary</b><span>'+okCount+' / '+checks.length+' Passed</span></div><div class="card flat" style="padding:4px 14px;margin-top:10px">'+checks.map(c=>'<div class="chk"><span class="'+(c.ok?'ok':'no')+'">'+ic(c.ok?'check':'x',18)+'</span><div class="grow"><b>'+esc(c.title)+'</b><div class="sm mut">'+esc(c.note)+'</div></div>'+bdg(c.ok?'Passed':'Out of range',c.ok?'ok':'bad')+'</div>').join('')+'</div></div>':empty('No automatic checks for this older report.'))+
  (checks.length&&!allOk?'<div class="note bad" style="margin-top:10px">One or more checks need your attention before you sign.</div>':'')+
  (photos.length?'<p class="lbl" style="margin-top:14px">Cube photos</p><div class="ph3">'+photos.map(p=>p.r.photo?'<div><img src="'+p.r.photo+'" alt="Cube '+(p.i+1)+'"><span>Cube '+(p.i+1)+', '+(+p.r.strength).toFixed(2)+' N/mm²</span></div>':'<div><div class="noph">No photo</div><span>Cube '+(p.i+1)+', '+(+p.r.strength).toFixed(2)+' N/mm²</span></div>').join('')+'</div>':'')+
- '<div class="sec"><h2><span class="stepn">3</span> Reviewer remark</h2></div>'+ta('m.reviews.remark',m.remark,{ph:'Optional, printed on the report'})+
+ '<div class="sec"><h2><span class="stepn">3</span> Reviewer Notes</h2></div>'+ta('m.reviews.remark',m.remark,{ph:'Optional, printed on the report'})+
  (m.ret?'<div class="card" style="margin-top:12px;border-color:var(--bad)">'+fld('What should the tester correct?',ta('m.reviews.reason',m.reason,{ph:'Required'}),m.err,'')+'<div class="btns"><button class="btn" data-act="revret">Cancel</button><button class="btn pri'+(S.busy?' off':'')+'" data-act="revreturn">Send back to tester</button></div></div>':
  '<button type="button" class="cbx'+(m.sign?' on':'')+'" data-act="revsign"><i>'+(m.sign?ic('check',16):'')+'</i><span>I have checked the report and readings. Sign digitally as authorised signatory.</span></button>'+(m.err?'<div class="err" style="margin-bottom:8px">'+esc(m.err)+'</div>':'')+
- '<div class="btns" style="flex-wrap:nowrap"><button class="btn danger" style="flex:1" data-act="revret">Return</button><button class="btn pri'+(S.busy?' off':'')+'" style="flex:2" data-act="revapprove">Approve and sign</button></div>');
+ '<div class="btns" style="flex-wrap:nowrap"><button class="btn danger" style="flex:1" data-act="revret">Reject</button><button class="btn pri'+(S.busy?' off':'')+'" style="flex:2" data-act="revapprove">Approve &amp; Sign</button></div>');
 }
 function reviewDone(m){
  const x=sm(m.done);if(!x){m.done=null;return reviewsView()}
@@ -1860,7 +1877,7 @@ function approveDetail(m){
    if(j.status==='done')return '<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(lbl)+'</div><div class="s">Result in, not billed yet</div></div><button class="btn pri" data-act="mkinv" data-id="'+j.id+'">Invoice this part</button></div>';
    return '<div class="row" style="cursor:default"><div class="grow"><div class="t mut">'+esc(lbl)+'</div><div class="s">Due '+fd(j.due)+'</div></div></div>';
   }).join('')+'</div>':'';
- return pgHead('Report','aprback','<span class="mono">'+esc(s.uid)+'</span> · '+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus)))+trailHtml(s)+reportHtml(s)+partsPanel+'<div style="height:14px"></div>'+act+'<button class="btn blk" style="margin-top:10px" data-act="copyrep" data-id="'+s.id+'">'+ic('copy',20)+' Copy summary</button>';
+ return pgHead('Test Report','aprback','<span class="mono">'+esc(s.uid)+'</span> · '+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus)))+trailHtml(s)+reportHtml(s)+partsPanel+'<div style="height:14px"></div>'+act+'<button class="btn blk" style="margin-top:10px" data-act="copyrep" data-id="'+s.id+'">'+ic('copy',20)+' Copy summary</button>';
 }
 function partLbl(s,j){if(j.age==null||!Array.isArray(s.d&&s.d.ages))return '';const i=s.d.ages.indexOf(j.age);return i<0?'':'ABCDEFG'[i]||''}
 
@@ -1934,8 +1951,12 @@ function payHistBody(m){
   '<div class="chips" style="margin:10px 0">'+[['project','By project'],['all','All invoices'],['cheques','Cheques to clear ('+chq.length+')']].map(x=>'<button class="chip'+(view===x[0]?' on':'')+'" data-act="phview" data-v="'+x[0]+'">'+x[1]+(x[0]==='project'?' ('+projectSums().length+')':x[0]==='all'?' ('+inv.length+')':'')+'</button>').join('')+'</div>';
  let body;
  if(view==='cheques'){
-  body=chq.map(p=>{const i=D().invoices.find(x=>x.id===p.invoiceId)||{};return '<div class="card"><div class="t mono">'+esc(i.no||p.invoiceId)+'</div><div class="s">'+esc(cl(i.clientId).name)+' · '+fd(p.date)+' · '+inr(p.amount)+(p.ref?' · ref '+esc(p.ref):'')+'</div>'+
-   '<div class="row-btns" style="margin-top:10px;display:flex;gap:8px"><button class="btn ok" style="flex:1" data-act="chqclear" data-id="'+p.id+'">Mark cleared</button><button class="btn bad" style="flex:1" data-act="chqbounce" data-id="'+p.id+'">Mark bounced</button></div></div>'}).join('')||empty('No cheques are waiting to clear.');
+  const allChq=pays.filter(p=>p.mode==='Cheque');
+  const byChq={Deposited:allChq.filter(p=>p.status==='Deposited'),Cleared:allChq.filter(p=>p.status==='Cleared'),Bounced:allChq.filter(p=>p.status==='Bounced')};
+  const ct=m.cheqTab||'Deposited',rows=byChq[ct]||[];
+  body='<div class="chips" style="margin-bottom:12px">'+['Deposited','Cleared','Bounced'].map(x=>'<button class="chip'+(ct===x?' on':'')+'" data-act="set" data-sp="m.bills.cheqTab" data-v="'+x+'">'+x+' ('+byChq[x].length+')</button>').join('')+'</div>'+
+  (rows.map(p=>{const i=D().invoices.find(x=>x.id===p.invoiceId)||{};return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><div class="t mono">'+esc(p.ref||i.no||p.invoiceId)+'</div>'+bdg(p.status,p.status==='Deposited'?'warn':p.status==='Cleared'?'ok':'bad')+'</div><div class="s">'+esc(cl(i.clientId).name)+' · '+fd(p.date)+' · '+inr(p.amount)+'</div>'+
+   (p.status==='Deposited'?'<div class="row-btns" style="margin-top:10px;display:flex;gap:8px"><button class="btn ok" style="flex:1" data-act="chqclear" data-id="'+p.id+'">Mark Cleared</button><button class="btn bad" style="flex:1" data-act="chqbounce" data-id="'+p.id+'">Mark Bounced</button></div>':'')+'</div>'}).join('')||empty('No cheques in this tab.'));
  }else if(view==='all'){
   const L=inv.filter(i=>!q||((cl(i.clientId).name||'')+' '+i.no+' '+(i.reportNo||'')).toLowerCase().indexOf(q)>=0).sort((a,b)=>a.date<b.date?1:-1);
   body=L.map(i=>{const st=bstat(i);return '<button class="row" data-act="openinv" data-id="'+i.id+'"><div class="grow"><div class="t mono">'+esc(i.no)+'</div><div class="s">'+esc(cl(i.clientId).name)+' · '+fd(i.date)+' · '+inr(i.total)+' · balance '+inr(balOf(i))+'</div></div>'+bdg(st,bcls(st))+'</button>'}).join('')||empty('No invoices match.');
@@ -2029,8 +2050,8 @@ function invDetail(m){
  '<div style="margin-top:8px"><div class="kv"><span>Subtotal</span><b>'+inr(i.subtotal)+'</b></div>'+invGstRows(i)+'<div class="kv"><span>Total</span><b>'+inr(i.total)+'</b></div><div class="kv"><span>Received</span><b>'+inr(paidOf(i))+'</b></div><div class="kv" style="border-top:1px solid var(--line);padding-top:10px"><span class="big">Balance</span><b class="big">'+inr(bal)+'</b></div></div></div>'+
  (s.id?'<button class="btn blk" style="margin-bottom:6px" '+goA('approve',{tab:s.reportStatus==='sent'?'sent':s.reportStatus==='approved'?'approved':'awaiting',sampleId:s.id})+'>View report</button>':'')+
  '<div class="sec"><h2>Payments</h2></div>'+(pays.length?'<div class="card flat" style="padding:4px 14px">'+pays.map(p=>'<div class="pgn"><div><div><b>'+inr(p.amount)+'</b> · '+esc(p.mode)+'</div><div class="xs mut">'+fd(p.date)+(p.ref?' · '+esc(p.ref):'')+'</div></div></div>').join('')+'</div>':empty('No payments recorded yet.'))+
- (bal>0?'<div class="card" style="margin-top:14px"><h3 style="margin-bottom:12px">Record payment</h3>'+fld('Amount (₹)',inp('m.bills.pay.amount',pf.amount,{mode:'decimal',err:e.amount,ph:'Balance '+inr(bal)}),e.amount)+'<button class="lnk" style="margin:-8px 0 8px" data-act="payfill">Fill full balance</button>'+
-  fld('Date',inp('m.bills.pay.date',pf.date,{type:'date',err:e.date,maxd:today()}),e.date)+fld('Mode',chipRow('m.bills.pay.mode',pf.mode,[['Cash','Cash'],['UPI','UPI'],['Bank transfer','Bank transfer'],['Cheque','Cheque']]))+fld('Reference',inp('m.bills.pay.ref',pf.ref,{ph:'UTR / cheque no. (optional)'}))+'<button class="btn pri blk" data-act="recpay">Record payment</button></div>':'<div class="note ok" style="margin-top:14px">This bill is fully paid.</div>');
+ (bal>0?'<div class="card" style="margin-top:14px"><h3 style="margin-bottom:12px">Record Payment</h3>'+fld('Payment Mode',chipRow('m.bills.pay.mode',pf.mode,[['Cash','Cash'],['UPI','UPI'],['Bank transfer','NEFT'],['Cheque','Cheque']]))+fld('Amount (₹)',inp('m.bills.pay.amount',pf.amount,{mode:'decimal',err:e.amount,ph:'Max '+inr(bal)}),e.amount)+'<button class="lnk" style="margin:-8px 0 8px" data-act="payfill">Fill full balance</button>'+
+  fld('Transaction Reference',inp('m.bills.pay.ref',pf.ref,{ph:'UTR / cheque no. (optional)'}))+fld('Payment Date',inp('m.bills.pay.date',pf.date,{type:'date',err:e.date,maxd:today()}),e.date)+'<button class="btn pri blk" data-act="recpay">Save Payment</button></div>':'<div class="note ok" style="margin-top:14px">This bill is fully paid.</div>');
 }
 async function recordPay(){
  if(S.busy)return;
