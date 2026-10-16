@@ -30,3 +30,22 @@ off this list when it's actually built (and say so in the commit message).
   screens are inherently single-status views already, so lower priority).
 - **Distinct cheque-clearing UI beyond the Payment History tab** — Mark cleared/bounced exists
   there now; no dedicated cheque-ledger screen.
+
+Added after triaging an external "app flow audit" doc (generated from the exported spec/diagram,
+not the real code — most of its list turned out to already be built: session expiry, the full
+audit-log table, notifications, draft/returned report states, login lockout, overpayment
+blocking, user disable/enable, work-order expiry badges, and per-job calibration-date capture are
+all live and just weren't visible to whatever reviewed the exported docs). These five are the
+genuine gaps it surfaced:
+- **Credit notes** — no feature at all. Need to decide: adjust the original invoice, or issue a
+  separate linked credit-note record against it (latter is cleaner for GST reporting).
+- **Duplicate-client detection** — nothing checks for an existing client with the same name/GSTIN
+  before a new one is created.
+- **Forgot-PIN / self-service PIN recovery** — none. Only path today is an admin resetting the
+  user from Admin → Users.
+- **Multi-role users** — one role per user account; no secondary-role support (e.g. a tester who
+  also reviews).
+- **Equipment-level calibration-overdue alert** — calibration date is captured per test job with
+  a computed 1-year valid-till, but nothing flags it as a standing dashboard alert the way
+  work-order expiry does. Would need a `machines`/`equipment` master with its own calibration
+  date, separate from the per-job field.
