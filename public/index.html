@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TA Lab">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#0f4c81">
+<meta name="theme-color" content="#0B2A22">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>TechAssures Lab</title>
@@ -17,19 +17,21 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --paper:#FCFCFA;--wash:#F7F7F4;--surface:#FFFFFF;--ink:#121413;--ink2:#1D201E;
-  --g1:#4C4F4D;--g2:#848784;--g3:#B9BBB7;--line:#E4E4DF;
-  --acc:#1F4E79;--acc-ink:#1F4E79;--acc-soft:rgba(31,78,121,.11);
-  --warn:#A8530A;--warn-soft:rgba(168,83,10,.12);--bad:#B3261E;--bad-soft:rgba(179,38,30,.10);
-  --hdr:#121413;--shadow:0 1px 2px rgba(18,20,19,.06),0 4px 14px rgba(18,20,19,.05);
+  --paper:#F7F8F6;--wash:#F0F2EF;--surface:#FFFFFF;--ink:#121413;--ink2:#1D201E;
+  --g1:#5C625F;--g2:#8B908D;--g3:#C7CBC6;--line:#E6E9E4;
+  --acc:#1C7A4F;--acc-ink:#166241;--acc-soft:rgba(28,122,79,.12);
+  --warn:#B8740E;--warn-soft:rgba(184,116,14,.13);--bad:#C2362C;--bad-soft:rgba(194,54,44,.10);
+  --hdr:#0B2A22;--shadow:0 1px 2px rgba(18,20,19,.06),0 4px 14px rgba(18,20,19,.05);
+  --blue:#2F6FB0;--blue-soft:rgba(47,111,176,.12);--purple:#7756A8;--purple-soft:rgba(119,86,168,.12);
 }
 @media (prefers-color-scheme:dark){
   :root{
-    --paper:#0E100F;--wash:#141716;--surface:#1A1D1B;--ink:#F3F4F0;--ink2:#E4E6E1;
-    --g1:#B4B7B2;--g2:#8A8D89;--g3:#555855;--line:#2B2F2C;
-    --acc:#6FA8DC;--acc-ink:#2F6AA5;--acc-soft:rgba(111,168,220,.18);
-    --warn:#E0883A;--warn-soft:rgba(224,136,58,.16);--bad:#F2766E;--bad-soft:rgba(242,118,110,.14);
-    --hdr:#0A0B0A;--shadow:0 1px 2px rgba(0,0,0,.4);
+    --paper:#0D1512;--wash:#131B17;--surface:#17201C;--ink:#F3F4F0;--ink2:#E4E6E1;
+    --g1:#AEB4AF;--g2:#80857F;--g3:#4A504B;--line:#263129;
+    --acc:#4FB183;--acc-ink:#3E9A6E;--acc-soft:rgba(79,177,131,.18);
+    --warn:#E0A33E;--warn-soft:rgba(224,163,62,.16);--bad:#F2766E;--bad-soft:rgba(242,118,110,.14);
+    --hdr:#081D17;--shadow:0 1px 2px rgba(0,0,0,.4);
+    --blue:#6FA8DC;--blue-soft:rgba(111,168,220,.18);--purple:#A68FD1;--purple-soft:rgba(166,143,209,.18);
   }
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -152,11 +154,12 @@ textarea.in{min-height:84px;resize:vertical}
 /* dashboard */
 .greet{margin-bottom:16px}
 .greet p{color:var(--g1);font-size:14px}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 6px}
-.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 10px;min-height:84px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;min-width:0}
-.stat b{font-family:Manrope,sans-serif;font-size:22px;font-weight:800;line-height:1.1;overflow-wrap:anywhere}
-.stat span{font-size:12px;color:var(--g1);line-height:1.2}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0 6px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;min-height:84px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;min-width:0;box-shadow:var(--shadow)}
+.stat b{font-family:Manrope,sans-serif;font-size:24px;font-weight:800;line-height:1.1;overflow-wrap:anywhere}
+.stat span{font-size:12px;color:var(--g1);line-height:1.2;font-weight:600}
 .stat.hot{border-color:var(--acc);box-shadow:inset 0 3px 0 var(--acc)}
+.stat.c0 b{color:var(--acc-ink)} .stat.c1 b{color:var(--warn)} .stat.c2 b{color:var(--blue)} .stat.c3 b{color:var(--purple)}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .mod{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-height:92px;padding:12px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;font-size:13px;font-weight:600;min-width:0}
 .mod:active{background:var(--wash)}
@@ -215,6 +218,19 @@ table.tb tr.tot td{font-weight:700;border-bottom:0}
 .login{max-width:420px;margin:0 auto;padding:36px 20px}
 .login .logo{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .login .logo i{width:12px;height:12px;border-radius:50%;background:var(--acc)}
+.login.hero{min-height:100vh;background:radial-gradient(120% 90% at 50% -10%,#123B30 0%,var(--hdr) 60%,#061A14 100%);color:#fff;padding-top:14vh;text-align:center}
+.login.hero .logomark{width:78px;height:78px;border-radius:22px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;color:#fff}
+.login.hero h1{color:#fff;font-size:26px;margin-bottom:4px}
+.login.hero .tag{color:rgba(255,255,255,.5);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:40px}
+.login.hero .mut{color:rgba(255,255,255,.6)}
+.login.hero .btn.blk{margin-bottom:12px}
+.login.hero .btn.pri{background:var(--acc);border-color:var(--acc)}
+.login.hero .btn.ghost{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18);color:#fff}
+.login.hero .btn.text{background:transparent;border-color:transparent;color:rgba(255,255,255,.7);justify-content:center;gap:10px}
+.login.hero .card{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14);text-align:left}
+.login.hero .card .lbl{color:rgba(255,255,255,.55)}
+.login.hero .in{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.18);color:#fff}
+.login.hero .chip{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18);color:#fff}
 .pgn{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
 .pgn:last-child{border-bottom:0}
 .kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:14px}
@@ -330,7 +346,10 @@ edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
 chev:'<path d="M9 5l7 7-7 7"/>',
 bell:'<path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21h4"/>',
 chat:'<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
-lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
+lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+pin:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.4"/>',
+google:'<path d="M21 12.2c0-.7-.06-1.4-.18-2H12v3.8h5.1a4.4 4.4 0 0 1-1.9 2.9v2.4h3a9 9 0 0 0 2.8-6.1z"/><path d="M12 21c2.4 0 4.5-.8 6-2.2l-3-2.4c-.8.6-1.9.9-3 .9a5.2 5.2 0 0 1-4.9-3.6H4v2.5A9 9 0 0 0 12 21z"/><path d="M7.1 13.7a5.4 5.4 0 0 1 0-3.4V7.8H4a9 9 0 0 0 0 8.4z"/><path d="M12 6.6c1.3 0 2.5.5 3.4 1.3l2.6-2.6A9 9 0 0 0 4 7.8l3.1 2.5A5.2 5.2 0 0 1 12 6.6z"/>',
+finger:'<path d="M12 11a4 4 0 0 1 4 4v1.5"/><path d="M8 15v-.5a4 4 0 0 1 8 0"/><path d="M12 7a7.5 7.5 0 0 1 7.5 7.5V16"/><path d="M4.5 16v-1.5A7.5 7.5 0 0 1 12 7"/><path d="M12 19v-4"/>'
 };
 const ic=(n,s)=>'<svg class="ic" width="'+(s||22)+'" height="'+(s||22)+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+IC[n]+'</svg>';
 
@@ -465,7 +484,7 @@ function loadDb(){
  const d=seed();lsSet(KEY,JSON.stringify(d));return d;
 }
 const urlLab=(()=>{try{return (new URLSearchParams(location.search).get('lab')||'').toLowerCase().replace(/[^a-z0-9-]/g,'').slice(0,40)}catch(e){return ''}})();
-const blankLogin=()=>({lab:urlLab||lsGet('techassures_lab_code')||'',login:'',pin:'',err:''});
+const blankLogin=()=>({lab:urlLab||lsGet('techassures_lab_code')||'',login:'',pin:'',err:'',expanded:false});
 const S={db:loadDb(),user:null,route:'home',m:{},wiz:null,confirm:null,login:blankLogin(),org:null,gcid:'',signup:null,choose:null,online:false,booting:true,token:'',rev:0,synced:{},demoAccounts:[],busy:false};
 let pt=null;
 function persist(){clearTimeout(pt);pt=setTimeout(persistNow,S.online?700:250)}
@@ -784,15 +803,28 @@ function blocked(){return '<div class="card" style="text-align:center;padding:30
 /* ---------- login ---------- */
 function loginView(){
  const L=S.login;
+ if(L.expanded)return loginExpandedView();
  const accts=S.online?S.demoAccounts:S.db.users.filter(u=>u.active);
  const chips=accts.map(u=>'<button type="button" class="chip" data-act="fill" data-v="'+esc(u.login)+'">'+esc(u.login)+' · '+esc(ROLE_LABEL[u.role])+'</button>').join('');
- const google=S.online&&S.gcid?'<div class="card" style="margin-bottom:14px">'+(isNative()?'<button type="button" class="btn blk" data-act="gnative">Continue with Google</button>':'<div id="gbtn" style="display:flex;justify-content:center;min-height:44px"></div>')+'<p class="hint" style="text-align:center;margin:10px 0 0">New here? Sign in with Google to create your lab.</p></div><p class="mut sm" style="text-align:center;margin:0 0 12px">or use a lab code and PIN</p>':'';
- return '<div class="login"><div class="logo"><i></i><h1>TechAssures Lab</h1></div><p class="mut" style="margin-bottom:6px">Lab management for NABL-accredited material testing labs</p>'+
- '<p style="margin-bottom:18px">'+(S.online?bdg('Connected to server','ok'):bdg('Offline demo · data stays in this browser'))+'</p>'+google+
- '<div class="card">'+(S.online?fld('Lab code',inp('login.lab',L.lab,{enter:'login',ph:'e.g. alpha-lab (or demo)'})):'')+fld('Login name',inp('login.login',L.login,{enter:'login',ph:'e.g. rahul'}))+
+ const google=S.online&&S.gcid;
+ return '<div class="login hero">'+ic('flask',34)+'<div class="logomark" style="display:none"></div>'+
+ '<h1 style="margin-top:14px">TechAssures Lab</h1><p class="tag">Material Testing Lab</p>'+
+ '<p style="margin:-26px 0 26px">'+(S.online?bdg('Connected to server','ok'):bdg('Offline demo · data stays in this browser'))+'</p>'+
+ '<div style="padding:0 20px">'+
+ '<button type="button" class="btn pri blk" data-act="loginexpand" data-v="pin">'+ic('pin',18)+' Sign in with PIN</button>'+
+ (google?(isNative()?'<button type="button" class="btn ghost blk" data-act="gnative">'+ic('google',18)+' Sign in with Google</button>':'<div id="gbtn" style="display:flex;justify-content:center;min-height:48px;margin-bottom:12px"></div>'):'')+
+ '<button type="button" class="btn text blk" data-act="loginexpand" data-v="bio">'+ic('finger',18)+' Use Biometric</button>'+
+ '</div>'+
+ (chips?'<div style="padding:28px 20px 0;text-align:left"><p class="mut sm" style="margin-bottom:10px">Try the demo lab — tap an account</p><div class="chips">'+chips+'</div></div>':'')+
+ '</div>';
+}
+function loginExpandedView(){
+ const L=S.login;
+ return '<div class="login hero"><button type="button" class="ibtn" style="position:absolute;top:10px;left:10px;color:#fff" data-act="loginback">'+ic('back',22)+'</button>'+
+ ic('flask',30)+'<h1 style="margin-top:12px">TechAssures Lab</h1><p class="tag">Material Testing Lab</p>'+
+ '<div class="card" style="text-align:left">'+(S.online?fld('Lab code',inp('login.lab',L.lab,{enter:'login',ph:'e.g. alpha-lab (or demo)'})):'')+fld('Login name',inp('login.login',L.login,{enter:'login',ph:'e.g. rahul'}))+
  fld('PIN',inp('login.pin',L.pin,{type:'password',mode:'numeric',enter:'login',ph:'PIN',max:8}),L.err)+
- '<button class="btn pri blk'+(S.busy?' off':'')+'" data-act="login">'+(S.busy?'Please wait…':'Log in')+'</button></div>'+
- (chips?'<div class="sec" style="margin-top:20px"><h2>Try the demo lab</h2></div><p class="hint" style="margin:0 0 10px">Tap an account to fill the login and PIN.</p><div class="chips">'+chips+'</div>':'')+'</div>';
+ '<button class="btn pri blk'+(S.busy?' off':'')+'" data-act="login">'+(S.busy?'Please wait…':'Log in')+'</button></div></div>';
 }
 function signupView(){
  const g=S.signup;
@@ -832,8 +864,8 @@ function homeView(){
  const attH=att.slice(0,7).map(a=>'<button class="row" '+goA(a.go[0],a.go[1])+'><div class="grow"><div class="t">'+esc(a.t)+'</div><div class="s">'+esc(a.s)+'</div></div>'+(a.bad?bdg('Overdue','bad'):'')+'<span class="mut">'+ic('chev',18)+'</span></button>').join('');
  const grid=MODS.filter(m=>can(m.id)).map(m=>'<button class="mod" '+goA(m.id)+'>'+ic(m.icon,26)+'<span>'+m.label+'</span></button>').join('');
  return '<div class="greet"><h1>'+g+', '+esc(u.name)+'</h1><p>'+fd(T)+' · '+esc(ROLE_LABEL[role])+'</p></div>'+prim+
- '<div class="stats">'+tiles.map(t=>'<button class="stat'+(t[4]?' hot':'')+'" '+goA(t[2],t[3])+'><b>'+esc(t[1])+'</b><span>'+esc(t[0])+'</span></button>').join('')+'</div>'+
- '<div class="sec"><h2>Needs attention</h2></div>'+(attH||empty('Nothing needs attention right now.'))+
+ '<div class="stats">'+tiles.map((t,i)=>'<button class="stat c'+(i%4)+(t[4]?' hot':'')+'" '+goA(t[2],t[3])+'><b>'+esc(t[1])+'</b><span>'+esc(t[0])+'</span></button>').join('')+'</div>'+
+ '<div class="sec"><h2>Today\'s tasks</h2></div>'+(attH||empty('Nothing needs attention right now.'))+
  '<div class="sec"><h2>All modules</h2></div><div class="grid">'+grid+'</div>';
 }
 
@@ -2076,7 +2108,9 @@ const ACT={
  signupcancel(){S.signup=null;render()},
  picklab(t){if(S.choose&&!S.busy)googleLogin(S.choose.credential,t.dataset.v)},
  choosecancel(){S.choose=null;render()},
- fill(t){const u=(S.online?S.demoAccounts:D().users).find(x=>x.login===t.dataset.v);if(u){S.login.lab='demo';S.login.login=u.login;S.login.pin=u.pin;S.login.err='';render()}},
+ fill(t){const u=(S.online?S.demoAccounts:D().users).find(x=>x.login===t.dataset.v);if(u){S.login.lab='demo';S.login.login=u.login;S.login.pin=u.pin;S.login.err='';S.login.expanded=true;render()}},
+ loginexpand(t){S.login.expanded=true;render()},
+ loginback(){S.login.expanded=false;S.login.err='';render()},
  set(t){const sp=t.dataset.sp,v=t.dataset.v;setPath(S,sp,v);
   if(/\.terms$/.test(sp)&&v==='Credit'){const base=sp.slice(0,-5);const cd=getPath(S,base+'creditDays');if(!(num(cd)>0))setPath(S,base+'creditDays',String(D().settings.creditDays||30))}
   if(sp.indexOf('db.')===0)persist();render()},
