@@ -457,7 +457,7 @@ function seed(){
   {id:'p6',clientId:'c3',name:'Depot Shed, Hadapsar',site:'Hadapsar Industrial Estate, Pune'},
   {id:'p7',clientId:'c4',name:'Kothrud Residency Phase 1',site:'Paud Road, Kothrud, Pune'},
   {id:'p8',clientId:'c4',name:'Karve Road Annex',site:'Karve Road, Erandwane, Pune'}];
- const db={users,tests,settings:{cert:'TC0000',gst:'18',creditDays:'30'},clients,projects,samples:[],jobs:[],invoices:[],payments:[],leads:[],interactions:[],tasks:[],counters:{uid:146,inv:39}};
+ const db={users,tests,settings:{cert:'TC0000',gst:'18',creditDays:'30'},clients,projects,samples:[],jobs:[],invoices:[],payments:[],leads:[],interactions:[],tasks:[],notifications:[],tickets:[],workorders:[],vendorbills:[],quotes:[],ratebook:[],counters:{uid:146,inv:39}};
  function rows(d){const out=[];(d.sizes||[]).forEach(s=>{for(let i=0;i<s.n;i++)out.push({l:s.l,b:s.b,h:s.h})});return out}
  function mk(o){
   const c=clients.find(x=>x.id===o.c),t=tests.find(x=>x.id===o.t);
@@ -970,8 +970,8 @@ function clientDetail(m){
    '<div class="kv"><span>Reports to</span><b>'+esc(c.repEmail||'—')+(c.repWhatsapp?' · '+esc(c.repWhatsapp):'')+'</b></div></div>':'');
  }else if(m.tab==='projects'){
   const pj=D().projects.filter(p=>p.clientId===c.id);
-  body=pj.map(p=>{const ss=D().samples.filter(s=>s.projectId===p.id),op=m.openProj===p.id;
-   return '<div class="card flat" style="padding:0;overflow:hidden"><button class="row" style="border:0;border-radius:0;margin:0" data-act="openproj" data-id="'+p.id+'"><div class="grow"><div class="t">'+esc(p.name)+'</div><div class="s">'+esc(p.site)+' · '+ss.length+' sample'+(ss.length===1?'':'s')+'</div></div><span class="mut" style="transform:rotate('+(op?90:0)+'deg)">'+ic('chev',18)+'</span></button>'+
+  body=pj.map(p=>{const ss=D().samples.filter(s=>s.projectId===p.id),op=m.openProj===p.id,wc=WO().filter(w=>w.projectId===p.id).length;
+   return '<div class="card flat" style="padding:0;overflow:hidden"><button class="row" style="border:0;border-radius:0;margin:0" data-act="openproj" data-id="'+p.id+'"><div class="sic c-acc" style="border-radius:10px">'+ic('clip',18)+'</div><div class="grow"><div class="t">'+esc(p.name)+'</div><div class="s">'+esc(p.site)+' · '+ss.length+' sample'+(ss.length===1?'':'s')+(wc?' · '+wc+' work order'+(wc===1?'':'s'):'')+'</div></div><span class="mut" style="transform:rotate('+(op?90:0)+'deg)">'+ic('chev',18)+'</span></button>'+
    (op?'<div style="padding:4px 14px 12px">'+(ss.length?ss.map(s=>jobsOf(s.id).map(j=>{const lbl=partLbl(s,j),ps=partStatusC(j,s);return '<div class="pgn"><div class="grow"><div class="mono">'+esc(j.ulr||s.uid+(lbl?'-'+lbl:''))+'</div><div class="sm mut">'+esc(ts(s.testId).name)+(j.age?' · '+j.age+'-day':'')+' · '+fd(s.receipt)+'</div></div>'+bdg(ps,PSCLS[ps]||'')+'</div>'}).join('')).join(''):'<p class="mut sm" style="padding:8px 0">No tests yet for this project.</p>')+'</div>':'')+'</div>'}).join('')||empty('No projects yet.');
   const np=m.np||{name:'',site:''};
   body+='<div class="card"><h3 style="margin-bottom:12px">Add project</h3>'+fld('Project name',inp('m.clients.np.name',np.name,{err:np.err&&np.err.name}),np.err&&np.err.name)+fld('Site address',ta('m.clients.np.site',np.site,{}),np.err&&np.err.site)+'<button class="btn pri blk" data-act="addproj">Add project</button></div>';
@@ -1000,15 +1000,38 @@ function clientDetail(m){
  const pend=canMoney()?r2(D().invoices.filter(i=>i.clientId===c.id).reduce((a,i)=>a+balOf(i),0)):0;
  return pgHead(esc(c.name),'clback','<span class="mono">'+esc(c.code)+'</span> · '+esc(c.terms)+(canMoney()?' · <b>'+(pend>0?inr(pend)+' pending':'No balance due')+'</b>':''))+tabsBar('cltab',m.tab,tabs)+body;
 }
+function woUsage(w){
+ const value=num(w.value),used=r2(D().invoices.filter(i=>i.clientId===w.clientId&&i.lines[0]&&i.lines[0].woNo===w.no).reduce((a,i)=>a+i.subtotal,0));
+ return{value:value,used:used,bal:r2(value-used),pct:value>0?Math.min(100,Math.round(used/value*100)):0};
+}
+function woLinkedSamples(w){
+ const sids=[...new Set(D().invoices.filter(i=>i.clientId===w.clientId&&i.lines[0]&&i.lines[0].woNo===w.no).map(i=>i.sampleId))];
+ return sids.map(id=>D().samples.find(s=>s.id===id)).filter(Boolean).sort((a,b)=>a.receipt<b.receipt?1:-1);
+}
 function woTab(c,m){
+ if(m.woView)return woDetail(c,m);
  if(m.wo)return woForm(c,m);
  const L=WO().filter(w=>w.clientId===c.id).sort((a,b)=>a.date<b.date?1:-1),T=today();
  return '<button class="btn pri blk" style="margin-bottom:12px" data-act="woadd">'+ic('plus')+' Add work order</button>'+
  (S.online?'':'<div class="note">Work orders need the server. Open the online app.</div>')+
  (L.map(w=>{const exp=w.validTill&&w.validTill<T,act=w.status!=='closed'&&!exp,rt=D().tests.filter(t=>w.rates&&w.rates[t.id]!==''&&w.rates[t.id]!=null);
-  return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><div><b>'+esc(w.no)+'</b><div class="xs mut">'+fd(w.date)+(w.validTill?' to '+fd(w.validTill):'')+(w.value?' · value '+inr(w.value):'')+'</div></div>'+bdg(w.status==='closed'?'Closed':exp?'Expired':'Active',act?'ok':'')+'</div>'+
-  (rt.length?'<div style="margin:10px 0">'+rt.map(t=>'<div class="pgn"><span>'+esc(t.name)+'</span><b>'+inr(w.rates[t.id])+'</b></div>').join('')+'</div>':'<p class="mut sm">No rates entered.</p>')+(w.notes?'<p class="sm mut">'+esc(w.notes)+'</p>':'')+
-  '<div class="btns"><button class="btn" data-act="woedit" data-id="'+w.id+'">'+ic('edit',18)+' Edit</button>'+(w.hasFile?'<button class="btn" data-act="wofile" data-id="'+w.id+'">View file</button>':'')+'<label class="btn" for="wof_'+w.id+'">'+ic('plus',18)+' '+(w.hasFile?'Replace':'Upload')+' file</label><input class="vh" id="wof_'+w.id+'" type="file" accept="application/pdf,image/*" data-wofile="'+w.id+'"></div></div>'}).join('')||empty('No work orders yet. Add one to price this client\'s tests.'));
+  return '<div class="card flat" style="padding:0;overflow:hidden"><button class="row" style="border:0;border-radius:0;margin:0" data-act="woopen" data-id="'+w.id+'"><div class="grow"><div class="t">'+esc(w.no)+'</div><div class="s">'+fd(w.date)+(w.validTill?' to '+fd(w.validTill):'')+(w.value?' · value '+inr(w.value):'')+'</div></div>'+bdg(w.status==='closed'?'Closed':exp?'Expired':'Active',act?'ok':'')+ic('chev',18)+'</button>'+
+  '<div style="padding:4px 14px 14px">'+(rt.length?'<div style="margin:6px 0">'+rt.map(t=>'<div class="pgn"><span>'+esc(t.name)+'</span><b>'+inr(w.rates[t.id])+'</b></div>').join('')+'</div>':'<p class="mut sm">No rates entered.</p>')+(w.notes?'<p class="sm mut">'+esc(w.notes)+'</p>':'')+
+  '<div class="btns"><button class="btn" data-act="woedit" data-id="'+w.id+'">'+ic('edit',18)+' Edit</button>'+(w.hasFile?'<button class="btn" data-act="wofile" data-id="'+w.id+'">View file</button>':'')+'<label class="btn" for="wof_'+w.id+'">'+ic('plus',18)+' '+(w.hasFile?'Replace':'Upload')+' file</label><input class="vh" id="wof_'+w.id+'" type="file" accept="application/pdf,image/*" data-wofile="'+w.id+'"></div></div></div>'}).join('')||empty('No work orders yet. Add one to price this client\'s tests.'));
+}
+function woDetail(c,m){
+ const w=WO().find(x=>x.id===m.woView);if(!w){m.woView=null;return woTab(c,m)}
+ const T=today(),exp=w.validTill&&w.validTill<T,act=w.status!=='closed'&&!exp,u=woUsage(w),samples=woLinkedSamples(w);
+ return pgHead(esc(w.no),'woback',bdg(w.status==='closed'?'Closed':exp?'Expired':'Active',act?'ok':''))+
+ '<div class="card">'+
+ (u.value>0?'<div class="kv"><span>Order Value</span><b>'+inr(u.value)+'</b></div><div class="kv"><span>Used Value</span><b>'+inr(u.used)+' ('+u.pct+'%)</b></div><div class="bar" style="margin:8px 0 14px"><i style="width:'+u.pct+'%"></i></div><div class="kv"><span>Balance</span><b>'+inr(u.bal)+'</b></div>':'<p class="mut sm">No order value entered for this work order.</p>')+
+ '<div class="kv"><span>Date</span><b>'+fd(w.date)+'</b></div>'+(w.validTill?'<div class="kv"><span>Valid Till</span><b>'+fd(w.validTill)+'</b></div>':'')+
+ '<div class="kv"><span>Terms</span><b>'+esc(c.terms)+(c.terms==='Credit'?', '+esc(c.creditDays)+' days':'')+'</b></div>'+
+ (w.notes?'<div class="kv"><span>Notes</span><b>'+esc(w.notes)+'</b></div>':'')+'</div>'+
+ '<div class="sec"><h2>Rates in this work order</h2></div><div class="card flat" style="padding:4px 14px">'+D().tests.filter(t=>w.rates&&w.rates[t.id]!==''&&w.rates[t.id]!=null).map(t=>'<div class="pgn"><span>'+esc(t.name)+'</span><b>'+inr(w.rates[t.id])+'</b></div>').join('')+'</div>'+
+ '<div class="sec"><h2>Linked Samples ('+samples.length+')</h2></div>'+
+ (samples.length?'<div class="card flat" style="padding:4px 14px">'+samples.slice(0,20).map(s=>{const jc=jobsOf(s.id).length;return '<div class="pgn"><div class="grow"><div class="mono">'+esc(s.uid)+'</div><div class="sm mut">'+esc(ts(s.testId).name)+' · '+jc+' no'+(jc===1?'':'s')+' · '+fd(s.receipt)+'</div></div></div>'}).join('')+'</div>':empty('No invoiced samples linked to this work order yet.'))+
+ '<div class="btns" style="margin-top:14px"><button class="btn" data-act="woedit" data-id="'+w.id+'">'+ic('edit',18)+' Edit work order</button>'+(w.hasFile?'<button class="btn" data-act="wofile" data-id="'+w.id+'">View file</button>':'')+'</div>';
 }
 function woForm(c,m){
  const w=m.wo,e=w.err||{};
@@ -1311,8 +1334,20 @@ function wzValidate(step){
  }
  return e;
 }
+const TEST_CATS=[['all','All'],['Concrete','Concrete'],['Aggregate','Aggregate'],['Bricks','Bricks'],['NDT','NDT']];
+function testCat(t){const id=t.id;if(/ndt/.test(id))return 'NDT';if(/brk|paver/.test(id))return 'Bricks';if(/_fa$|_ca$|agg/.test(id))return 'Aggregate';if(/cube|aac|cem/.test(id))return 'Concrete';return 'Other'}
+function selectTestsView(w,f){
+ const q=(w.tq||'').toLowerCase().trim(),cat=w.tcat||'all';
+ const list=D().tests.filter(t=>(cat==='all'||testCat(t)===cat)&&(!q||(t.name+' '+t.code).toLowerCase().indexOf(q)>=0));
+ return pgHead('Select Tests','closetestpicker')+
+ searchBox('wiz.tq',w.tq,'Search tests by name or code…')+
+ '<div class="chips" style="margin:10px 0">'+TEST_CATS.map(x=>'<button class="chip'+(cat===x[0]?' on':'')+'" data-act="testcat" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'+
+ (list.length?list.map(t=>{const on=f.testId===t.id;return '<button type="button" class="row" data-act="picktest" data-id="'+t.id+'"><div class="grow"><div class="t">'+esc(t.name)+'</div><div class="s">'+esc(t.code)+'</div></div>'+(on?'<span style="flex:none;display:flex;width:24px;height:24px;align-items:center;justify-content:center;color:#fff;border-radius:50%;background:var(--acc-ink)">'+ic('check',16)+'</span>':'')+'</button>'}).join(''):empty('No tests match.'))+
+ '<div class="btns" style="position:sticky;bottom:0;background:var(--paper);padding:10px 0 2px"><button type="button" class="btn pri blk'+(f.testId?'':' off')+'" data-act="closetestpicker">'+(f.testId?'1 Test Selected · Done':'Select a test')+'</button></div>';
+}
 function wizView(){
  const w=S.wiz,f=w.f,e=w.err,t=ts(f.testId),step=w.step;
+ if(w.testPicker)return selectTestsView(w,f);
  const c=f.clientId?cl(f.clientId):null;
  let body='';
  const strip=step>1?'<div class="strip"><div><small>Date of receipt</small>'+fd(f.receipt)+'</div><div><small>UID</small><span class="mono">'+nextUid()+'</span></div><div class="full"><small>ULR</small><span class="mono">'+(t.id?(t.nabl?nextUlr(t):'Not in NABL scope — no ULR'):'—')+'</span></div></div>':'';
@@ -1327,7 +1362,7 @@ function wizView(){
   (f.projectId?fld('Site address',inp('x6',pr(f.projectId).site,{ro:1,dis:1})):'')+
   fld('Sampled by',chipRow('wiz.f.sampledBy',f.sampledBy,[['TechAssures','TechAssures'],['Client','Client']]),'',f.sampledBy==='Client'?'Results apply only to the sample as received.':'')+
   fld('Billing type',chipRow('wiz.f.billing',f.billing,[['Advance','Advance'],['Credit','Credit']]),e.billing,c?'Set from the client\'s terms ('+esc(c.terms)+'); you can change it.':'')+
-  fld('Type of test',sel('wiz.f.testId',f.testId,D().tests.map(x=>[x.id,x.name]),{ph:'Select test…',err:e.testId}),e.testId)+
+  fld('Type of test','<button type="button" class="in" style="display:flex;align-items:center;justify-content:space-between;text-align:left" data-act="opentestpicker">'+(t.id?esc(t.name):'<span class="mut">Select test…</span>')+ic('chev',18)+'</button>',e.testId)+
   (t.id?fld('IS code reference',inp('x7',t.code,{ro:1,dis:1}),'',t.nabl?'':'This test is outside NABL scope, so no ULR is issued.'):'');
  }else if(step===2){
   body=strip+'<h2 style="margin-bottom:12px">Test details</h2><div class="selblk"><div class="grow"><div class="sm mut">Test selected</div><div class="t">'+esc(t.name)+'</div><div class="mono sm mut">'+esc(t.code)+'</div></div>'+(t.nabl?bdg('NABL accredited','ok'):bdg('Outside NABL scope','warn'))+'</div>'+
@@ -2258,6 +2293,10 @@ const ACT={
  newsample(){if(!can('create'))return;S.wiz=newWiz();S.route='create';render();window.scrollTo(0,0)},
  wzexit(){S.confirm={title:'Discard this sample?',msg:'Nothing has been saved yet. The details you entered will be lost.',label:'Discard',act:'discard'};render()},
  wzback(){const w=S.wiz;if(w.step>1){w.step--;w.err={};render();window.scrollTo(0,0)}else ACT.wzexit()},
+ opentestpicker(){S.wiz.testPicker=true;S.wiz.tq='';render();window.scrollTo(0,0)},
+ closetestpicker(){S.wiz.testPicker=false;render();window.scrollTo(0,0)},
+ testcat(t){S.wiz.tcat=t.dataset.v;render()},
+ picktest(t){S.wiz.f.testId=t.dataset.id;S.wiz.testPicker=false;render();window.scrollTo(0,0)},
  wznext(){if(S.busy)return;const w=S.wiz,e=wzValidate(w.step);
   if(Object.keys(e).length){w.err=e;render();toast('Please fix the highlighted fields',1);const el=appEl.querySelector('.err');if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'});return}
   w.err={};if(w.step<3){w.step++;render();window.scrollTo(0,0)}else saveSample()},
@@ -2347,7 +2386,9 @@ const ACT={
   S.busy=true;try{const r=await api('POST','/api/vendorbills/'+m.vid+'/pay',{amount:num(pf.amount),date:pf.date,mode:pf.mode,ref:pf.ref});upsertLocal('vendorbills',r.bill);m.vpay=null;toast('Payment recorded')}catch(e){pf.err={amount:e.message}}S.busy=false;render()},
  /* work orders */
  woadd(){const m=M('clients');m.wo={id:null,no:'',date:today(),validTill:addDays(today(),365),value:'',rates:{},notes:'',status:'active',file:null,err:{}};render();window.scrollTo(0,0)},
- woedit(t){const w=WO().find(x=>x.id===t.dataset.id);if(!w)return;M('clients').wo=Object.assign({},w,{rates:Object.assign({},w.rates),file:null,err:{}});render();window.scrollTo(0,0)},
+ woedit(t){const w=WO().find(x=>x.id===t.dataset.id);if(!w)return;const m=M('clients');m.woView=null;m.wo=Object.assign({},w,{rates:Object.assign({},w.rates),file:null,err:{}});render();window.scrollTo(0,0)},
+ woopen(t){M('clients').woView=t.dataset.id;render();window.scrollTo(0,0)},
+ woback(){M('clients').woView=null;render();window.scrollTo(0,0)},
  wocancel(){M('clients').wo=null;render()},
  async wosave(){if(S.busy)return;const m=M('clients'),w=m.wo,e={};if(!w.no.trim())e.no='Enter the work order number';if(!w.date)e.date='Enter the date';if(Object.keys(e).length){w.err=e;render();return}
   S.busy=true;render();
