@@ -1088,9 +1088,15 @@ function adminView(){
   (nu.role==='reviewer'?'<label style="display:flex;align-items:center;gap:8px;padding:6px 0"><input type="checkbox" data-m="m.admin.nu.signatory" '+(nu.signatory!==false?'checked':'')+'> Authorised signatory (can sign final reports)</label>':'')+
   '<button class="btn pri blk" data-act="adduser">Add user</button></div>';
  }else if(m.tab==='tests'){
-  body=D().tests.map((t,i)=>'<div class="card">'+fld('Test name',inp('db.tests.'+i+'.name',t.name))+fld('IS code reference',inp('db.tests.'+i+'.code',t.code))+
-   '<div class="two">'+fld('Standard rate (₹ per '+esc(t.unit)+')',inp('db.tests.'+i+'.rate',t.rate,{mode:'decimal'}))+fld('NABL scope','<div class="chips"><button class="chip'+(t.nabl?' on':'')+'" data-act="nabl" data-id="'+t.id+'">'+(t.nabl?'In scope':'Outside scope')+'</button></div>')+'</div></div>').join('')+
+  const tcat=m.tcat||'all',tq=(m.tq||'').toLowerCase().trim();
+  const tlist=D().tests.filter((t,i)=>(tcat==='all'||testCat(t)===tcat)&&(!tq||(t.name+' '+t.code).toLowerCase().indexOf(tq)>=0)).map(t=>D().tests.indexOf(t));
+  body=searchBox('m.admin.tq',m.tq,'Search tests by name or code…')+
+  '<div class="chips" style="margin:10px 0">'+TEST_CATS.map(x=>'<button class="chip'+(tcat===x[0]?' on':'')+'" data-act="set" data-sp="m.admin.tcat" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'+
+  tlist.map(i=>{const t=D().tests[i];return '<div class="card">'+fld('Test name',inp('db.tests.'+i+'.name',t.name))+fld('IS code reference',inp('db.tests.'+i+'.code',t.code))+
+   '<div class="two">'+fld('Standard rate (₹ per '+esc(t.unit)+')',inp('db.tests.'+i+'.rate',t.rate,{mode:'decimal'}))+fld('NABL scope','<div class="chips"><button class="chip'+(t.nabl?' on':'')+'" data-act="nabl" data-id="'+t.id+'">'+(t.nabl?'In scope':'Outside scope')+'</button></div>')+'</div></div>'}).join('')+
   '<button class="btn blk" data-act="addtest">'+ic('plus')+' Add test</button><p class="hint" style="margin-top:10px">Changes are saved automatically.</p>';
+ }else if(m.tab==='equipment'){
+  body=equipmentBody(m);
  }else if(m.tab==='signins'){
   body=signinsBody(m);
  }else if(m.tab==='activity'){
@@ -1102,7 +1108,7 @@ function adminView(){
   body='<div class="card">'+fld('NABL certificate number',inp('db.settings.cert',s.cert),'','Used as the prefix of every ULR, e.g. <span class="mono">'+esc(s.cert)+'-'+yy()+'-000146-F</span>')+
   fld('GST %',inp('db.settings.gst',s.gst,{mode:'decimal'}))+fld('Default credit days',inp('db.settings.creditDays',s.creditDays,{mode:'numeric'}))+fld('Testing machines',inp('db.settings.machines',s.machines||'',{ph:'CTM-01, CTM-02'}),'','Comma separated. Testers pick one when they enter readings.')+'<p class="hint">Saved automatically.</p></div>';
  }
- return pgHead('Admin',null,S.online?'Connected to server':'Offline demo · data stays in this browser')+tabsBar('admtab',m.tab,[['users','Users'],['tests','Tests & rates'],['settings','Settings'],['signins','Sign-ins'],['activity','Activity'],['data','Data']])+body+
+ return pgHead('Admin',null,S.online?'Connected to server':'Offline demo · data stays in this browser')+tabsBar('admtab',m.tab,[['users','Users'],['tests','Tests & rates'],['equipment','Equipment'],['settings','Settings'],['signins','Sign-ins'],['activity','Activity'],['data','Data']])+body+
  ((S.online&&S.org&&!S.org.demo)?'':'<div class="card" style="margin-top:22px"><h3>Demo data</h3><p class="mut sm" style="margin:6px 0 12px">Restore the original sample clients, samples and bills. Everything you added will be removed.</p><button class="btn dng blk" data-act="reset">Reset demo data</button></div>');
 }
 
@@ -1513,6 +1519,7 @@ function profileView(){
  '<div style="height:1px;background:var(--line)"></div>'+
  '<div class="row" style="cursor:default"><div class="sic c-acc">'+ic('clip',18)+'</div><div class="grow"><div class="t">App Version</div></div><div class="mut sm">v1.0.0</div></div>'+
  '</div>'+
+ (can('tickets')?'<div class="sec"><h2>Support</h2></div><div class="card flat" style="padding:4px 14px">'+row('chat','Help & Support','Raise a ticket','progoto','tickets')+'</div>':'')+
  '<button class="btn bad blk" style="margin-top:14px" data-act="logout">'+ic('out',18)+' Logout</button>';
 }
 /* location stamps: where and when each step was done */
@@ -1568,6 +1575,17 @@ function saveSampleLocal(geo){
 /* ================= TESTING SCHEDULE ================= */
 /* ---------- shared helpers: machines, calendar, reviewers ---------- */
 const machinesList=()=>String((D().settings&&D().settings.machines)||'CTM-01').split(',').map(x=>x.trim()).filter(Boolean);
+function machineCal(name){let latest=null;D().jobs.forEach(j=>{if(j.setup&&j.setup.machine===name&&j.setup.calDate){if(!latest||j.setup.calDate>latest)latest=j.setup.calDate}});return latest}
+function equipmentBody(m){
+ const q=(m.eq||'').toLowerCase().trim();
+ const list=machinesList().filter(n=>!q||n.toLowerCase().indexOf(q)>=0).map(name=>{
+  const cal=machineCal(name);if(!cal)return{name:name,cal:null,status:'No calibration recorded',cls:''};
+  const left=364-Math.round((new Date(today())-new Date(cal))/864e5);
+  return{name:name,cal:cal,left:left,status:left<0?'Overdue by '+(-left)+' days':left<=30?'Due Soon ('+left+' days left)':'Valid ('+left+' days left)',cls:left<0?'bad':left<=30?'warn':'ok'};
+ });
+ return searchBox('m.admin.eq',m.eq,'Search equipment by name or code…')+
+ (list.length?list.map(x=>'<div class="row" style="cursor:default"><div class="sic c-acc" style="border-radius:10px">'+ic('gear',18)+'</div><div class="grow"><div class="t">'+esc(x.name)+'</div><div class="s">'+(x.cal?'Calibrated '+fd(x.cal)+' · valid till '+fd(addDays(x.cal,364)):'No test has recorded a calibration date for this machine yet')+'</div></div>'+(x.cls?bdg(x.status,x.cls):bdg(x.status))+'</div>').join(''):empty('No testing machines set up yet. Add them under Settings → Testing machines.'));
+}
 const MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const dayOf=iso=>{const t=new Date(iso);return t.getFullYear()+'-'+pad(t.getMonth()+1,2)+'-'+pad(t.getDate(),2)};
 const shiftMon=(ym,k)=>{const p=ym.split('-').map(Number),d=new Date(p[0],p[1]-1+k,1);return d.getFullYear()+'-'+pad(d.getMonth()+1,2)};
@@ -1904,7 +1922,7 @@ function reviewsView(){
 function reviewDetail(m){
  const x=sm(m.sampleId);if(!x){m.sampleId=null;return reviewsView()}
  const rv=x.review||{},checks=rv.checks||[];
- if(x.reportStatus!=='awaiting')return pgHead('Test Report','revback',bdg(RSTAT[x.reportStatus]||'',rcls(x.reportStatus)))+reportHtml(x)+'<button class="btn pri blk" style="margin-top:12px" data-act="pdf" data-id="'+x.id+'">Download PDF</button>';
+ if(x.reportStatus!=='awaiting')return pgHead('Test Report','revback',bdg(RSTAT[x.reportStatus]||'',rcls(x.reportStatus)))+reportHtml(x)+'<div class="btns"><button class="btn pri" style="flex:1" data-act="pdf" data-id="'+x.id+'">Download PDF</button><button class="btn" style="flex:1" data-act="share" data-id="'+x.id+'">'+ic('send',18)+' Share</button></div>';
  const photos=[];jobsOf(x.id).forEach(j=>{if(j.results&&j.results.rows)j.results.rows.forEach((r,i)=>photos.push({r:r,i:i,age:j.age}))});
  const allOk=checks.every(c=>c.ok);
  const okCount=checks.filter(c=>c.ok).length;
@@ -1924,21 +1942,39 @@ function reviewDone(m){
  return pgHead('Report approved','revdoneback')+'<div class="card" style="background:var(--acc-soft);border-color:var(--acc)"><h2 style="color:var(--acc-ink);margin-bottom:10px">Final report issued</h2><div class="two"><div><div class="xs mut">Report no.</div><b class="mono">'+esc(x.reportNo||'')+'</b></div><div><div class="xs mut">Signed by</div><b>'+esc(x.approvedBy||'')+'</b></div></div><div style="margin-top:10px"><div class="xs mut">ULR no.</div><b class="mono">'+esc(x.ulr||x.uid)+'</b></div></div>'+
  '<div class="card"><h3 style="margin-bottom:8px">Notifications sent</h3>'+((x.approvalNotes||[]).map(n=>'<div class="chk"><span class="ok">'+ic('check',18)+'</span><div><b>'+esc(n.who)+'</b><div>'+esc(n.text)+'</div><div class="xs mut">'+esc(n.how)+', '+esc(tkWhen(n.at).slice(-5))+'</div></div></div>').join('')||'<p class="mut">No one else needed to be notified.</p>')+'</div>'+
  '<div class="sec"><h2><span class="stepn">1</span> Final report</h2><button class="btn sm" data-act="fullrep" data-id="'+x.id+'">View full size</button></div><div class="rpwrap">'+reportHtml(x)+'</div>'+
- '<button class="btn pri blk" style="margin-top:12px" data-act="pdf" data-id="'+x.id+'">Download PDF</button><button class="btn blk" style="margin-top:10px" data-act="revdoneback">Back to all reviews</button>';
+ '<div class="btns" style="margin-top:12px"><button class="btn pri" style="flex:1" data-act="pdf" data-id="'+x.id+'">Download PDF</button><button class="btn" style="flex:1" data-act="share" data-id="'+x.id+'">'+ic('send',18)+' Share</button></div><button class="btn blk" style="margin-top:10px" data-act="revdoneback">Back to all reviews</button>';
+}
+function shareView(){
+ const x=S.shareRep&&sm(S.shareRep);if(!x)return '';
+ const d=S.shareDraft||(S.shareDraft={to:'',msg:'Please find the test report for your reference.'});
+ const c=cl(x.clientId),link=verifyUrl(x),already=x.reportStatus==='sent';
+ const optRow=(icn,label,cls,act)=>'<button type="button" class="row" data-act="'+act+'"><div class="sic c-'+cls+'">'+ic(icn,18)+'</div><div class="grow"><div class="t">'+label+'</div></div>'+ic('chev')+'</button>';
+ return '<div class="fullrep"><div class="fr-top"><button class="btn" data-act="shareclose">Close</button></div><div class="main" style="max-width:520px;margin:0 auto">'+
+ pgHead('Share Report')+
+ '<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><b>'+esc(x.ulr||x.uid)+'</b><div class="sm mut">'+esc(c.name||'')+'</div><div class="sm mut">'+esc(ts(x.testId).name)+'</div></div>'+bdg(RSTAT[x.reportStatus],rcls(x.reportStatus))+'</div>'+
+ '<div class="sec"><h2>Share via</h2></div><div class="card flat" style="padding:4px 14px">'+
+ optRow('chat','WhatsApp','acc','sharewa')+optRow('send','Email','blue','shareemail')+optRow('copy','Copy Link','purple','sharecopy')+optRow('receipt','Download PDF','acc','sharepdf')+optRow('search','Share QR Code','purple','shareqr')+
+ '</div>'+(S.shareQrOpen?'<div class="card" style="text-align:center">'+qrSvg(link)+'<p class="xs mut" style="margin-top:8px">Scan to verify this report</p></div>':'')+
+ '<div class="sec"><h2>Recipient Details (Optional)</h2></div><div class="card">'+fld('Email or phone number',inp('shareDraft.to',d.to,{ph:'Enter email or phone number'}))+
+ fld('Add a message (Optional)',ta('shareDraft.msg',d.msg,{}))+'</div>'+
+ (already?'<div class="note ok">Already marked as sent on '+fd(x.sentOn)+'.</div>':x.reportStatus==='approved'?'<button class="btn pri blk" style="margin-top:4px" data-act="sendrep" data-id="'+x.id+'">Send Report</button>':'<div class="note">This report is still '+(RSTAT[x.reportStatus]||'in progress').toLowerCase()+'. It can be marked sent once approved.</div>')+
+ '</div></div>';
 }
 function fullRepView(){
  if(S.fullQuote){const q=QT().find(y=>y.id===S.fullQuote);return q?'<div class="fullrep"><div class="fr-top"><button class="btn" data-act="qclose">Close</button><button class="btn pri" data-act="qpdf" data-id="'+q.id+'">Download PDF</button></div>'+quoteDoc(q)+'</div>':''}
  const x=S.fullRep&&sm(S.fullRep);if(!x)return '';
- return '<div class="fullrep"><div class="fr-top"><button class="btn" data-act="fullclose">Close</button><button class="btn pri" data-act="pdf" data-id="'+x.id+'">Download PDF</button></div>'+reportHtml(x)+'</div>';
+ return '<div class="fullrep"><div class="fr-top"><button class="btn" data-act="fullclose">Close</button><button class="btn" data-act="share" data-id="'+x.id+'">'+ic('send',18)+' Share</button><button class="btn pri" data-act="pdf" data-id="'+x.id+'">Download PDF</button></div>'+reportHtml(x)+'</div>';
 }
 function approveView(){
  const m=M('approve');
  if(m.sampleId)return approveDetail(m);
+ const q=(m.q||'').toLowerCase().trim();
  const ss=D().samples,by={awaiting:ss.filter(s=>s.reportStatus==='awaiting'),approved:ss.filter(s=>s.reportStatus==='approved'),sent:ss.filter(s=>s.reportStatus==='sent')};
- const list=by[m.tab]||[];
- return pgHead('Approve & send reports')+tabsBar('aptab',m.tab,[['awaiting','Awaiting approval ('+by.awaiting.length+')'],['approved','Approved – to send ('+by.approved.length+')'],['sent','Sent ('+by.sent.length+')']])+
+ const list=(by[m.tab]||[]).filter(s=>!q||(s.uid+' '+(s.ulr||'')+' '+cl(s.clientId).name+' '+ts(s.testId).name).toLowerCase().indexOf(q)>=0);
+ return pgHead('Reports')+searchBox('m.approve.q',m.q,'Search reports by ULR, client, project…')+
+ tabsBar('aptab',m.tab,[['awaiting','In Review ('+by.awaiting.length+')'],['approved','Approved ('+by.approved.length+')'],['sent','Sent ('+by.sent.length+')']])+
  (list.map(s=>{const blk=s.billing==='Advance'&&unpaidInvOf(s);
-  return '<button class="row" data-act="openrep" data-id="'+s.id+'"><div class="grow"><div class="t mono">'+esc(s.uid)+'</div><div class="s">'+esc(cl(s.clientId).name)+' · '+esc(ts(s.testId).name)+'</div><div class="s">'+(m.tab==='sent'?'Sent '+fd(s.sentOn):'Received '+fd(s.receipt))+'</div></div>'+(m.tab==='approved'&&blk?bdg('Bill unpaid','bad'):'')+'<span class="mut">'+ic('chev',18)+'</span></button>'}).join('')||empty('No reports in this tab.'));
+  return '<button class="row" data-act="openrep" data-id="'+s.id+'"><div class="sic c-acc" style="border-radius:10px">'+ic(ts(s.testId).kind==='cube'?'clip':'flask',18)+'</div><div class="grow"><div class="t mono">'+esc(s.uid)+'</div><div class="s">'+esc(cl(s.clientId).name)+' · '+esc(ts(s.testId).name)+'</div><div class="s">'+(m.tab==='sent'?'Sent '+fd(s.sentOn):'Received '+fd(s.receipt))+'</div></div>'+(m.tab==='approved'&&blk?bdg('Bill unpaid','bad'):'')+'<span class="mut">'+ic('chev',18)+'</span></button>'}).join('')||empty('No reports in this tab.'));
 }
 function approveDetail(m){
  const s=sm(m.sampleId);if(!s){m.sampleId=null;return approveView()}
@@ -1954,7 +1990,7 @@ function approveDetail(m){
    if(j.status==='done')return '<div class="row" style="cursor:default"><div class="grow"><div class="t">'+esc(lbl)+'</div><div class="s">Result in, not billed yet</div></div><button class="btn pri" data-act="mkinv" data-id="'+j.id+'">Invoice this part</button></div>';
    return '<div class="row" style="cursor:default"><div class="grow"><div class="t mut">'+esc(lbl)+'</div><div class="s">Due '+fd(j.due)+'</div></div></div>';
   }).join('')+'</div>':'';
- return pgHead('Test Report','aprback','<span class="mono">'+esc(s.uid)+'</span> · '+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus)))+trailHtml(s)+reportHtml(s)+partsPanel+'<div style="height:14px"></div>'+act+'<button class="btn blk" style="margin-top:10px" data-act="copyrep" data-id="'+s.id+'">'+ic('copy',20)+' Copy summary</button>';
+ return pgHead('Test Report','aprback','<span class="mono">'+esc(s.uid)+'</span> · '+bdg(RSTAT[s.reportStatus],rcls(s.reportStatus)))+trailHtml(s)+reportHtml(s)+partsPanel+'<div style="height:14px"></div>'+act+'<button class="btn blk" style="margin-top:10px" data-act="share" data-id="'+s.id+'">'+ic('send',20)+' Share report</button><button class="btn blk" style="margin-top:10px" data-act="copyrep" data-id="'+s.id+'">'+ic('copy',20)+' Copy summary</button>';
 }
 function partLbl(s,j){if(j.age==null||!Array.isArray(s.d&&s.d.ages))return '';const i=s.d.ages.indexOf(j.age);return i<0?'':'ABCDEFG'[i]||''}
 
@@ -2028,12 +2064,12 @@ function payHistBody(m){
   '<div class="chips" style="margin:10px 0">'+[['project','By project'],['all','All invoices'],['cheques','Cheques to clear ('+chq.length+')']].map(x=>'<button class="chip'+(view===x[0]?' on':'')+'" data-act="phview" data-v="'+x[0]+'">'+x[1]+(x[0]==='project'?' ('+projectSums().length+')':x[0]==='all'?' ('+inv.length+')':'')+'</button>').join('')+'</div>';
  let body;
  if(view==='cheques'){
+  if(m.cheqId)return chequeDetail(m);
   const allChq=pays.filter(p=>p.mode==='Cheque');
   const byChq={Deposited:allChq.filter(p=>p.status==='Deposited'),Cleared:allChq.filter(p=>p.status==='Cleared'),Bounced:allChq.filter(p=>p.status==='Bounced')};
   const ct=m.cheqTab||'Deposited',rows=byChq[ct]||[];
   body='<div class="chips" style="margin-bottom:12px">'+['Deposited','Cleared','Bounced'].map(x=>'<button class="chip'+(ct===x?' on':'')+'" data-act="set" data-sp="m.bills.cheqTab" data-v="'+x+'">'+x+' ('+byChq[x].length+')</button>').join('')+'</div>'+
-  (rows.map(p=>{const i=D().invoices.find(x=>x.id===p.invoiceId)||{};return '<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><div class="t mono">'+esc(p.ref||i.no||p.invoiceId)+'</div>'+bdg(p.status,p.status==='Deposited'?'warn':p.status==='Cleared'?'ok':'bad')+'</div><div class="s">'+esc(cl(i.clientId).name)+' · '+fd(p.date)+' · '+inr(p.amount)+'</div>'+
-   (p.status==='Deposited'?'<div class="row-btns" style="margin-top:10px;display:flex;gap:8px"><button class="btn ok" style="flex:1" data-act="chqclear" data-id="'+p.id+'">Mark Cleared</button><button class="btn bad" style="flex:1" data-act="chqbounce" data-id="'+p.id+'">Mark Bounced</button></div>':'')+'</div>'}).join('')||empty('No cheques in this tab.'));
+  (rows.map(p=>{const i=D().invoices.find(x=>x.id===p.invoiceId)||{};return '<button type="button" class="card" style="width:100%;text-align:left" data-act="chqopen" data-id="'+p.id+'"><div style="display:flex;justify-content:space-between;gap:8px"><div class="t mono">'+esc(p.ref||i.no||p.invoiceId)+'</div>'+bdg(p.status,p.status==='Deposited'?'warn':p.status==='Cleared'?'ok':'bad')+'</div><div class="s">'+esc(cl(i.clientId).name)+' · '+fd(p.date)+' · '+inr(p.amount)+'</div></button>'}).join('')||empty('No cheques in this tab.'));
  }else if(view==='all'){
   const L=inv.filter(i=>!q||((cl(i.clientId).name||'')+' '+i.no+' '+(i.reportNo||'')).toLowerCase().indexOf(q)>=0).sort((a,b)=>a.date<b.date?1:-1);
   body=L.map(i=>{const st=bstat(i);return '<button class="row" data-act="openinv" data-id="'+i.id+'"><div class="grow"><div class="t mono">'+esc(i.no)+'</div><div class="s">'+esc(cl(i.clientId).name)+' · '+fd(i.date)+' · '+inr(i.total)+' · balance '+inr(balOf(i))+'</div></div>'+bdg(st,bcls(st))+'</button>'}).join('')||empty('No invoices match.');
@@ -2046,6 +2082,20 @@ function payHistBody(m){
    '<button class="btn blk" style="margin-top:10px" data-act="blclient" data-id="'+x.c.id+'">View '+x.n+' invoice'+(x.n===1?'':'s')+'</button></div>').join('')||empty('No projects with bills yet.');
  }
  return top+body+'<button class="btn pri blk" style="margin-top:14px" data-act="recpaynew">'+ic('plus')+' Record payment</button>';
+}
+function chequeDetail(m){
+ const p=D().payments.find(x=>x.id===m.cheqId);if(!p){m.cheqId=null;return payHistBody(m)}
+ const i=D().invoices.find(x=>x.id===p.invoiceId)||{},c=cl(i.clientId);
+ return pgHead('Cheque Details','chqback',bdg(p.status,p.status==='Deposited'?'warn':p.status==='Cleared'?'ok':'bad'))+
+ '<div class="card"><h3 style="margin-bottom:8px">'+esc(p.ref||i.no||'Cheque')+'</h3><dl class="dl">'+
+ '<dt>Client</dt><dd>'+esc(c.name||'—')+'</dd>'+
+ '<dt>Cheque No.</dt><dd class="mono">'+esc(p.ref||'—')+'</dd>'+
+ '<dt>Invoice</dt><dd class="mono">'+esc(i.no||'—')+'</dd>'+
+ '<dt>Amount</dt><dd><b>'+inr(p.amount)+'</b></dd>'+
+ '<dt>Status</dt><dd>'+bdg(p.status,p.status==='Deposited'?'warn':p.status==='Cleared'?'ok':'bad')+'</dd>'+
+ '<dt>Deposit Date</dt><dd>'+fd(p.date)+'</dd></dl></div>'+
+ (p.status==='Deposited'?'<div class="btns"><button class="btn ok" style="flex:1" data-act="chqclear" data-id="'+p.id+'">Mark Cleared</button><button class="btn bad" style="flex:1" data-act="chqbounce" data-id="'+p.id+'">Mark Bounced</button></div>':'<div class="note">This cheque is already '+p.status.toLowerCase()+'.</div>')+
+ '<button class="btn blk" style="margin-top:10px" '+goA('bills',{invId:p.invoiceId})+'>View invoice</button>';
 }
 function recordPaymentForm2(m){
  const p=m.pay2,e=p.err||{},c=p.clientId?cl(p.clientId):null;
@@ -2155,7 +2205,7 @@ function view(){
  if(S.booting)return '<div class="login"><div class="logo"><i></i><h1>TechAssures Lab</h1></div><p class="mut">Connecting…</p></div>';
  if(!S.user)return S.signup?signupView():S.choose?chooseView():loginView();
  if(S.wiz)return wizView()+confirmView();
- return shell(S.route==='home'?homeView():S.route==='inbox'?inboxView():S.route==='profile'?profileView():(can(S.route)?modBody():blocked()))+confirmView()+fullRepView();
+ return shell(S.route==='home'?homeView():S.route==='inbox'?inboxView():S.route==='profile'?profileView():(can(S.route)?modBody():blocked()))+confirmView()+fullRepView()+shareView();
 }
 const appEl=document.getElementById('app');
 const sigCache={url:'',img:null};
@@ -2257,6 +2307,7 @@ const ACT={
  inboxback(){S.route='home';render()},
  notetab(t){M('inbox').tab=t.dataset.v;render()},
  proback(){S.route='home';render()},
+ progoto(t){go(t.dataset.v)},
  proadmin(){go('admin',{tab:'users',eu:S.user.id})},
  biotog(){S.bio=!S.bio;try{localStorage.setItem('ta_bio',S.bio?'1':'0')}catch(e){}render()},
  themetog(){const cur=document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');const nx=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',nx);try{localStorage.setItem('ta_theme',nx)}catch(e){}render()},
@@ -2331,6 +2382,13 @@ const ACT={
   S.busy=false;render();window.scrollTo(0,0)},
  fullrep(t){S.fullRep=t.dataset.id;render();window.scrollTo(0,0)},
  fullclose(){S.fullRep=null;render()},
+ share(t){S.shareRep=t.dataset.id;S.shareDraft={to:'',msg:'Please find the test report for your reference.'};S.shareQrOpen=false;render();window.scrollTo(0,0)},
+ shareclose(){S.shareRep=null;S.shareQrOpen=false;render()},
+ shareqr(){S.shareQrOpen=!S.shareQrOpen;render()},
+ sharecopy(){const x=sm(S.shareRep);if(!x)return;const link=verifyUrl(x);const ok=()=>toast('Link copied');const fb=()=>{try{const ta=document.createElement('textarea');ta.value=link;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();ok()}catch(e){toast(link)}};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(link).then(ok,fb);else fb()},
+ sharewa(){const x=sm(S.shareRep);if(!x)return;const d=S.shareDraft||{};const msg=(d.msg||'')+' '+verifyUrl(x);const num=(d.to||'').replace(/[^\d]/g,'');window.open('https://wa.me/'+(num?num+'?':'?')+'text='+encodeURIComponent(msg),'_blank')},
+ shareemail(){const x=sm(S.shareRep);if(!x)return;const d=S.shareDraft||{};const body=(d.msg||'')+'\n\n'+verifyUrl(x);window.open('mailto:'+(d.to||'')+'?subject='+encodeURIComponent('Test report '+(x.ulr||x.uid))+'&body='+encodeURIComponent(body),'_blank')},
+ sharepdf(){const x=sm(S.shareRep);if(!x)return;S.fullRep=x.id;S.shareRep=null;render();document.body.classList.add('pr');setTimeout(()=>{try{window.print()}catch(e){toast('Printing is not available here',1)}document.body.classList.remove('pr')},250)},
  pdf(t){S.fullRep=t.dataset.id;render();document.body.classList.add('pr');setTimeout(()=>{try{window.print()}catch(e){toast('Printing is not available here',1)}document.body.classList.remove('pr')},250)},
  /* reviews */
  revmon(t){const m=M('reviews');m.month=shiftMon(m.month||today().slice(0,7),+t.dataset.v);render()},
@@ -2439,7 +2497,7 @@ const ACT={
   S.busy=true;const geo=await tryLoc();S.busy=false;
   if(S.online){S.busy=true;try{const r=await api('POST','/api/samples/'+s.id+'/send',{geo:geo});upsertLocal('samples',r.sample)}catch(er){S.busy=false;toast(er.message,1);return}S.busy=false}
   else{s.reportStatus='sent';s.sentOn=today();s.sendGeo=stampGeo(geo);persistNow()}
-  const m=M('approve');m.sampleId=null;m.tab='sent';toast('Marked as sent (no email is sent in this demo)');render();window.scrollTo(0,0)},
+  S.shareRep=null;const m=M('approve');m.sampleId=null;m.tab='sent';toast('Marked as sent (no email is sent in this demo)');render();window.scrollTo(0,0)},
  copyrep(t){const txt=reportText(sm(t.dataset.id));
   const ok=()=>toast('Summary copied');
   const fb=()=>{try{const ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const r=document.execCommand('copy');ta.remove();r?ok():toast('Copy is not available here',1)}catch(x){toast('Copy is not available here',1)}};
@@ -2449,6 +2507,8 @@ const ACT={
  invback(){const m=M('bills');m.invId=null;m.pay=null;render();window.scrollTo(0,0)},
  payfill(){const m=M('bills'),i=D().invoices.find(x=>x.id===m.invId);if(m.pay){m.pay.amount=String(balOf(i));render()}},
  recpay(){recordPay()},
+ chqopen(t){M('bills').cheqId=t.dataset.id;render();window.scrollTo(0,0)},
+ chqback(){M('bills').cheqId=null;render();window.scrollTo(0,0)},
  async chqclear(t){if(S.busy)return;S.busy=true;render();try{const r=await api('POST','/api/payments/'+t.dataset.id+'/clear',{});upsertLocal('payments',r.payment);toast('Cheque marked cleared')}catch(e){toast(e.message,1)}S.busy=false;render()},
  async chqbounce(t){if(S.busy)return;S.busy=true;render();try{const r=await api('POST','/api/payments/'+t.dataset.id+'/bounce',{});upsertLocal('payments',r.payment);toast('Cheque marked bounced — invoice reopened')}catch(e){toast(e.message,1)}S.busy=false;render()},
  /* clients */
