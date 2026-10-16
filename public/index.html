@@ -25,7 +25,7 @@
   --blue:#2F6FB0;--blue-soft:rgba(47,111,176,.12);--purple:#7756A8;--purple-soft:rgba(119,86,168,.12);
 }
 @media (prefers-color-scheme:dark){
-  :root{
+  :root:not([data-theme="light"]){
     --paper:#0D1512;--wash:#131B17;--surface:#17201C;--ink:#F3F4F0;--ink2:#E4E6E1;
     --g1:#AEB4AF;--g2:#80857F;--g3:#4A504B;--line:#263129;
     --acc:#4FB183;--acc-ink:#3E9A6E;--acc-soft:rgba(79,177,131,.18);
@@ -33,6 +33,14 @@
     --hdr:#081D17;--shadow:0 1px 2px rgba(0,0,0,.4);
     --blue:#6FA8DC;--blue-soft:rgba(111,168,220,.18);--purple:#A68FD1;--purple-soft:rgba(166,143,209,.18);
   }
+}
+:root[data-theme="dark"]{
+  --paper:#0D1512;--wash:#131B17;--surface:#17201C;--ink:#F3F4F0;--ink2:#E4E6E1;
+  --g1:#AEB4AF;--g2:#80857F;--g3:#4A504B;--line:#263129;
+  --acc:#4FB183;--acc-ink:#3E9A6E;--acc-soft:rgba(79,177,131,.18);
+  --warn:#E0A33E;--warn-soft:rgba(224,163,62,.16);--bad:#F2766E;--bad-soft:rgba(242,118,110,.14);
+  --hdr:#081D17;--shadow:0 1px 2px rgba(0,0,0,.4);
+  --blue:#6FA8DC;--blue-soft:rgba(111,168,220,.18);--purple:#A68FD1;--purple-soft:rgba(166,143,209,.18);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
@@ -108,6 +116,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .btn.pri{background:var(--acc-ink);border-color:var(--acc-ink);color:#fff}
 .btn.dng{background:var(--bad);border-color:var(--bad);color:#fff}
 .btn.blk{display:flex;width:100%}
+.btn.bad{color:var(--bad);border-color:var(--bad-soft)}
 .btn.sm{min-height:48px;padding:0 14px;font-size:14px}
 .btn[disabled],.btn.off{opacity:.45;pointer-events:none}
 .lnk{color:var(--ink);text-decoration:underline;text-underline-offset:3px;font-weight:600;min-height:48px;display:inline-flex;align-items:center;padding:0 6px}
@@ -168,6 +177,11 @@ textarea.in{min-height:84px;resize:vertical}
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0 6px}
 .stat{border:1px solid transparent;border-radius:16px;padding:14px;min-height:92px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;min-width:0}
 .stat .sic{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.55);margin-bottom:6px}
+.row .sic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;margin-right:2px}
+.row .sic.c-blue{background:var(--blue-soft);color:var(--blue)}
+.row .sic.c-purple{background:var(--purple-soft);color:var(--purple)}
+.row .sic.c-acc{background:var(--acc-soft);color:var(--acc-ink)}
+.row .sic.c-bad{background:var(--bad-soft);color:var(--bad)}
 .stat b{font-family:Manrope,sans-serif;font-size:24px;font-weight:800;line-height:1.1;overflow-wrap:anywhere}
 .stat span{font-size:12px;color:var(--g1);line-height:1.2;font-weight:600}
 .stat i{font-style:normal;font-size:10.5px;font-weight:700;margin-top:2px}
@@ -528,6 +542,8 @@ function loadDb(){
 const urlLab=(()=>{try{return (new URLSearchParams(location.search).get('lab')||'').toLowerCase().replace(/[^a-z0-9-]/g,'').slice(0,40)}catch(e){return ''}})();
 const blankLogin=()=>({lab:urlLab||lsGet('techassures_lab_code')||'',login:'',pin:'',err:'',expanded:false});
 const S={db:loadDb(),user:null,route:'home',m:{},wiz:null,confirm:null,login:blankLogin(),org:null,gcid:'',signup:null,choose:null,online:false,booting:true,token:'',rev:0,synced:{},demoAccounts:[],busy:false};
+try{const th=localStorage.getItem('ta_theme');if(th==='dark'||th==='light')document.documentElement.setAttribute('data-theme',th)}catch(e){}
+try{S.bio=localStorage.getItem('ta_bio')==='1'}catch(e){}
 let pt=null;
 function persist(){clearTimeout(pt);pt=setTimeout(persistNow,S.online?700:250)}
 function persistNow(){clearTimeout(pt);if(S.online){pushDirty();return}if(!lsSet(KEY,JSON.stringify(S.db)))toast('Storage is full or blocked — changes may not be kept',1)}
@@ -834,7 +850,7 @@ const bellBtn=()=>S.online?'<button class="hbtn" data-act="bell" aria-label="Not
 const miniBrand='<svg class="mbrand" viewBox="0 0 64 64"><path d="M32 6 58 52H6Z" fill="#5fd8a0"/><path d="M32 6 45 52H19Z" fill="#fff" opacity=".9"/><path d="M32 24 41 52H23Z" fill="#166241"/></svg>';
 function header(){const nm=S.org&&!S.org.demo?esc(S.org.name):'TechAssures<span class="l"> Lab</span>';
  return '<div class="hdr r-'+S.user.role+'"><div class="brand">'+miniBrand+'<span class="bw">'+nm+'<i>Material Testing Lab</i></span></div><div class="who">'+esc(ROLE_LABEL[S.user.role])+': '+esc(S.user.name)+'</div>'+bellBtn()+
- '<button class="hbtn avbtn" data-act="logout" aria-label="Log out, '+esc(S.user.name)+'">'+esc(initials(S.user.name))+'</button></div>'}
+ '<button class="hbtn avbtn" '+goA('profile')+' aria-label="My profile, '+esc(S.user.name)+'">'+esc(initials(S.user.name))+'</button></div>'}
 function shell(body){
  const navMods=NAVPICK[S.user.role].filter(can);
  const items=[{id:'home',short:'Home',icon:'home'}].concat(navMods.map(id=>MODS.find(m=>m.id===id)));
@@ -1430,13 +1446,39 @@ async function scheduleLocal(){
   if(list.length)await ln.schedule({notifications:list.slice(0,60)});
  }catch(e){}
 }
+const NOTE_GROUP={assign:'samples',due:'samples',overdue:'alerts',awaiting:'tests',returned:'tests',approved:'tests',wo_alert:'invoices',ticket:'alerts'};
+const NOTE_ICON={samples:['flask','blue'],tests:['check','purple'],invoices:['receipt','acc'],alerts:['alert','bad']};
 function inboxView(){
  const list=myNotes(),perm=alertPerm();
+ const m=M('inbox');if(!m.tab)m.tab='all';
  const when=a=>{const t=new Date(a);return pad(t.getDate(),2)+' '+MON[t.getMonth()]+', '+pad(t.getHours(),2)+':'+pad(t.getMinutes(),2)};
  const alertCard=(perm==='granted')?'':'<div class="note" style="margin-bottom:12px">Phone alerts or permissions are off. '+(perm==='denied'?'Allow notifications for this app in your phone settings.':'<button class="lnk" data-act="enablealerts">Turn on alerts on this device</button>')+'</div>';
+ const tabs=[['all','All'],['samples','Samples'],['tests','Tests'],['invoices','Invoices']];
+ const shown=m.tab==='all'?list:list.filter(n=>(NOTE_GROUP[n.type]||'alerts')===m.tab);
  return pgHead('Notifications','inboxback',unreadN()?unreadN()+' unread':'All caught up')+alertCard+
+  '<div class="chips" style="margin-bottom:10px">'+tabs.map(x=>'<button class="chip'+(m.tab===x[0]?' on':'')+'" data-act="notetab" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'+
   (unreadN()?'<button class="btn blk" style="margin-bottom:12px" data-act="readall">Mark all as read</button>':'')+
-  (list.length?list.slice(0,80).map(n=>'<button class="row" data-act="opennote" data-id="'+esc(n.id)+'"><div class="grow"><div class="t">'+(n.read?'':'<span class="dot"></span> ')+esc(n.title)+'</div><div class="s">'+esc(n.body)+'</div><div class="s">'+esc(when(n.at))+'</div></div>'+ic('chev')+'</button>').join(''):empty('No notifications yet. You will see new tests assigned to you and reminders before each test is due.'));
+  (shown.length?shown.slice(0,80).map(n=>{const gi=NOTE_ICON[NOTE_GROUP[n.type]||'alerts'];return '<button class="row" data-act="opennote" data-id="'+esc(n.id)+'"><div class="sic c-'+gi[1]+'">'+ic(gi[0],18)+'</div><div class="grow"><div class="t">'+(n.read?'':'<span class="dot"></span> ')+esc(n.title)+'</div><div class="s">'+esc(n.body)+'</div><div class="s">'+esc(when(n.at))+'</div></div>'+ic('chev')+'</button>'}).join(''):empty('No notifications match this filter.'));
+}
+function profileView(){
+ const u=S.user,th=document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+ const row=(icn,label,val,act,v)=>'<button type="button" class="row" '+(act?'data-act="'+act+'"'+(v!=null?' data-v="'+v+'"':''):'style="cursor:default"')+'><div class="sic c-acc">'+ic(icn,18)+'</div><div class="grow"><div class="t">'+esc(label)+'</div></div><div class="mut sm">'+esc(val||'')+'</div>'+(act?ic('chev'):'')+'</button>';
+ const togRow=(icn,label,on,act)=>'<div class="row" style="cursor:default"><div class="sic c-acc">'+ic(icn,18)+'</div><div class="grow"><div class="t">'+esc(label)+'</div></div><button type="button" class="sw'+(on?' on':'')+'" data-act="'+act+'"><i></i></button></div>';
+ return pgHead('My Profile','proback')+
+ '<div class="card" style="text-align:center;padding:22px 16px"><div class="avatar" style="width:64px;height:64px;font-size:22px;margin:0 auto 10px">'+esc(initials(u.name))+'</div><h2 style="margin-bottom:2px">'+esc(u.name)+'</h2><p class="mut sm">'+esc(ROLE_LABEL[u.role])+'</p></div>'+
+ '<div class="sec"><h2>Lab &amp; Role</h2></div><div class="card flat" style="padding:4px 14px">'+
+ row('clip','Lab Details',labName())+row('users','My Role',ROLE_LABEL[u.role])+
+ (u.role==='admin'?row('lock','Change PIN','',  'proadmin'):row('lock','Change PIN','Ask your admin to reset it'))+
+ '</div>'+
+ '<div class="sec"><h2>App</h2></div><div class="card flat" style="padding:4px 14px">'+
+ togRow('finger','Biometric Login',!!S.bio,'biotog')+
+ '<div style="height:1px;background:var(--line)"></div>'+
+ '<div class="row" style="cursor:default"><div class="sic c-acc">'+ic('gear',18)+'</div><div class="grow"><div class="t">Language</div></div><div class="mut sm">English</div></div>'+
+ togRow('check','Dark Mode',th==='dark','themetog')+
+ '<div style="height:1px;background:var(--line)"></div>'+
+ '<div class="row" style="cursor:default"><div class="sic c-acc">'+ic('clip',18)+'</div><div class="grow"><div class="t">App Version</div></div><div class="mut sm">v1.0.0</div></div>'+
+ '</div>'+
+ '<button class="btn bad blk" style="margin-top:14px" data-act="logout">'+ic('out',18)+' Logout</button>';
 }
 /* location stamps: where and when each step was done */
 function getLoc(){
@@ -2078,7 +2120,7 @@ function view(){
  if(S.booting)return '<div class="login"><div class="logo"><i></i><h1>TechAssures Lab</h1></div><p class="mut">Connecting…</p></div>';
  if(!S.user)return S.signup?signupView():S.choose?chooseView():loginView();
  if(S.wiz)return wizView()+confirmView();
- return shell(S.route==='home'?homeView():S.route==='inbox'?inboxView():(can(S.route)?modBody():blocked()))+confirmView()+fullRepView();
+ return shell(S.route==='home'?homeView():S.route==='inbox'?inboxView():S.route==='profile'?profileView():(can(S.route)?modBody():blocked()))+confirmView()+fullRepView();
 }
 const appEl=document.getElementById('app');
 const sigCache={url:'',img:null};
@@ -2178,6 +2220,11 @@ const ACT={
   try{await navigator.clipboard.writeText(msg);toast('Invite copied. Paste it in WhatsApp or email.')}catch(e){toast(msg)}},
  bell(){S.route='inbox';window.scrollTo(0,0);render()},
  inboxback(){S.route='home';render()},
+ notetab(t){M('inbox').tab=t.dataset.v;render()},
+ proback(){S.route='home';render()},
+ proadmin(){go('admin',{tab:'users',eu:S.user.id})},
+ biotog(){S.bio=!S.bio;try{localStorage.setItem('ta_bio',S.bio?'1':'0')}catch(e){}render()},
+ themetog(){const cur=document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');const nx=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',nx);try{localStorage.setItem('ta_theme',nx)}catch(e){}render()},
  enablealerts(){enableAlerts()},
  async readall(){try{await api('POST','/api/notifications/read',{all:true});D().notifications.forEach(n=>{n.read=true})}catch(e){toast(e.message,1)}render()},
  async opennote(t){const n=D().notifications.find(x=>x.id===t.dataset.id);if(!n)return;
