@@ -1146,7 +1146,9 @@ function adminView(){
  }else{
   const s=D().settings;
   body='<div class="card">'+fld('NABL certificate number',inp('db.settings.cert',s.cert),'','Used as the prefix of every ULR, e.g. <span class="mono">'+esc(s.cert)+'-'+yy()+'-000146-F</span>')+
-  fld('GST %',inp('db.settings.gst',s.gst,{mode:'decimal'}))+fld('Default credit days',inp('db.settings.creditDays',s.creditDays,{mode:'numeric'}))+fld('Testing machines',inp('db.settings.machines',s.machines||'',{ph:'CTM-01, CTM-02'}),'','Comma separated. Testers pick one when they enter readings.')+'<p class="hint">Saved automatically.</p></div>';
+  fld('GST %',inp('db.settings.gst',s.gst,{mode:'decimal'}))+fld('Default credit days',inp('db.settings.creditDays',s.creditDays,{mode:'numeric'}))+fld('Testing machines',inp('db.settings.machines',s.machines||'',{ph:'CTM-01, CTM-02'}),'','Comma separated. Testers pick one when they enter readings.')+
+  fld('Lab address',ta('db.settings.address',s.address||'',{ph:'Printed on reports and invoices'}))+'<div class="two">'+fld('Phone',inp('db.settings.phone',s.phone||'',{mode:'tel',max:20}))+fld('Email',inp('db.settings.email',s.email||'',{ph:'lab@example.com'}))+'</div>'+
+  fld('Report footer text',ta('db.settings.footer',s.footer||'',{ph:'e.g. This report shall not be reproduced except in full, without written approval of the laboratory.'}))+'<p class="hint">Saved automatically.</p></div>';
  }
  return pgHead('Admin',null,S.online?'Connected to server':'Offline demo · data stays in this browser')+tabsBar('admtab',m.tab,[['users','Users'],['tests','Tests & rates'],['equipment','Equipment'],['settings','Settings'],['signins','Sign-ins'],['activity','Activity'],['data','Data']])+body+
  ((S.online&&S.org&&!S.org.demo)?'':'<div class="card" style="margin-top:22px"><h3>Demo data</h3><p class="mut sm" style="margin:6px 0 12px">Restore the original sample clients, samples and bills. Everything you added will be removed.</p><button class="btn dng blk" data-act="reset">Reset demo data</button></div>');

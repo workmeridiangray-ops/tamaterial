@@ -269,7 +269,8 @@ function clean(coll, b, old, actor) {
     const gst = L.num(b.gst), cd = parseInt(b.creditDays, 10);
     if (isNaN(gst) || gst < 0 || gst > 100) bad('GST % must be between 0 and 100');
     if (isNaN(cd) || cd < 0 || cd > 365) bad('Default credit days must be 0–365');
-    return { id: 'main', cert: str(b.cert, 20, { req: 'NABL certificate number is required' }), gst: String(gst), creditDays: String(cd), machines: str(b.machines, 200) || 'CTM-01' };
+    return { id: 'main', cert: str(b.cert, 20, { req: 'NABL certificate number is required' }), gst: String(gst), creditDays: String(cd), machines: str(b.machines, 200) || 'CTM-01',
+      address: str(b.address, 300), phone: str(b.phone, 20), email: str(b.email, 120), footer: str(b.footer, 500) };
   }
   if (!isId(id)) bad('Invalid id');
   if (coll === 'tests') {
