@@ -550,8 +550,10 @@ function loadDb(){
  const d=seed();lsSet(KEY,JSON.stringify(d));return d;
 }
 const urlLab=(()=>{try{return (new URLSearchParams(location.search).get('lab')||'').toLowerCase().replace(/[^a-z0-9-]/g,'').slice(0,40)}catch(e){return ''}})();
+const urlResetPin=(()=>{try{return (new URLSearchParams(location.search).get('resetpin')||'').replace(/[^a-f0-9]/g,'').slice(0,64)}catch(e){return ''}})();
 const blankLogin=()=>({lab:urlLab||lsGet('techassures_lab_code')||'',login:'',pin:'',err:'',expanded:false});
-const S={db:loadDb(),user:null,route:'home',m:{},wiz:null,confirm:null,login:blankLogin(),org:null,gcid:'',signup:null,choose:null,online:false,booting:true,token:'',rev:0,synced:{},demoAccounts:[],busy:false};
+const S={db:loadDb(),user:null,route:'home',m:{},wiz:null,confirm:null,login:blankLogin(),org:null,gcid:'',signup:null,choose:null,online:false,booting:true,token:'',rev:0,synced:{},demoAccounts:[],busy:false,
+ forgot:urlResetPin?{step:'newpin',token:urlResetPin,lab:urlLab,pin:'',pin2:'',err:'',busy:false}:null};
 try{const th=localStorage.getItem('ta_theme');if(th==='dark'||th==='light')document.documentElement.setAttribute('data-theme',th)}catch(e){}
 try{S.bio=localStorage.getItem('ta_bio')==='1'}catch(e){}
 let pt=null;
@@ -888,7 +890,7 @@ function loginView(){
  '<button type="button" class="btn dark blk" data-act="loginexpand" data-v="pin">'+ic('pin',18)+' Sign in with PIN</button>'+
  (google?(isNative()?'<button type="button" class="btn blk" data-act="gnative">'+ic('google',18)+' Sign in with Google</button>':'<div id="gbtn" style="display:flex;justify-content:center;min-height:48px;margin-bottom:12px"></div>'):'')+
  '<button type="button" class="btn blk" data-act="loginexpand" data-v="bio">'+ic('finger',18)+' Use Biometric</button>'+
- '<a href="javascript:void(0)" class="forgot" data-act="loginexpand" data-v="pin">Forgot PIN?</a>'+
+ '<a href="javascript:void(0)" class="forgot" data-act="forgotpin">Forgot PIN?</a>'+
  (chips?'<div class="demowrap"><p class="mut sm" style="margin-bottom:10px">Try the demo lab — tap an account</p><div class="chips">'+chips+'</div></div>':'')+
  '</div></div>';
 }
@@ -899,6 +901,34 @@ function loginExpandedView(){
  '<div class="card" style="text-align:left">'+(S.online?fld('Lab code',inp('login.lab',L.lab,{enter:'login',ph:'e.g. alpha-lab (or demo)'})):'')+fld('Login name',inp('login.login',L.login,{enter:'login',ph:'e.g. rahul'}))+
  fld('PIN',inp('login.pin',L.pin,{type:'password',mode:'numeric',enter:'login',ph:'PIN',max:8}),L.err)+
  '<button class="btn pri blk'+(S.busy?' off':'')+'" data-act="login">'+(S.busy?'Please wait…':'Log in')+'</button></div></div>';
+}
+function forgotView(){
+ const f=S.forgot;
+ if(f.step==='newpin')return resetPinView(f);
+ if(f.step==='sent')return '<div class="login hero"><button type="button" class="ibtn" style="position:absolute;top:10px;left:10px;color:#fff" data-act="forgotback">'+ic('back',22)+'</button>'+
+  '<div style="color:#fff;display:flex;justify-content:center;margin-bottom:6px">'+ic('check',40)+'</div><h1>Check your email</h1><p class="tag">If that account exists, a reset link is on its way</p>'+
+  '<div class="card" style="text-align:left"><p class="mut sm">'+esc(f.msg)+'</p><button class="btn blk" style="margin-top:14px" data-act="forgotback">Back to login</button></div></div>';
+ return '<div class="login hero"><button type="button" class="ibtn" style="position:absolute;top:10px;left:10px;color:#fff" data-act="forgotback">'+ic('back',22)+'</button>'+
+ '<div style="color:#fff;display:flex;justify-content:center;margin-bottom:6px">'+ic('lock',40)+'</div><h1>Reset Your PIN</h1><p class="tag">Enter your registered email to reset your PIN</p>'+
+ '<div class="card" style="text-align:left">'+
+ '<div class="chips" style="margin-bottom:12px">'+[['email','Email'],['mobile','Mobile Number']].map(x=>'<button class="chip'+((f.mode||'email')===x[0]?' on':'')+'" data-act="forgotmode" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'+
+ (S.online?fld('Lab code',inp('forgot.lab',f.lab,{ph:'e.g. alpha-lab (or demo)'})):'<div class="note">Password reset needs a server connection. You\'re using the offline demo.</div>')+
+ ((f.mode||'email')==='mobile'?
+  '<div class="note">SMS reset isn\'t set up for this lab yet — please use email instead.</div>':
+  fld('Email Address',inp('forgot.identifier',f.identifier,{ph:'you@example.com',err:f.err}),f.err))+
+ ((f.mode||'email')==='email'?'<button class="btn pri blk'+(f.busy?' off':'')+'" data-act="forgotsend">'+(f.busy?'Sending…':'Send Reset Link')+'</button>':'')+
+ '<p style="text-align:center;margin-top:16px"><a href="javascript:void(0)" class="lnk" data-act="forgotback">Back to Login</a></p>'+
+ '</div></div>';
+}
+function resetPinView(f){
+ return '<div class="login hero"><div style="color:#fff;display:flex;justify-content:center;margin-bottom:6px">'+ic('lock',40)+'</div><h1>Set a new PIN</h1><p class="tag">Choose a new 4-digit PIN for your account</p>'+
+ '<div class="card" style="text-align:left">'+
+ (S.online?fld('Lab code',inp('forgot.lab',f.lab,{ph:'e.g. alpha-lab (or demo)'})):'')+
+ fld('New PIN (4 digits)',inp('forgot.pin',f.pin,{type:'password',mode:'numeric',max:4}))+
+ fld('Confirm PIN',inp('forgot.pin2',f.pin2,{type:'password',mode:'numeric',max:4}),f.err)+
+ '<button class="btn pri blk'+(f.busy?' off':'')+'" data-act="resetpinsave">'+(f.busy?'Saving…':'Set new PIN')+'</button>'+
+ '<p style="text-align:center;margin-top:16px"><a href="javascript:void(0)" class="lnk" data-act="forgotback">Cancel</a></p>'+
+ '</div></div>';
 }
 function signupView(){
  const g=S.signup;
@@ -2314,7 +2344,7 @@ function modBody(){
 }
 function view(){
  if(S.booting)return '<div class="login"><div class="logo"><i></i><h1>TechAssures Lab</h1></div><p class="mut">Connecting…</p></div>';
- if(!S.user)return S.signup?signupView():S.choose?chooseView():loginView();
+ if(!S.user)return S.forgot?forgotView():S.signup?signupView():S.choose?chooseView():loginView();
  if(S.wiz)return wizView()+confirmView();
  return shell(S.route==='home'?homeView():S.route==='inbox'?inboxView():S.route==='profile'?profileView():(can(S.route)?modBody():blocked()))+confirmView()+fullRepView()+shareView();
 }
@@ -2449,6 +2479,27 @@ const ACT={
  fill(t){const u=(S.online?S.demoAccounts:D().users).find(x=>x.login===t.dataset.v);if(u){S.login.lab='demo';S.login.login=u.login;S.login.pin=u.pin;S.login.err='';S.login.expanded=true;render()}},
  loginexpand(t){S.login.expanded=true;render()},
  loginback(){S.login.expanded=false;S.login.err='';render()},
+ forgotpin(){S.forgot={step:'request',mode:'email',lab:S.login.lab||lsGet('techassures_lab_code')||'',identifier:'',pin:'',pin2:'',err:'',busy:false,msg:''};render();window.scrollTo(0,0)},
+ forgotback(){S.forgot=null;render()},
+ forgotmode(t){S.forgot.mode=t.dataset.v;S.forgot.err='';render()},
+ async forgotsend(){if(S.busy)return;const f=S.forgot;
+  if(!S.online){f.err='Password reset needs a server connection.';render();return}
+  if(!String(f.identifier||'').trim()){f.err='Enter your registered email';render();return}
+  S.busy=true;f.busy=true;f.err='';render();
+  try{const r=await api('POST','/api/forgot-pin',{lab:f.lab||'demo',identifier:f.identifier.trim()});
+   f.step='sent';f.msg=r.message||'If that account exists and has an email on file, a reset link has been sent.'}
+  catch(e){f.err=e.message}
+  S.busy=false;f.busy=false;render()},
+ async resetpinsave(){if(S.busy)return;const f=S.forgot;
+  if(!/^\d{4}$/.test(f.pin||'')){f.err='PIN must be 4 digits';render();return}
+  if(f.pin!==f.pin2){f.err='PINs do not match';render();return}
+  S.busy=true;f.busy=true;f.err='';render();
+  try{const r=await api('POST','/api/reset-pin',{lab:f.lab||'demo',token:f.token,pin:f.pin});
+   S.token=r.token;lsSet(TKEY,S.token);await loadAll();
+   S.login=blankLogin();S.forgot=null;S.signup=null;S.choose=null;S.route='home';S.m={};startPoll();checkAlerts(true);ensurePush();ensureNativePush();scheduleLocal();firstPerms();
+   toast('PIN updated. You are signed in.')}
+  catch(e){f.err=e.message}
+  S.busy=false;if(f){f.busy=false}render()},
  set(t){const sp=t.dataset.sp,v=t.dataset.v;setPath(S,sp,v);
   if(/\.terms$/.test(sp)&&v==='Credit'){const base=sp.slice(0,-5);const cd=getPath(S,base+'creditDays');if(!(num(cd)>0))setPath(S,base+'creditDays',String(D().settings.creditDays||30))}
   if(sp.indexOf('db.')===0)persist();render()},

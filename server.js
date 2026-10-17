@@ -920,6 +920,41 @@ route('POST', /^\/api\/login$/, null, c => {
 });
 route('POST', /^\/api\/logout$/, '*', c => { const m = /^Bearer ([a-f0-9]{64})$/.exec(c.req.headers.authorization || ''); if (m) st('DELETE FROM sessions WHERE token_hash=?').run(sha(m[1])); return { ok: true }; });
 
+/* ---------------- self-service PIN reset (email only — no SMS gateway is set up) ---------------- */
+route('POST', /^\/api\/forgot-pin$/, null, c => {
+  const lab = String(c.body.lab || 'demo').trim().toLowerCase(), id = String(c.body.identifier || '').trim().toLowerCase();
+  const key = c.ip + '|forgot|' + lab; throttle(key);
+  const org = findOrg(lab);
+  const generic = { ok: true, message: 'If that account exists and has an email on file, a reset link has been sent.' };
+  if (!org || (lab === 'demo' && !DEMO) || !id) return generic;
+  withOrg(org.slug, () => {
+    const u = all('users').find(x => x.active && ((x.login || '').toLowerCase() === id || (x.email || '').toLowerCase() === id));
+    if (!u || !u.email || !u.salt) return; // no match, or a Google-only account with no PIN to reset
+    const token = crypto.randomBytes(24).toString('hex');
+    putQuiet('pinresets', { id: token, userId: u.id, exp: Date.now() + 30 * 60 * 1000, used: false });
+    const link = PUBLIC_URL + '/?lab=' + encodeURIComponent(org.slug) + '&resetpin=' + token;
+    N.sendMail({ to: u.email, subject: 'Reset your TechAssures Lab PIN', text: 'Tap the link below to set a new PIN for your account (' + u.name + '). This link expires in 30 minutes. If you did not request this, ignore this email.', link }).catch(e => console.error('mail', e.message));
+    audit(u, 'pin_reset_requested', 'users', u.id, 'PIN reset email sent · ' + whereOf(c.req, c.ip));
+  });
+  return generic;
+});
+route('POST', /^\/api\/reset-pin$/, null, c => {
+  const lab = String(c.body.lab || 'demo').trim().toLowerCase(), token = String(c.body.token || '').trim(), pin = String(c.body.pin || '');
+  const org = findOrg(lab); if (!org) bad('Reset link is invalid or has expired', 400);
+  if (!/^\d{4}$/.test(pin)) bad('PIN must be 4 digits');
+  return withOrg(org.slug, () => {
+    const r = get('pinresets', token);
+    if (!r || r.used || r.exp < Date.now()) bad('This reset link is invalid or has expired. Request a new one.', 400);
+    const u = get('users', r.userId); if (!u || !u.active) bad('This reset link is invalid or has expired. Request a new one.', 400);
+    const c2 = newCred(pin);
+    u.salt = c2.salt; u.hash = c2.hash;
+    r.used = true;
+    put('pinresets', r, null, 'update', 'Reset link used');
+    put('users', u, u, 'pin_reset', u.name + ' set a new PIN via self-service reset');
+    return { token: newSession(u.id), user: pubUser(u, true) };
+  });
+});
+
 /* ---------------- Google sign-in and lab sign-up ---------------- */
 const google = { jwks: null, at: 0 };
 async function googleKeys() {
