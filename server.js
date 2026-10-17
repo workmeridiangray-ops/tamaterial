@@ -650,6 +650,35 @@ function invoiceJob(u, job, sample) {
   if (inv.lines[0].woNo) woUsageAlert(u, s.clientId, inv.lines[0].woNo);
   return inv;
 }
+// A standalone invoice not tied to a test result — e.g. a one-off consulting or documentation charge.
+function createManualInvoice(u, b) {
+  const client = get('clients', b.clientId); if (!client) bad('Choose a client');
+  const linesIn = Array.isArray(b.lines) ? b.lines.slice(0, 20) : [];
+  if (!linesIn.length) bad('Add at least one line item');
+  const lines = linesIn.map((l, i) => {
+    const desc = str(l.desc, 120); if (!desc) bad('Line ' + (i + 1) + ': enter a description');
+    const qty = L.num(l.qty); if (!(qty > 0)) bad('Line ' + (i + 1) + ': enter a quantity greater than 0');
+    const rate = L.num(l.rate); if (!(rate >= 0)) bad('Line ' + (i + 1) + ': enter a rate');
+    return { desc, qty, unit: 'unit', rate, amount: L.r2(qty * rate), rateSrc: 'manual' };
+  });
+  if (!L.isDate(b.date)) bad('Enter a valid invoice date');
+  const settings = get('settings', 'main');
+  const days = parseInt(client.creditDays, 10) || parseInt(settings.creditDays, 10) || 30;
+  const due = b.due && L.isDate(b.due) ? b.due : L.addDays(b.date, days);
+  const sub = L.r2(lines.reduce((a, l) => a + l.amount, 0));
+  const gp = L.num(settings.gst), gstPct = isNaN(gp) ? 18 : gp;
+  const gx = L.gstSplit(client, sub, gstPct);
+  return tx(() => {
+    const n = ctr('inv'); ctrSet('inv', n + 1);
+    const inv = {
+      id: 'im' + n, no: 'INV-' + b.date.slice(2, 4) + '-' + L.pad(n, 4), sampleId: null, clientId: client.id,
+      date: b.date, due, lines, subtotal: sub, gstPct, gst: gx.gst, gstType: gx.gstType, cgst: gx.cgst, sgst: gx.sgst, igst: gx.igst, sac: gx.sac, total: L.r2(sub + gx.gst),
+      source: 'manual', note: str(b.note, 300), createdBy: u.id
+    };
+    put('invoices', inv, u, 'invoice', inv.no + ' created for ' + client.name + ' (manual invoice) · total ₹' + inv.total);
+    return { invoice: inv };
+  });
+}
 function vendorPay(u, id, b) {
   const v = get('vendorbills', id); if (!v) bad('Bill not found', 404);
   const paid = L.r2((v.payments || []).reduce((a, p) => a + p.amount, 0)), bal = L.r2(v.amount - paid), amount = L.r2(L.num(b.amount));
@@ -743,8 +772,10 @@ function recordPayment(u, invId, b) {
   if (!['Cash', 'UPI', 'Bank transfer', 'Cheque'].includes(b.mode)) bad('Choose a payment mode');
   const geo = geoOf(b, false);
   const status = b.mode === 'Cheque' ? 'Deposited' : 'Credited';
-  const p = { id: 'pay' + rid(), invoiceId: inv.id, amount, date: b.date, mode: b.mode, ref: str(b.ref, 60), status, geo, at: new Date().toISOString() };
-  return tx(() => { put('payments', p, u, 'payment', inv.no + ' · ₹' + amount + ' via ' + p.mode + (status === 'Deposited' ? ' (cheque deposited, pending clearance)' : '') + geoTxt(geo)); return { payment: p }; });
+  const bankName = b.mode === 'Cheque' ? str(b.bankName, 80) : '';
+  const branch = b.mode === 'Cheque' ? str(b.branch, 80) : '';
+  const p = { id: 'pay' + rid(), invoiceId: inv.id, amount, date: b.date, mode: b.mode, ref: str(b.ref, 60), status, geo, at: new Date().toISOString(), bankName, branch };
+  return tx(() => { put('payments', p, u, 'payment', inv.no + ' · ₹' + amount + ' via ' + p.mode + (status === 'Deposited' ? ' (cheque deposited, pending clearance' + (bankName ? ', ' + bankName : '') + ')' : '') + geoTxt(geo)); return { payment: p }; });
 }
 function chequeTransition(u, id, to) {
   const p = get('payments', id); if (!p) bad('Payment not found', 404);
@@ -971,6 +1002,7 @@ route('POST', /^\/api\/vendorbills\/([\w-]+)\/pay$/, ['admin', 'accounts'], c =>
 route('POST', /^\/api\/workorders\/([\w-]+)\/file$/, ['admin', 'accounts'], c => woFile(c.u, c.m[1], c.body));
 route('GET', /^\/api\/workorders\/([\w-]+)\/file$/, ['admin', 'accounts'], c => { const w = get('workorders', c.m[1]); if (!w || !w.file) bad('No file uploaded', 404); return { name: w.fileName, data: w.file }; });
 route('POST', /^\/api\/samples\/([\w-]+)\/send$/, ['admin', 'accounts'], c => ({ sample: sendReport(c.u, c.m[1], c.body) }));
+route('POST', /^\/api\/invoices\/manual$/, ['admin', 'accounts'], c => createManualInvoice(c.u, c.body));
 route('POST', /^\/api\/invoices\/([\w-]+)\/payments$/, ['admin', 'accounts'], c => recordPayment(c.u, c.m[1], c.body));
 route('POST', /^\/api\/clients\/([\w-]+)\/apply-payment$/, ['admin', 'accounts'], c => applyClientPayment(c.u, c.m[1], c.body));
 route('POST', /^\/api\/payments\/([\w-]+)\/clear$/, ['admin', 'accounts'], c => chequeTransition(c.u, c.m[1], 'Cleared'));

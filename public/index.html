@@ -138,6 +138,12 @@ textarea.in{min-height:84px;resize:vertical}
 .note.bad{background:var(--bad-soft);border-color:var(--bad)}
 .note.ok{background:var(--acc-soft);border-color:var(--acc)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
+.tl{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.tl:last-child{border-bottom:none}
+.tld{flex:none;width:10px;height:10px;border-radius:50%;background:var(--g3)}
+.tld.ok{background:var(--acc)}
+.tld.warn{background:var(--warn)}
+.tld.bad{background:var(--bad)}
 .pgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .pitem img{width:100%;height:110px;object-fit:cover;border-radius:10px;display:block}
 .pitem .s{margin-top:4px}
@@ -1981,19 +1987,41 @@ function reviewDetail(m){
  const x=sm(m.sampleId);if(!x){m.sampleId=null;return reviewsView()}
  const rv=x.review||{},checks=rv.checks||[];
  if(x.reportStatus!=='awaiting')return pgHead('Test Report','revback',bdg(RSTAT[x.reportStatus]||'',rcls(x.reportStatus)))+reportHtml(x)+'<div class="btns"><button class="btn pri" style="flex:1" data-act="pdf" data-id="'+x.id+'">Download PDF</button><button class="btn" style="flex:1" data-act="share" data-id="'+x.id+'">'+ic('send',18)+' Share</button></div>';
+ if(m.sign2)return digitalSigView(m);
  const photos=[];jobsOf(x.id).forEach(j=>{if(j.results&&j.results.rows)j.results.rows.forEach((r,i)=>photos.push({r:r,i:i,age:j.age}))});
  const allOk=checks.every(c=>c.ok);
  const okCount=checks.filter(c=>c.ok).length;
+ const rtab=m.rtab||'validation';
+ const tabs=[['validation','Validation'],['results','Results'],['photos','Photos ('+photos.length+')'],['docs','Documents']];
+ let body='';
+ if(rtab==='validation'){
+  body=(checks.length?'<div class="card" style="'+(allOk?'':'border-color:var(--warn)')+'"><div class="qchk"><b>Quality Check Summary</b><span>'+okCount+' / '+checks.length+' Passed</span></div><div class="card flat" style="padding:4px 14px;margin-top:10px">'+checks.map(c=>'<div class="chk"><span class="'+(c.ok?'ok':'no')+'">'+ic(c.ok?'check':'x',18)+'</span><div class="grow"><b>'+esc(c.title)+'</b><div class="sm mut">'+esc(c.note)+'</div></div>'+bdg(c.ok?'Passed':'Out of range',c.ok?'ok':'bad')+'</div>').join('')+'</div></div>':empty('No automatic checks for this older report.'))+
+  (checks.length&&!allOk?'<div class="note bad" style="margin-top:10px">One or more checks need your attention before you sign.</div>':'');
+ }else if(rtab==='results'){
+  body='<div class="sec"><h2>Report</h2><button class="btn sm" data-act="fullrep" data-id="'+x.id+'">View full size</button></div><div class="rpwrap">'+reportHtml(x)+'</div>';
+ }else if(rtab==='photos'){
+  body=photos.length?'<div class="ph3">'+photos.map(p=>p.r.photo?'<div><img src="'+p.r.photo+'" alt="Cube '+(p.i+1)+'"><span>Cube '+(p.i+1)+', '+(+p.r.strength).toFixed(2)+' N/mm²</span></div>':'<div><div class="noph">No photo</div><span>Cube '+(p.i+1)+', '+(+p.r.strength).toFixed(2)+' N/mm²</span></div>').join('')+'</div>':empty('No photos were captured for this sample.');
+ }else{
+  body=empty('No documents are attached to this report yet.');
+ }
  return pgHead('Review &amp; Approval','revback',bdg('Awaiting Review','warn'))+'<div class="card" style="border-color:var(--acc)"><div style="display:flex;justify-content:space-between;gap:8px"><div class="mono"><b>'+esc(x.ulr||x.uid)+'</b></div>'+bdg('Under review')+'</div><div style="margin:8px 0 2px"><b>'+esc(cl(x.clientId).name||'')+'</b></div><div class="sm mut">'+esc(pr(x.projectId).site||pr(x.projectId).name||'')+'</div><div class="sm mut">From '+esc(rv.byName||us(x.assignee).name||'')+(rv.at?', '+esc(tkWhen(rv.at)):'')+'</div></div>'+
  (rv.note?'<div class="note"><b>Note from tester</b><div>'+esc(rv.note)+'</div></div>':'')+
- '<div class="sec"><h2><span class="stepn">1</span> Report</h2><button class="btn sm" data-act="fullrep" data-id="'+x.id+'">View full size</button></div><div class="rpwrap">'+reportHtml(x)+'</div>'+
- '<div class="sec"><h2><span class="stepn">2</span> Checks</h2></div>'+(checks.length?'<div class="card" style="'+(allOk?'':'border-color:var(--warn)')+'"><div class="qchk"><b>Quality Check Summary</b><span>'+okCount+' / '+checks.length+' Passed</span></div><div class="card flat" style="padding:4px 14px;margin-top:10px">'+checks.map(c=>'<div class="chk"><span class="'+(c.ok?'ok':'no')+'">'+ic(c.ok?'check':'x',18)+'</span><div class="grow"><b>'+esc(c.title)+'</b><div class="sm mut">'+esc(c.note)+'</div></div>'+bdg(c.ok?'Passed':'Out of range',c.ok?'ok':'bad')+'</div>').join('')+'</div></div>':empty('No automatic checks for this older report.'))+
- (checks.length&&!allOk?'<div class="note bad" style="margin-top:10px">One or more checks need your attention before you sign.</div>':'')+
- (photos.length?'<p class="lbl" style="margin-top:14px">Cube photos</p><div class="ph3">'+photos.map(p=>p.r.photo?'<div><img src="'+p.r.photo+'" alt="Cube '+(p.i+1)+'"><span>Cube '+(p.i+1)+', '+(+p.r.strength).toFixed(2)+' N/mm²</span></div>':'<div><div class="noph">No photo</div><span>Cube '+(p.i+1)+', '+(+p.r.strength).toFixed(2)+' N/mm²</span></div>').join('')+'</div>':'')+
- '<div class="sec"><h2><span class="stepn">3</span> Reviewer Notes</h2></div>'+ta('m.reviews.remark',m.remark,{ph:'Optional, printed on the report'})+
+ tabsBar('rtab',rtab,tabs)+body+
+ '<div class="sec"><h2>Reviewer Notes</h2></div>'+ta('m.reviews.remark',m.remark,{ph:'Optional, printed on the report'})+
  (m.ret?'<div class="card" style="margin-top:12px;border-color:var(--bad)">'+fld('What should the tester correct?',ta('m.reviews.reason',m.reason,{ph:'Required'}),m.err,'')+'<div class="btns"><button class="btn" data-act="revret">Cancel</button><button class="btn pri'+(S.busy?' off':'')+'" data-act="revreturn">Send back to tester</button></div></div>':
- '<button type="button" class="cbx'+(m.sign?' on':'')+'" data-act="revsign"><i>'+(m.sign?ic('check',16):'')+'</i><span>I have checked the report and readings. Sign digitally as authorised signatory.</span></button>'+(m.err?'<div class="err" style="margin-bottom:8px">'+esc(m.err)+'</div>':'')+
- '<div class="btns" style="flex-wrap:nowrap"><button class="btn danger" style="flex:1" data-act="revret">Reject</button><button class="btn pri'+(S.busy?' off':'')+'" style="flex:2" data-act="revapprove">Approve &amp; Sign</button></div>');
+ '<button type="button" class="cbx'+(m.sign?' on':'')+'" data-act="opensig"><i>'+(m.sign?ic('check',16):'')+'</i><span>'+(m.sign?'Signed digitally as authorised signatory.':'Sign digitally as authorised signatory')+'</span></button>'+(m.err?'<div class="err" style="margin-bottom:8px">'+esc(m.err)+'</div>':'')+
+ '<div class="btns" style="flex-wrap:nowrap"><button class="btn danger" style="flex:1" data-act="revret">Reject</button><button class="btn pri'+(S.busy||!m.sign?' off':'')+'" style="flex:2" data-act="revapprove">Approve &amp; Sign</button></div>');
+}
+function digitalSigView(m){
+ const x=sm(m.sampleId);
+ return '<div class="fullrep"><div class="fr-top"><button class="btn" data-act="sigback">Cancel</button></div><div class="main" style="max-width:480px;margin:0 auto">'+
+ pgHead('Digital Signature')+
+ '<div class="card"><p class="mut sm" style="margin-bottom:10px">Signing confirms you, as authorised signatory, approve this test report for <b class="mono">'+esc(x.ulr||x.uid)+'</b>.</p>'+
+ '<div class="chips" style="margin-bottom:10px">'+[['draw','Draw'],['type','Type']].map(t=>'<button class="chip'+((m.sigMode||'draw')===t[0]?' on':'')+'" data-act="sigmode" data-v="'+t[0]+'">'+t[1]+'</button>').join('')+'</div>'+
+ ((m.sigMode||'draw')==='draw'?
+  '<canvas id="sig2" class="sig" width="480" height="180"></canvas><button type="button" class="btn blk sm" style="margin-top:8px" data-act="sigclear2">Clear</button>':
+  fld('Type your full name',inp('m.reviews.sigtype',m.sigtype||'',{ph:'e.g. '+(S.user?S.user.name:'')})))+
+ '</div><div class="btns" style="margin-top:14px"><button class="btn" style="flex:1" data-act="sigback">Cancel</button><button class="btn pri" style="flex:1" data-act="sigconfirm">Confirm signature</button></div></div></div>';
 }
 function reviewDone(m){
  const x=sm(m.done);if(!x){m.done=null;return reviewsView()}
@@ -2056,6 +2084,8 @@ function partLbl(s,j){if(j.age==null||!Array.isArray(s.d&&s.d.ages))return '';co
 function billsView(){
  const m=M('bills');
  if(m.pay2)return recordPaymentForm2(m);
+ if(m.manual)return manualInvoiceForm(m);
+ if(m.cheqId)return chequeDetail(m);
  if(m.invId)return invDetail(m);
  if(m.vnew)return vendorForm(m);
  if(m.vid)return vendorDetail(m);
@@ -2078,6 +2108,7 @@ function billsHub(m){
   ['receipt','New quotation','Price a job for a client','qtile',0],
   ['chart','Bill &amp; payment dashboard',inr(pend)+' pending'+(odl.length?' · '+odl.length+' overdue':''),'bltile',odl.length>0],
   ['clip','To invoice',toInv?toInv+' test'+(toInv===1?'':'s')+' ready to bill':'All caught up','toinvtile',toInv>0],
+  ['plus','Create invoice','For a one-off charge, not tied to a test','mitile',0],
   ['receipt','Expenses',vpay>0?inr(vpay)+' to pay vendors':'No vendor bills due','exptile',0]
  ];
  return pgHead('Billing')+'<div class="tiles2">'+tiles.map(t=>'<button class="tile2'+(t[4]?' hot':'')+'" data-act="'+t[3]+'">'+ic(t[0],24)+'<b>'+t[1]+'</b><span>'+t[2]+'</span></button>').join('')+'</div>';
@@ -2141,6 +2172,23 @@ function payHistBody(m){
  }
  return top+body+'<button class="btn pri blk" style="margin-top:14px" data-act="recpaynew">'+ic('plus')+' Record payment</button>';
 }
+function newManualInv(){return{clientId:'',date:today(),due:'',note:'',lines:[{desc:'',qty:'1',rate:''}],err:{}}}
+function manualInvoiceForm(m){
+ const f=m.manual,e=f.err||{};
+ const sub=f.lines.reduce((a,l)=>a+(num(l.qty)||0)*(num(l.rate)||0),0);
+ return pgHead('Create Invoice','miback','A one-off charge, not tied to a test result')+
+ fld('Client',sel('m.bills.manual.clientId',f.clientId,D().clients.map(x=>[x.id,x.name]),{ph:'Select client…',err:e.clientId}),e.clientId)+
+ '<div class="two">'+fld('Invoice date',inp('m.bills.manual.date',f.date,{type:'date',err:e.date}),e.date)+fld('Due date (optional)',inp('m.bills.manual.due',f.due,{type:'date'})) +'</div>'+
+ '<label class="lbl">Line items</label>'+
+ f.lines.map((l,i)=>'<div class="card flat" style="margin-bottom:8px"><div class="fld">'+fld('Description',inp('m.bills.manual.lines.'+i+'.desc',l.desc,{ph:'e.g. Site visit consultation',err:e['desc'+i]}),e['desc'+i])+'</div>'+
+  '<div class="two">'+fld('Qty',inp('m.bills.manual.lines.'+i+'.qty',l.qty,{mode:'decimal',err:e['qty'+i]}),e['qty'+i])+fld('Rate (₹)',inp('m.bills.manual.lines.'+i+'.rate',l.rate,{mode:'decimal',err:e['rate'+i]}),e['rate'+i])+'</div>'+
+  (f.lines.length>1?'<button type="button" class="btn sm" data-act="midelline" data-i="'+i+'">'+ic('trash',16)+' Remove line</button>':'')+'</div>').join('')+
+ '<button type="button" class="btn blk" style="margin-bottom:12px" data-act="miaddline">'+ic('plus')+' Add another line</button>'+
+ '<div class="kv"><span>Subtotal</span><b>'+inr(r2(sub))+'</b></div>'+
+ fld('Note (optional, printed on the invoice)',ta('m.bills.manual.note',f.note,{}))+
+ (e.form?'<div class="err" style="margin-bottom:8px">'+esc(e.form)+'</div>':'')+
+ '<button class="btn pri blk'+(S.busy?' off':'')+'" data-act="misave">Create Invoice</button>';
+}
 function chequeDetail(m){
  const p=D().payments.find(x=>x.id===m.cheqId);if(!p){m.cheqId=null;return payHistBody(m)}
  const i=D().invoices.find(x=>x.id===p.invoiceId)||{},c=cl(i.clientId);
@@ -2150,6 +2198,8 @@ function chequeDetail(m){
  '<dt>Cheque No.</dt><dd class="mono">'+esc(p.ref||'—')+'</dd>'+
  '<dt>Invoice</dt><dd class="mono">'+esc(i.no||'—')+'</dd>'+
  '<dt>Amount</dt><dd><b>'+inr(p.amount)+'</b></dd>'+
+ '<dt>Bank Name</dt><dd>'+(p.bankName?esc(p.bankName):'<span class="mut">Not recorded</span>')+'</dd>'+
+ '<dt>Branch</dt><dd>'+(p.branch?esc(p.branch):'<span class="mut">Not recorded</span>')+'</dd>'+
  '<dt>Status</dt><dd>'+bdg(p.status,p.status==='Deposited'?'warn':p.status==='Cleared'?'ok':'bad')+'</dd>'+
  '<dt>Deposit Date</dt><dd>'+fd(p.date)+'</dd></dl></div>'+
  (p.status==='Deposited'?'<div class="btns"><button class="btn ok" style="flex:1" data-act="chqclear" data-id="'+p.id+'">Mark Cleared</button><button class="btn bad" style="flex:1" data-act="chqbounce" data-id="'+p.id+'">Mark Bounced</button></div>':'<div class="note">This cheque is already '+p.status.toLowerCase()+'.</div>')+
@@ -2227,16 +2277,19 @@ function vendorDetail(m){
 function invDetail(m){
  const i=D().invoices.find(x=>x.id===m.invId);if(!i){m.invId=null;return billsView()}
  const s=sm(i.sampleId)||{},pays=D().payments.filter(p=>p.invoiceId===i.id).sort((a,b)=>a.date<b.date?-1:1),bal=balOf(i),st=bstat(i);
- if(!m.pay)m.pay={amount:'',date:today(),mode:'UPI',ref:'',err:{}};
+ if(!m.pay)m.pay={amount:'',date:today(),mode:'UPI',ref:'',bankName:'',branch:'',err:{}};
  const pf=m.pay,e=pf.err||{};
  return pgHead(esc(i.no),'invback',esc(cl(i.clientId).name)+' · '+bdg(st,bcls(st)))+
  '<div class="card"><dl class="dl"><dt>Sample</dt><dd class="mono">'+esc(s.uid||'—')+'</dd><dt>Billing</dt><dd>'+esc(s.billing||'')+'</dd><dt>Invoice date</dt><dd>'+fd(i.date)+'</dd>'+(i.reportNo?'<dt>Report</dt><dd>'+esc(i.reportNo)+'</dd>':'')+((i.lines[0]&&i.lines[0].woNo)?'<dt>Rates from</dt><dd>Work order '+esc(i.lines[0].woNo)+'</dd>':(i.lines[0]&&i.lines[0].rateSrc==='client'?'<dt>Rates from</dt><dd>Client rate list</dd>':''))+'<dt>Due date</dt><dd>'+fd(i.due)+'</dd></dl></div>'+
  '<div class="card"><table class="tb"><thead><tr><th style="width:42%">Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead><tbody>'+i.lines.map(l=>'<tr><td>'+esc(l.desc)+'</td><td class="r">'+l.qty+'</td><td class="r">'+inr(l.rate)+'</td><td class="r">'+inr(l.amount)+'</td></tr>').join('')+'</tbody></table>'+
  '<div style="margin-top:8px"><div class="kv"><span>Subtotal</span><b>'+inr(i.subtotal)+'</b></div>'+invGstRows(i)+'<div class="kv"><span>Total</span><b>'+inr(i.total)+'</b></div><div class="kv"><span>Received</span><b>'+inr(paidOf(i))+'</b></div><div class="kv" style="border-top:1px solid var(--line);padding-top:10px"><span class="big">Balance</span><b class="big">'+inr(bal)+'</b></div></div></div>'+
  (s.id?'<button class="btn blk" style="margin-bottom:6px" '+goA('approve',{tab:s.reportStatus==='sent'?'sent':s.reportStatus==='approved'?'approved':'awaiting',sampleId:s.id})+'>View report</button>':'')+
- '<div class="sec"><h2>Payments</h2></div>'+(pays.length?'<div class="card flat" style="padding:4px 14px">'+pays.map(p=>'<div class="pgn"><div><div><b>'+inr(p.amount)+'</b> · '+esc(p.mode)+'</div><div class="xs mut">'+fd(p.date)+(p.ref?' · '+esc(p.ref):'')+'</div></div></div>').join('')+'</div>':empty('No payments recorded yet.'))+
+ '<div class="sec"><h2>Payment History</h2></div>'+(pays.length?'<div class="card flat" style="padding:4px 14px">'+pays.map(p=>{const st=p.status||'Credited',dot={Credited:'ok',Deposited:'warn',Cleared:'ok',Bounced:'bad'}[st]||'',lbl={Credited:'Received',Deposited:'Cheque deposited',Cleared:'Cheque cleared',Bounced:'Cheque bounced'}[st]||st;
+   return '<div class="tl"><i class="tld '+dot+'"></i><div class="grow"><div><b>'+inr(p.amount)+'</b> · '+esc(p.mode)+'</div><div class="xs mut">'+fd(p.date)+(p.ref?' · '+esc(p.ref):'')+'</div></div>'+bdg(lbl,dot)+(p.mode==='Cheque'&&st==='Deposited'?'<button class="btn sm" style="margin-left:6px" data-act="chqopen" data-id="'+p.id+'">Open</button>':'')+'</div>'}).join('')+'</div>':empty('No payments recorded yet.'))+
  (bal>0?'<div class="card" style="margin-top:14px"><h3 style="margin-bottom:12px">Record Payment</h3>'+fld('Payment Mode',chipRow('m.bills.pay.mode',pf.mode,[['Cash','Cash'],['UPI','UPI'],['Bank transfer','NEFT'],['Cheque','Cheque']]))+fld('Amount (₹)',inp('m.bills.pay.amount',pf.amount,{mode:'decimal',err:e.amount,ph:'Max '+inr(bal)}),e.amount)+'<button class="lnk" style="margin:-8px 0 8px" data-act="payfill">Fill full balance</button>'+
-  fld('Transaction Reference',inp('m.bills.pay.ref',pf.ref,{ph:'UTR / cheque no. (optional)'}))+fld('Payment Date',inp('m.bills.pay.date',pf.date,{type:'date',err:e.date,maxd:today()}),e.date)+'<button class="btn pri blk" data-act="recpay">Save Payment</button></div>':'<div class="note ok" style="margin-top:14px">This bill is fully paid.</div>');
+  fld('Transaction Reference',inp('m.bills.pay.ref',pf.ref,{ph:pf.mode==='Cheque'?'Cheque number':'UTR (optional)'}))+
+  (pf.mode==='Cheque'?fld('Bank Name (Optional)',inp('m.bills.pay.bankName',pf.bankName||'',{ph:'e.g. HDFC Bank'}))+fld('Branch (Optional)',inp('m.bills.pay.branch',pf.branch||'',{ph:'e.g. Baner, Pune'})):'')+
+  fld('Payment Date',inp('m.bills.pay.date',pf.date,{type:'date',err:e.date,maxd:today()}),e.date)+'<button class="btn pri blk" data-act="recpay">Save Payment</button></div>':'<div class="note ok" style="margin-top:14px">This bill is fully paid.</div>');
 }
 async function recordPay(){
  if(S.busy)return;
@@ -2245,7 +2298,7 @@ async function recordPay(){
  if(!pf.date)e.date='Choose the payment date';
  if(Object.keys(e).length){pf.err=e;render();return}
  S.busy=true;const geo=await tryLoc();S.busy=false;
- const body={amount:r2(a),date:pf.date,mode:pf.mode,ref:(pf.ref||'').trim(),geo:geo};
+ const body={amount:r2(a),date:pf.date,mode:pf.mode,ref:(pf.ref||'').trim(),bankName:(pf.bankName||'').trim(),branch:(pf.branch||'').trim(),geo:geo};
  if(S.online){
   S.busy=true;render();
   try{const r=await api('POST','/api/invoices/'+i.id+'/payments',body);upsertLocal('payments',r.payment)}
@@ -2335,6 +2388,7 @@ document.addEventListener('pointermove',e=>{
 });
 function endDraw(){
  if(!drawing)return;const c=drawing;drawing=null;
+ if(c.id==='sig2'){const m=M('reviews');m.sigImg=c.toDataURL('image/png');return}
  if(S.wiz){S.wiz.f.sig=c.toDataURL('image/png');if(S.wiz.err)delete S.wiz.err.sig;const er=appEl.querySelector('canvas.sig+.err');if(er)er.remove()}
 }
 document.addEventListener('pointerup',endDraw);
@@ -2453,6 +2507,15 @@ const ACT={
  revday(t){const m=M('reviews');m.day=t.dataset.v;m.month=t.dataset.v.slice(0,7);render()},
  openrev(t){const m=M('reviews');m.sampleId=t.dataset.id;m.remark='';m.ret=false;m.reason='';m.sign=false;m.err='';render();window.scrollTo(0,0)},
  revback(){const m=M('reviews');m.sampleId=null;render();window.scrollTo(0,0)},
+ rtab(t){M('reviews').rtab=t.dataset.v;render()},
+ opensig(){const m=M('reviews');if(m.sign){m.sign=false;render();return}m.sign2=true;m.sigMode='draw';m.sigImg='';m.sigtype='';render()},
+ sigback(){const m=M('reviews');m.sign2=false;render()},
+ sigmode(t){M('reviews').sigMode=t.dataset.v;render()},
+ sigclear2(){const m=M('reviews');m.sigImg='';render();const c=document.getElementById('sig2');if(c)c.getContext('2d').clearRect(0,0,c.width,c.height)},
+ sigconfirm(){const m=M('reviews');
+  if((m.sigMode||'draw')==='draw'&&!m.sigImg){toast('Draw your signature first',1);return}
+  if((m.sigMode||'draw')==='type'&&!(m.sigtype||'').trim()){toast('Type your name to sign',1);return}
+  m.sign=true;m.sign2=false;m.err='';render()},
  revsign(){const m=M('reviews');m.sign=!m.sign;m.err='';render()},
  revret(){const m=M('reviews');m.ret=!m.ret;m.err='';render()},
  async revreturn(){if(S.busy)return;const m=M('reviews');if(!(m.reason||'').trim()){m.err='Say what the tester should correct';render();return}
@@ -2470,6 +2533,19 @@ const ACT={
  qtile(){S.route='quotes';S.m.quotes=Object.assign(defs('quotes'),{ed:newQuote()});render();window.scrollTo(0,0)},
  bltile(){M('bills').tab='payhist';M('bills').phv='project';render();window.scrollTo(0,0)},
  toinvtile(){M('bills').tab='toinvoice';render();window.scrollTo(0,0)},
+ mitile(){M('bills').manual=newManualInv();render();window.scrollTo(0,0)},
+ miback(){M('bills').manual=null;render();window.scrollTo(0,0)},
+ miaddline(){const f=M('bills').manual;f.lines.push({desc:'',qty:'1',rate:''});render()},
+ midelline(t){const f=M('bills').manual;f.lines.splice(+t.dataset.i,1);render()},
+ async misave(){if(S.busy)return;const m=M('bills'),f=m.manual,e={};
+  if(!f.clientId)e.clientId='Choose a client';
+  if(!f.date)e.date='Enter the invoice date';
+  f.lines.forEach((l,i)=>{if(!(l.desc||'').trim())e['desc'+i]='Enter a description';if(!(num(l.qty)>0))e['qty'+i]='Enter a quantity greater than 0';if(!(num(l.rate)>=0))e['rate'+i]='Enter a rate'});
+  if(Object.keys(e).length){f.err=e;render();return}
+  const payload={clientId:f.clientId,date:f.date,due:f.due||'',note:f.note,lines:f.lines.map(l=>({desc:l.desc.trim(),qty:num(l.qty),rate:num(l.rate)}))};
+  S.busy=true;f.err={};render();
+  try{const r=await api('POST','/api/invoices/manual',payload);upsertLocal('invoices',r.invoice);S.busy=false;m.manual=null;go('bills',{invId:r.invoice.id})}
+  catch(er){S.busy=false;f.err={form:er.message};render()}},
  payhist(){M('bills').tab='payhist';M('bills').phv='project';render();window.scrollTo(0,0)},
  phview(t){M('bills').phv=t.dataset.v;render()},
  recpaynew(){const m=M('bills');m.pay2={clientId:'',projectId:'',sel:{},amount:'',tds:'',date:today(),mode:'UPI',ref:'',depositTo:'',remarks:'',err:{}};render();window.scrollTo(0,0)},
